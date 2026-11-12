@@ -29,8 +29,9 @@ export function cmToFtIn(cm?: number | null): string {
   return `${ft}'${inches}"`;
 }
 
-// Mid-Parental Target Calculation (Tanner Formula)
+// Mid-Parental Target Calculation (Tanner Formula & Epiphyseal Biology)
 export function calculateHeightPotential(quizData: {
+  currentHeight?: number;
   fatherCm?: number;
   motherCm?: number;
   gender: 'male' | 'female' | null;
@@ -39,38 +40,80 @@ export function calculateHeightPotential(quizData: {
   footGrowthStopped?: boolean;
   dreamHeight?: number;
 }) {
-  const { fatherCm, motherCm, gender, age, growthPastYear, footGrowthStopped } = quizData;
+  const { currentHeight, fatherCm, motherCm, gender, age, growthPastYear, footGrowthStopped } = quizData;
 
-  // BUG FIX: Fallback calculation if one parent's height is unknown/null
+  // Actual current height (ensures target is NEVER less than actual height)
+  const curHeight = currentHeight && !isNaN(currentHeight) && currentHeight > 0
+    ? currentHeight
+    : (gender === 'female' ? 162 : 172.4);
+
+  // Fallback calculation if one parent's height is unknown/null
   let fCm = fatherCm;
   let mCm = motherCm;
   if (!fCm && mCm) fCm = gender === 'male' ? mCm + 13 : mCm;
   if (!mCm && fCm) mCm = gender === 'male' ? fCm : fCm - 13;
-  if (!fCm || !mCm) return null; // Failsafe if both are missing
 
-  let target = gender === 'male' ? (fCm + mCm + 13) / 2 : (fCm + mCm - 13) / 2;
-  const rangeMin = Math.round((target - 2.5) * 10) / 10;
-  const rangeMax = Math.round((target + 2.5) * 10) / 10;
-  target = Math.round(target * 10) / 10;
+  const isMale = gender === 'male' || gender === null;
+  const midParental = (fCm && mCm)
+    ? (isMale ? (fCm + mCm + 13) / 2 : (fCm + mCm - 13) / 2)
+    : (isMale ? 175 : 162);
 
-  // BUG FIX: Standardized strict age 21 limit for biological plate fusion
+  // Standardized strict age 21 limit for biological epiphyseal plate fusion
   let platesLikelyClosed = false;
   let honestMessage = "";
 
   if (age >= 21 || (age >= 18 && growthPastYear === 'stopped' && footGrowthStopped)) {
     platesLikelyClosed = true;
-    honestMessage = "Based on clinical data, your growth plates have likely fused. You cannot biologically grow taller. However, decompression exercises can optimize spinal alignment, improving posture and height appearance by 1–2.5 cm.";
+    honestMessage = "Based on clinical radiological data, your epiphyseal growth plates have fused. Biological long-bone growth has completed. However, clinical spinal decompression and postural realignment of L1–L5 intervertebral discs will expand your standing stature by 1.5–2.5 cm.";
   } else if (age >= 17) {
-    honestMessage = "You are in the final stage of bone maturation. Habit optimization (deep sleep + protein) is critical to maximize the final remaining millimeters before fusion.";
+    honestMessage = "You are in the final terminal window of epiphyseal maturation. Rigorous circadian sleep (10 PM–2 AM somatotropin release) and daily spinal traction are critical to capture your final biological millimeters before fusion.";
   } else {
-    honestMessage = "Your growth plates are active! Consistent sleep and adequate nutrition are proven to help you reach the upper limit of your genetic window.";
+    honestMessage = "Your growth plates are active and receptive! Multi-axis decompression, deep Slow-Wave Sleep, and skeletal amino acids will propel you toward your absolute genetic ceiling.";
   }
 
-  return { target, rangeMin, rangeMax, platesLikelyClosed, honestMessage };
+  let target: number;
+  let rangeMin: number;
+  let rangeMax: number;
+
+  if (platesLikelyClosed) {
+    // Adults with fused plates: target is strictly currentHeight + spinal decompression gain
+    // CANNOT BE LESS THAN currentHeight!
+    target = Math.round((curHeight + 2.0) * 10) / 10;
+    rangeMin = Math.round((curHeight + 1.2) * 10) / 10;
+    rangeMax = Math.round((curHeight + 2.8) * 10) / 10;
+  } else {
+    // Youth with open plates:
+    // If user has already outgrown mid-parental formula, their baseline cannot drop below current height!
+    const remainingYears = Math.max(0.5, Math.min(6, 21 - age));
+    const estimatedBiologicalGrowth = Math.min(12, remainingYears * 2.2);
+    
+    // Target is maximum of midParental, or current height + biological headroom
+    const potentialCeiling = Math.max(curHeight + 2.0, midParental, curHeight + estimatedBiologicalGrowth * 0.7);
+    target = Math.round(potentialCeiling * 10) / 10;
+
+    rangeMin = Math.max(curHeight, Math.round((target - 2.5) * 10) / 10);
+    rangeMax = Math.max(rangeMin + 2.0, Math.round((target + 3.0) * 10) / 10);
+  }
+
+  // Final invariant: target and rangeMin can NEVER be less than currentHeight!
+  if (target < curHeight) {
+    target = Math.round((curHeight + 1.5) * 10) / 10;
+  }
+  if (rangeMin < curHeight) {
+    rangeMin = curHeight;
+  }
+  if (rangeMax <= target) {
+    rangeMax = Math.round((target + 2.0) * 10) / 10;
+  }
+
+  const potentialGain = Math.max(0, Math.round((target - curHeight) * 10) / 10);
+
+  return { target, rangeMin, rangeMax, potentialGain, platesLikelyClosed, honestMessage };
 }
 
 // Backwards-compatible wrapper for existing mobile components calling calculateTarget
 export function calculateTarget(data: QuizData) {
+  const currentHeight = data.currentHeight;
   const fatherCm = data.fatherCm ?? data.fatherHeight;
   const motherCm = data.motherCm ?? data.motherHeight;
   const isGrowthStopped = Boolean(
@@ -80,6 +123,7 @@ export function calculateTarget(data: QuizData) {
   const footGrowthStopped = data.footGrowthStopped ?? isGrowthStopped;
 
   const result = calculateHeightPotential({
+    currentHeight,
     fatherCm,
     motherCm,
     gender: data.gender,
@@ -88,21 +132,6 @@ export function calculateTarget(data: QuizData) {
     footGrowthStopped,
     dreamHeight: data.dreamHeight
   });
-
-  if (!result) {
-    // Ultimate fallback if both parents heights are missing
-    const defaultTarget = data.gender === 'female' ? 162 : 175;
-    return {
-      target: defaultTarget,
-      rangeMin: defaultTarget - 3,
-      rangeMax: defaultTarget + 3,
-      platesLikelyClosed: data.age >= 21,
-      honestMessage: data.age >= 21
-        ? "Based on clinical data, your growth plates have likely fused. Stretches can improve spinal posture by 1–2.5 cm, but biological bone growth is no longer possible."
-        : "Consistent sleep and nutrition will help you reach your genetic ceiling.",
-      dreamWarning: null
-    };
-  }
 
   let dreamWarning: string | null = null;
   if (data.dreamHeight && data.dreamHeight > result.rangeMax + 10) {

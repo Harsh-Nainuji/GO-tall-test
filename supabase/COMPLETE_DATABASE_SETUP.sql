@@ -262,6 +262,40 @@ VALUES
 ('cq-1', 'cat-1', 'Do you feel back tightness after sitting at school or studying?', 'Helps identify daily intradiscal compressive strain on lumbar vertebrae.', '[{"label": "Yes, constant stiffness", "sublabel": "Indicates high spinal disc fluid loss", "icon": "😣"}, {"label": "Only after 4+ hours", "sublabel": "Moderate postural loading", "icon": "⏱️"}, {"label": "Rarely / Never", "sublabel": "Discs maintain healthy hydration", "icon": "✨"}]'::jsonb, 1),
 ('cq-2', 'cat-2', 'Do your shoulders roll forward or head protrude while looking at your phone?', 'Identifies text-neck kyphosis, which can obscure 1.5–2.0 cm of standing stature.', '[{"label": "Severe forward tilt", "sublabel": "Text-neck is actively reducing height", "icon": "📱"}, {"label": "Slight slumping", "sublabel": "Can be corrected with scapular retraction", "icon": "🧍"}, {"label": "Upright clinical posture", "sublabel": "Full standing height unlocked", "icon": "🎖️"}]'::jsonb, 2),
 ('cq-3', 'cat-3', 'Does your lower back arch excessively when standing straight (pelvic tilt)?', 'Anterior pelvic tilt shifts the pelvis forward, hiding available leg and spinal height.', '[{"label": "Yes, noticeable arch", "sublabel": "Can regain +1 to +2 cm from neutral tilt", "icon": "🔄"}, {"label": "Neutral and balanced", "sublabel": "Optimal core pelvic alignment", "icon": "⚖️"}]'::jsonb, 3),
-('cq-4', 'cat-5', 'Do you do any physical decompression before sleeping at night?', 'Discs rehydrate 80% of daily fluid during the first 4 hours of horizontal rest.', '[{"label": "Never, just go straight to bed", "sublabel": "Missing overnight growth expansion", "icon": "😴"}, {"label": "Sometimes light stretching", "sublabel": "Partial decompression benefit", "icon": "🧘"}, {"label": "Yes, dedicated routine", "sublabel": "Maximum overnight somatotropin sync", "icon": "🌙"}]'::jsonb, 4)
+('cq-4', 'cat-5', 'Do you do any physical decompression before sleeping at night?', 'Discs rehydrate 80% of daily fluid during the first 4 hours of horizontal rest.', '[{"label": "Never, just go straight to bed", "sublabel": "Missing overnight growth expansion", "icon": "😴"}, {"label": "Sometimes light stretching", "sublabel": "Partial decompression benefit", "icon": "🧘"}, {"label": "Yes, dedicated routine", "sublabel": "Maximum overnight somatotropin sync", "icon": "🌙"}]'::jsonb, 4),
+('cq-5', 'cat-6', 'What is your primary weight gain objective?', 'Calibrates daily caloric surplus and skeletal amino acid density targets.', '[{"label": "Lean Muscular Bulk (+3–5 kg)", "sublabel": "Athletic muscle with minimal fat gain", "icon": "💪"}, {"label": "Overcoming Fast Metabolism (+5–10 kg)", "sublabel": "Dense calorie protocols for hardgainers", "icon": "⚡"}, {"label": "Heavy Mass Building (+10+ kg)", "sublabel": "Substantial structural frame expansion", "icon": "🏋️"}]'::jsonb, 5),
+('cq-6', 'cat-6', 'What describes your daily appetite & meal consistency?', 'Determines whether liquid nutrition or frequent meals are needed to hit surplus.', '[{"label": "Hardgainer (Get full very quickly)", "sublabel": "Needs liquid calorie density and shakes", "icon": "🥤"}, {"label": "Moderate (Eat 3 meals, hard to gain)", "sublabel": "Needs post-workout calorie booster", "icon": "🍽️"}, {"label": "Strong appetite (Can eat consistently)", "sublabel": "Focus on protein quality and heavy lifting", "icon": "🥩"}]'::jsonb, 6),
+('cq-7', 'cat-7', 'What is your primary weight reduction focus?', 'Tailors cardio intervals and core decompression pacing to preserve posture.', '[{"label": "Belly fat reduction & posture reveal", "sublabel": "Eliminates abdominal weight pulling spine forward", "icon": "🎯"}, {"label": "Athletic recomp & waist slimming", "sublabel": "Reclaims narrow waist and height illusion", "icon": "⏳"}, {"label": "Total body transformation (-10+ kg)", "sublabel": "Comprehensive metabolic and mobility routine", "icon": "🔥"}]'::jsonb, 7),
+('cq-8', 'cat-7', 'What is your biggest hurdle when maintaining a caloric deficit?', 'Adjusts bedtime nutrition to protect nocturnal somatotropin secretion.', '[{"label": "Late-night cravings & hunger", "sublabel": "We will optimize slow-digesting micellar casein", "icon": "🌙"}, {"label": "Afternoon energy crashes", "sublabel": "Balanced low-glycemic hydration strategies", "icon": "🔋"}, {"label": "Slow metabolism / plateau", "sublabel": "High-NEAT step targets and metabolic circuits", "icon": "📈"}]'::jsonb, 8),
+('cq-9', 'cat-8', 'What is your resistance training experience level?', 'Calibrates mechanical tension and progressive overload volume.', '[{"label": "Beginner (<1 year lifting)", "sublabel": "Focus on compound form and spinal safety", "icon": "🌱"}, {"label": "Intermediate (1–3 years)", "sublabel": "Progressive overload with dedicated split", "icon": "⚡"}, {"label": "Advanced (3+ years)", "sublabel": "High-volume hypertrophy & micro-adjustments", "icon": "🏆"}]'::jsonb, 9),
+('cq-10', 'cat-8', 'What is your primary aesthetic physique target?', 'Aligns exercises to accentuate vertical V-taper ratios.', '[{"label": "V-Taper (Wide lats & capped shoulders)", "sublabel": "Maximizes illusion of shoulder width & height", "icon": "📐"}, {"label": "Thick Chest & Spinal Extensors", "sublabel": "Upright clinical rib cage posture", "icon": "🛡️"}, {"label": "Full Body Symmetry & Power", "sublabel": "Balanced athletic hypertrophy", "icon": "⚡"}]'::jsonb, 10)
 ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 10. RPC FUNCTION: PERMANENT ACCOUNT DELETION (RIGHT TO BE FORGOTTEN)
+-- =============================================================================
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+    curr_uid UUID := auth.uid();
+BEGIN
+    IF curr_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Delete all user data from public tables
+    DELETE FROM public.profiles WHERE user_id = curr_uid;
+    DELETE FROM public.user_achievements WHERE user_id = curr_uid;
+    DELETE FROM public.food_logs WHERE user_id = curr_uid;
+    DELETE FROM public.sleep_logs WHERE user_id = curr_uid;
+    DELETE FROM public.stretches_progress WHERE user_id = curr_uid;
+
+    -- Delete user from auth schema
+    DELETE FROM auth.users WHERE id = curr_uid;
+END;
+$$;
 

@@ -5,6 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Share,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +25,13 @@ import {
   LogIn,
   LogOut,
   CheckCircle2,
+  Download,
+  Trash2,
+  AlertTriangle,
+  UserPlus,
+  Database,
+  FileText,
+  X,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -42,10 +52,16 @@ export default function ProfileScreen() {
   const streakDays = useAppStore((state) => state.streakDays);
   const user = useAppStore((state) => state.user);
   const signOut = useAppStore((state) => state.signOut);
+  const deleteAccount = useAppStore((state) => state.deleteAccount);
+  const downloadAllUserData = useAppStore((state) => state.downloadAllUserData);
 
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadgeItem | null>(null);
   const [authModalVisible, setAuthModalVisible] = useState<boolean>(false);
+  const [authDefaultMode, setAuthDefaultMode] = useState<'signin' | 'signup'>('signup');
   const [tourVisible, setTourVisible] = useState<boolean>(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
 
   const safeData = quizData || {
     gender: 'male' as const,
@@ -68,6 +84,38 @@ export default function ProfileScreen() {
 
   const unlockedCount = unlockedBadgeIds.length;
   const totalBadges = badges.length;
+
+  const handleDownloadAllData = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      const jsonString = downloadAllUserData();
+      const approxKb = Math.max(1, Math.round(jsonString.length / 1024));
+
+      await Share.share({
+        title: 'GoTall_Biometric_Archive.json',
+        message: jsonString,
+      });
+
+      setExportSuccessMessage(`Data archive compiled (${approxKb} KB). Exported successfully!`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setTimeout(() => setExportSuccessMessage(null), 5000);
+    } catch (err: any) {
+      // User dismissed share sheet
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+      setIsDeleting(false);
+      setDeleteModalVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (err) {
+      setIsDeleting(false);
+    }
+  };
 
   const goals = [
     {
@@ -189,28 +237,44 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                   >
                     <LogOut size={14} color="#64748B" />
-                    <Text style={styles.signOutBtnText}>Sign Out</Text>
+                    <Text style={styles.signOutBtnText}>Sign Out ({user.email || 'Connected'})</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.authCtaBox}>
                   <View style={styles.authCtaTextCol}>
-                    <Text style={styles.authCtaTitle}>Cloud Synchronization</Text>
+                    <Text style={styles.authCtaTitle}>Create Account or Sign In</Text>
                     <Text style={styles.authCtaSub}>
-                      Save your growth trajectory and routine logs safely.
+                      Save your growth trajectory, sleep sync, and routine logs safely.
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.signInBtn}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setAuthModalVisible(true);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <LogIn size={13} color="#FFFFFF" />
-                    <Text style={styles.signInBtnText}>Sign In / Sign Up</Text>
-                  </TouchableOpacity>
+                  <View style={styles.authDualBtnsRow}>
+                    <TouchableOpacity
+                      style={styles.createAccBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setAuthDefaultMode('signup');
+                        setAuthModalVisible(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <UserPlus size={13} color="#FFFFFF" />
+                      <Text style={styles.createAccBtnText}>Create Account</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.signInBtnOutline}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setAuthDefaultMode('signin');
+                        setAuthModalVisible(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <LogIn size={13} color="#2563EB" />
+                      <Text style={styles.signInBtnOutlineText}>Sign In</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </GlassCard>
@@ -373,8 +437,74 @@ export default function ProfileScreen() {
             </GlassCard>
           </Animated.View>
 
+          {/* Export Notification Toast */}
+          {exportSuccessMessage ? (
+            <Animated.View entering={FadeInDown.springify()} style={styles.exportSuccessBanner}>
+              <CheckCircle2 size={16} color="#10B981" />
+              <Text style={styles.exportSuccessText}>{exportSuccessMessage}</Text>
+            </Animated.View>
+          ) : null}
+
+          {/* Data Privacy & GDPR Section (Download All Data & Delete Account) */}
+          <Animated.View entering={FadeInDown.delay(470).springify()}>
+            <GlassCard style={styles.dataPrivacyCard}>
+              <View style={styles.privacyHeaderRow}>
+                <View style={styles.privacyIconBadge}>
+                  <Database size={15} color="#0284C7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.privacyTitle}>Data Privacy & Account Control</Text>
+                  <Text style={styles.privacySub}>
+                    Download your complete biometric history or permanently delete your account.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.privacyButtonsCol}>
+                {/* 1-Click Download All Data */}
+                <TouchableOpacity
+                  style={styles.downloadDataBtn}
+                  onPress={handleDownloadAllData}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.privacyBtnLeft}>
+                    <Download size={15} color="#2563EB" />
+                    <View>
+                      <Text style={styles.downloadDataBtnText}>Download All My Data</Text>
+                      <Text style={styles.downloadDataBtnSub}>
+                        Single-click export of biometrics, meals, sleep, and workouts (.json)
+                      </Text>
+                    </View>
+                  </View>
+                  <ChevronRight size={14} color="#94A3B8" />
+                </TouchableOpacity>
+
+                {/* Delete Account (Danger Zone) */}
+                <TouchableOpacity
+                  style={styles.deleteAccountBtn}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setDeleteModalVisible(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.privacyBtnLeft}>
+                    <Trash2 size={15} color="#EF4444" />
+                    <View>
+                      <Text style={styles.deleteAccountBtnText}>Delete Account & Data</Text>
+                      <Text style={styles.deleteAccountBtnSub}>
+                        Permanently erases all records from the GoTall cloud database
+                      </Text>
+                    </View>
+                  </View>
+                  <ChevronRight size={14} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </Animated.View>
+
           {/* Scientific Disclaimer Card */}
-          <Animated.View entering={FadeInDown.delay(480).springify()}>
+          <Animated.View entering={FadeInDown.delay(490).springify()}>
             <GlassCard style={styles.citationCard}>
               <View style={styles.citationRow}>
                 <ShieldCheck size={16} color="#2563EB" />
@@ -397,6 +527,7 @@ export default function ProfileScreen() {
         {/* Authentication Modal */}
         <AuthModal
           visible={authModalVisible}
+          defaultMode={authDefaultMode}
           onClose={() => setAuthModalVisible(false)}
         />
 
@@ -405,6 +536,68 @@ export default function ProfileScreen() {
           visible={tourVisible}
           onClose={() => setTourVisible(false)}
         />
+
+        {/* Delete Account Confirmation Modal */}
+        <Modal
+          visible={deleteModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDeleteModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <GlassCard style={styles.deleteModalCard}>
+              <View style={styles.deleteModalTopBar}>
+                <View style={styles.deleteWarningIconBox}>
+                  <AlertTriangle size={20} color="#EF4444" />
+                </View>
+                <TouchableOpacity
+                  onPress={() => setDeleteModalVisible(false)}
+                  style={styles.closeModalBtn}
+                >
+                  <X size={16} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.deleteModalTitle}>Permanently Delete Account?</Text>
+              <Text style={styles.deleteModalDesc}>
+                This action is irreversible. All of your personal data will be completely deleted from our cloud database:
+              </Text>
+
+              <View style={styles.deleteListItems}>
+                <Text style={styles.deleteItemBullet}>• Biometrical measurements & Tanner projections</Text>
+                <Text style={styles.deleteItemBullet}>• Complete daily nutrition & meal history</Text>
+                <Text style={styles.deleteItemBullet}>• Sleep logs, somatotropin scores & routines</Text>
+                <Text style={styles.deleteItemBullet}>• All unlocked badges, XP points & streak days</Text>
+              </View>
+
+              <View style={styles.deleteModalActionsRow}>
+                <TouchableOpacity
+                  style={styles.cancelDeleteBtn}
+                  onPress={() => setDeleteModalVisible(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.cancelDeleteBtnText}>Keep Account</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmDeleteBtn}
+                  onPress={handleConfirmDelete}
+                  activeOpacity={0.8}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Trash2 size={13} color="#FFFFFF" />
+                      <Text style={styles.confirmDeleteBtnText}>Delete Everything</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </View>
+        </Modal>
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -859,5 +1052,240 @@ const styles = StyleSheet.create({
     color: '#475569',
     flex: 1,
     lineHeight: 16,
+  },
+  authDualBtnsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  createAccBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  createAccBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  signInBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  signInBtnOutlineText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  exportSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginTop: 10,
+  },
+  exportSuccessText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+    flex: 1,
+  },
+  dataPrivacyCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  privacyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  privacyIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  privacySub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  privacyButtonsCol: {
+    gap: 8,
+  },
+  downloadDataBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  privacyBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  downloadDataBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  downloadDataBtnSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteAccountBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  deleteAccountBtnSub: {
+    fontSize: 10,
+    color: '#991B1B',
+    marginTop: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  deleteModalTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  deleteWarningIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeModalBtn: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  deleteModalTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  deleteModalDesc: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  deleteListItems: {
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 18,
+    gap: 4,
+  },
+  deleteItemBullet: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  deleteModalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cancelDeleteBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  cancelDeleteBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  confirmDeleteBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  confirmDeleteBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

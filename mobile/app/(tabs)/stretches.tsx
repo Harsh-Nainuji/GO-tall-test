@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,9 @@ import {
   Film,
   FileImage,
   Calendar,
+  HelpCircle,
+  X,
+  ChevronRight,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -44,6 +48,7 @@ export default function StretchesScreen() {
   const activePlanDay = useAppStore((state) => state.activePlanDay);
   const weeklyPlan = useAppStore((state) => state.weeklyPlan ?? {});
   const categories = useAppStore((state) => state.categories);
+  const categoryQuestions = useAppStore((state) => state.categoryQuestions);
   const setWorkoutDaysPerWeek = useAppStore((state) => state.setWorkoutDaysPerWeek);
   const setActivePlanDay = useAppStore((state) => state.setActivePlanDay);
   const generateWeeklyPlan = useAppStore((state) => state.generateWeeklyPlan);
@@ -51,6 +56,9 @@ export default function StretchesScreen() {
   const [selectedStretch, setSelectedStretch] = useState<StretchExercise | null>(null);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('all');
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [diagnosticModalVisible, setDiagnosticModalVisible] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   const scheduleDays = Object.keys(weeklyPlan);
   const currentDayKey = scheduleDays.includes(activePlanDay)
@@ -65,6 +73,13 @@ export default function StretchesScreen() {
   const selectedCategory = categories.find(
     (c) => c.slug === selectedCategorySlug || c.id === selectedCategorySlug
   );
+
+  const activeCategoryQuestions = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    return categoryQuestions.filter(
+      (q) => q.categoryId === selectedCategory.id || q.categoryId === selectedCategory.slug
+    );
+  }, [selectedCategory, categoryQuestions]);
 
   const displayedExercises = React.useMemo(() => {
     if (selectedCategorySlug === 'all' || !selectedCategory) {
@@ -348,6 +363,50 @@ export default function StretchesScreen() {
             </ScrollView>
           </Animated.View>
 
+          {/* Category Diagnostic & Focus Banner */}
+          {selectedCategory && (
+            <Animated.View entering={FadeInDown.delay(240).springify()}>
+              <GlassCard style={styles.categoryBannerCard}>
+                <View style={styles.categoryBannerTop}>
+                  <View
+                    style={[
+                      styles.categoryBannerIconWrap,
+                      { backgroundColor: `${selectedCategory.color || '#2563EB'}20` },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 22 }}>{selectedCategory.icon || '🎯'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.categoryBannerTitle, { color: selectedCategory.color || '#0F172A' }]}>
+                      {selectedCategory.name}
+                    </Text>
+                    <Text style={styles.categoryBannerDesc} numberOfLines={2}>
+                      {selectedCategory.description}
+                    </Text>
+                  </View>
+                </View>
+
+                {activeCategoryQuestions.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.diagnosticQuizTriggerBtn, { backgroundColor: selectedCategory.color || '#2563EB' }]}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setDiagnosticModalVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Sparkles size={13} color="#FFFFFF" />
+                    <Text style={styles.diagnosticQuizTriggerText}>
+                      {quizSubmitted
+                        ? 'Diagnostic Calibrated (Review Answers)'
+                        : `Answer Diagnostic Quiz (${activeCategoryQuestions.length} Questions)`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </GlassCard>
+            </Animated.View>
+          )}
+
           {/* Routine List Header */}
           <Animated.View
             entering={FadeInDown.delay(260).springify()}
@@ -502,6 +561,121 @@ export default function StretchesScreen() {
           isUnlocked={true}
           onClose={clearNewlyUnlockedBadge}
         />
+
+        {/* Category Diagnostic Questions Modal */}
+        <Modal
+          visible={diagnosticModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDiagnosticModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <GlassCard style={styles.diagnosticModalCard}>
+              <View style={styles.diagnosticModalHeader}>
+                <View style={styles.diagnosticModalTitleRow}>
+                  <View
+                    style={[
+                      styles.diagIconBox,
+                      { backgroundColor: `${selectedCategory?.color || '#2563EB'}20` },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 18 }}>{selectedCategory?.icon || '🎯'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.diagnosticModalTitle}>
+                      {selectedCategory?.name} Diagnostic
+                    </Text>
+                    <Text style={styles.diagnosticModalSub}>
+                      Personalized routine calibration
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setDiagnosticModalVisible(false)}
+                  style={styles.closeModalBtn}
+                >
+                  <X size={16} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={{ maxHeight: Dimensions.get('window').height * 0.55 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {activeCategoryQuestions.map((q, qIdx) => (
+                  <View key={q.id} style={styles.diagQuestionBlock}>
+                    <View style={styles.diagQuestionNumBadge}>
+                      <Text style={styles.diagQuestionNumText}>Question {qIdx + 1} of {activeCategoryQuestions.length}</Text>
+                    </View>
+                    <Text style={styles.diagQuestionTitle}>{q.questionText}</Text>
+                    <Text style={styles.diagQuestionSubtitle}>{q.subtitle}</Text>
+
+                    <View style={styles.diagOptionsCol}>
+                      {q.options.map((opt, oIdx) => {
+                        const isChosen = quizAnswers[q.id] === opt.label;
+                        return (
+                          <TouchableOpacity
+                            key={oIdx}
+                            style={[
+                              styles.diagOptionCard,
+                              isChosen && [
+                                styles.diagOptionCardActive,
+                                { borderColor: selectedCategory?.color || '#2563EB' },
+                              ],
+                            ]}
+                            onPress={() => {
+                              Haptics.selectionAsync().catch(() => {});
+                              setQuizAnswers((prev) => ({ ...prev, [q.id]: opt.label }));
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.diagOptionEmoji}>{opt.icon || '✨'}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.diagOptionLabel,
+                                  isChosen && { color: selectedCategory?.color || '#2563EB', fontWeight: '800' },
+                                ]}
+                              >
+                                {opt.label}
+                              </Text>
+                              {opt.sublabel ? (
+                                <Text style={styles.diagOptionSub}>{opt.sublabel}</Text>
+                              ) : null}
+                            </View>
+                            {isChosen && (
+                              <CheckCircle2
+                                size={16}
+                                color={selectedCategory?.color || '#2563EB'}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveCalibrationBtn,
+                  { backgroundColor: selectedCategory?.color || '#2563EB' },
+                ]}
+                onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                  setQuizSubmitted(true);
+                  setDiagnosticModalVisible(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <CheckCircle2 size={15} color="#FFFFFF" />
+                <Text style={styles.saveCalibrationBtnText}>Save & Calibrate Routine</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          </View>
+        </Modal>
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -919,5 +1093,186 @@ const styles = StyleSheet.create({
     color: '#065F46',
     fontWeight: '500',
     lineHeight: 16,
+  },
+  categoryBannerCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    marginBottom: 16,
+  },
+  categoryBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  categoryBannerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryBannerTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  categoryBannerDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  diagnosticQuizTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  diagnosticQuizTriggerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  diagnosticModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  diagnosticModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  diagnosticModalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  diagIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diagnosticModalTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  diagnosticModalSub: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  closeModalBtn: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  diagQuestionBlock: {
+    marginBottom: 20,
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  diagQuestionNumBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  diagQuestionNumText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  diagQuestionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 18,
+  },
+  diagQuestionSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 10,
+    lineHeight: 15,
+  },
+  diagOptionsCol: {
+    gap: 8,
+  },
+  diagOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  diagOptionCardActive: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#2563EB',
+  },
+  diagOptionEmoji: {
+    fontSize: 16,
+  },
+  diagOptionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  diagOptionSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  saveCalibrationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#2563EB',
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginTop: 14,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  saveCalibrationBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

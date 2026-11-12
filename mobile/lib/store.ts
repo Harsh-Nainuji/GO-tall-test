@@ -217,6 +217,150 @@ export const CLINICAL_STRETCHES: StretchExercise[] = [
     media_type: 'image',
     media_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80',
   },
+  {
+    id: 8,
+    title: 'Incline Dumbbell Form & Clavicle Stretch',
+    category: 'Strength',
+    tag: 'Pectoral Expansion',
+    targetZone: 'Upper Chest & Clavicle',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Expands the upper thoracic rib cage and stimulates clavicular bone mineralization for broader posture.',
+    instructions: [
+      'Position torso on a 30-degree incline surface with dumbbells at shoulder height.',
+      'Press upward in an arc, focusing on upper pectoral contraction.',
+      'Lower slowly over 3 seconds to achieve a deep stretch across the sternum.',
+      'Perform 4 sets with controlled breathing.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 9,
+    title: 'Romanian Deadlift Spinal Hip Hinge',
+    category: 'Strength',
+    tag: 'Posterior Chain Density',
+    targetZone: 'Erector Spinae & Hamstrings',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Strengthens the deep paraspinal muscle columns to keep the spinal column naturally upright against gravity.',
+    instructions: [
+      'Stand feet hip-width apart holding weight with shoulders retracted.',
+      'Hinge at hips, driving pelvis backward while keeping back strictly flat.',
+      'Lower bar to mid-shin level until hamstrings are fully engaged.',
+      'Drive through heels to return to tall standing lock.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 10,
+    title: 'Goblet Squat & Thoracic Wedge',
+    category: 'Strength',
+    tag: 'Axial Loading',
+    targetZone: 'Pelvis & Femoral Plates',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Loads the lower extremity long bones to stimulate growth factors and anabolic hormone secretion.',
+    instructions: [
+      'Hold dumbbell vertically against chest with elbows pointing down.',
+      'Squat deep between knees while maintaining an upright vertical chest.',
+      'Hold bottom position for 1 second to stretch adductors and groin.',
+      'Exhale and drive up powerfully.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 11,
+    title: 'High-Knee Metabolic Mountain Climbers',
+    category: 'Posture',
+    tag: 'Caloric Burn',
+    targetZone: 'Transverse Abdominis & Core',
+    durationSeconds: 45,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Burns visceral abdominal fat while strengthening deep pelvic stabilizers to prevent anterior pelvic tilt.',
+    instructions: [
+      'Start in a push-up plank with wrists directly beneath shoulders.',
+      'Drive right knee rapidly toward chest without raising hips.',
+      'Alternate legs at an athletic, controlled cadence for 45 seconds.',
+      'Keep core braced and spine neutral throughout.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 12,
+    title: 'Hollow Body Core Compression',
+    category: 'Posture',
+    tag: 'Midsection Flattening',
+    targetZone: 'Deep Core & Lumbar Stabilization',
+    durationSeconds: 45,
+    intensity: 'Beginner',
+    clinicalBenefit: 'Reverses lumbar hyperextension and flattens lower abdomen, unlocking 1–2 cm of obscured standing stature.',
+    instructions: [
+      'Lie flat on back and press lower lumbar spine firmly into the floor.',
+      'Raise arms overhead and lift shoulder blades and heels 6 inches off ground.',
+      'Hold banana shape while breathing shallowly through rib cage.',
+      'Ensure lower back never peels away from the surface.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 13,
+    title: 'Wide-Grip Lat Extension & Rib Cage Expansion',
+    category: 'Height Growth',
+    tag: 'V-Taper Traction',
+    targetZone: 'Latissimus Dorsi & Costal Cartilage',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Expands the lateral rib cage and widens upper torso V-taper, creating immediate height and shoulder presence.',
+    instructions: [
+      'Grip wide overhead bar with overhand grip wider than shoulders.',
+      'Pull elbows down and backward toward back pockets, arching upper thoracic spine.',
+      'Squeeze shoulder blades together at bottom for 2 seconds.',
+      'Slowly release to full overhead lat stretch.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 14,
+    title: 'Standing Arnold Overhead Lockout',
+    category: 'Strength',
+    tag: 'Scapular Plane Hypertrophy',
+    targetZone: 'Deltoids & Trapezius',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Builds 3D shoulder caps while demanding vertical spine stabilization under overhead load.',
+    instructions: [
+      'Stand upright holding dumbbells at chest height with palms facing inward.',
+      'Rotate palms outward as you press overhead in a smooth spiral motion.',
+      'Lock out with bicep adjacent to ears and ribs pulled down.',
+      'Lower slowly along the same rotational path.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 15,
+    title: 'Hanging Decompression Knee Tucks',
+    category: 'Height Growth',
+    tag: 'Axial Traction & Core',
+    targetZone: 'Lower Lumbar & Lower Abs',
+    durationSeconds: 60,
+    intensity: 'Intermediate',
+    clinicalBenefit: 'Simultaneously decompresses lower lumbar discs while strengthening lower rectus abdominis.',
+    instructions: [
+      'Hang from bar with relaxed shoulders to initiate axial spine traction.',
+      'Curl pelvis upward and draw knees smoothly toward chest.',
+      'Pause for 1 second at top contraction.',
+      'Lower legs slowly without swinging back and forth.',
+    ],
+    media_type: 'image',
+    media_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80',
+  },
 ];
 
 export const INITIAL_BADGES: AchievementBadgeItem[] = [
@@ -393,6 +537,39 @@ export const INITIAL_CATEGORIES: WorkoutCategory[] = [
     active: true,
     order: 5,
   },
+  {
+    id: 'cat-6',
+    name: 'Weight Gain & Muscle Density',
+    slug: 'weight-gain',
+    icon: '🥩',
+    description: 'Progressive structural hypertrophy and caloric surplus optimization for ectomorph frames.',
+    color: '#EA580C',
+    workoutIds: ['8', '9', '10', '0'],
+    active: true,
+    order: 6,
+  },
+  {
+    id: 'cat-7',
+    name: 'Weight Loss & Metabolic Shred',
+    slug: 'weight-loss',
+    icon: '🔥',
+    description: 'High-metabolic core circuits and visceral fat reduction to reveal lean upright posture.',
+    color: '#DC2626',
+    workoutIds: ['11', '12', '2', '3'],
+    active: true,
+    order: 7,
+  },
+  {
+    id: 'cat-8',
+    name: 'Bodybuilder & V-Taper Sculpt',
+    slug: 'bodybuilder',
+    icon: '🏆',
+    description: 'Advanced muscular symmetry, wide lat flare, and progressive overload with spinal alignment.',
+    color: '#7C3AED',
+    workoutIds: ['13', '14', '15', '0'],
+    active: true,
+    order: 8,
+  },
 ];
 
 export const INITIAL_CATEGORY_QUESTIONS: CategoryQuestion[] = [
@@ -446,6 +623,84 @@ export const INITIAL_CATEGORY_QUESTIONS: CategoryQuestion[] = [
     ],
     active: true,
     order: 4,
+  },
+  {
+    id: 'cq-5',
+    categoryId: 'cat-6',
+    questionText: 'What is your primary weight gain objective?',
+    subtitle: 'Calibrates daily caloric surplus and skeletal amino acid density targets.',
+    options: [
+      { label: 'Lean Muscular Bulk (+3–5 kg)', sublabel: 'Athletic muscle with minimal fat gain', icon: '💪' },
+      { label: 'Overcoming Fast Metabolism (+5–10 kg)', sublabel: 'Dense calorie protocols for hardgainers', icon: '⚡' },
+      { label: 'Heavy Mass Building (+10+ kg)', sublabel: 'Substantial structural frame expansion', icon: '🏋️' },
+    ],
+    active: true,
+    order: 5,
+  },
+  {
+    id: 'cq-6',
+    categoryId: 'cat-6',
+    questionText: 'What describes your daily appetite & meal consistency?',
+    subtitle: 'Determines whether liquid nutrition or frequent meals are needed to hit surplus.',
+    options: [
+      { label: 'Hardgainer (Get full very quickly)', sublabel: 'Needs liquid calorie density and shakes', icon: '🥤' },
+      { label: 'Moderate (Eat 3 meals, hard to gain)', sublabel: 'Needs post-workout calorie booster', icon: '🍽️' },
+      { label: 'Strong appetite (Can eat consistently)', sublabel: 'Focus on protein quality and heavy lifting', icon: '🥩' },
+    ],
+    active: true,
+    order: 6,
+  },
+  {
+    id: 'cq-7',
+    categoryId: 'cat-7',
+    questionText: 'What is your primary weight reduction focus?',
+    subtitle: 'Tailors cardio intervals and core decompression pacing to preserve posture.',
+    options: [
+      { label: 'Belly fat reduction & posture reveal', sublabel: 'Eliminates abdominal weight pulling spine forward', icon: '🎯' },
+      { label: 'Athletic recomp & waist slimming', sublabel: 'Reclaims narrow waist and height illusion', icon: '⏳' },
+      { label: 'Total body transformation (-10+ kg)', sublabel: 'Comprehensive metabolic and mobility routine', icon: '🔥' },
+    ],
+    active: true,
+    order: 7,
+  },
+  {
+    id: 'cq-8',
+    categoryId: 'cat-7',
+    questionText: 'What is your biggest hurdle when maintaining a caloric deficit?',
+    subtitle: 'Adjusts bedtime nutrition to protect nocturnal somatotropin secretion.',
+    options: [
+      { label: 'Late-night cravings & hunger', sublabel: 'We will optimize slow-digesting micellar casein', icon: '🌙' },
+      { label: 'Afternoon energy crashes', sublabel: 'Balanced low-glycemic hydration strategies', icon: '🔋' },
+      { label: 'Slow metabolism / plateau', sublabel: 'High-NEAT step targets and metabolic circuits', icon: '📈' },
+    ],
+    active: true,
+    order: 8,
+  },
+  {
+    id: 'cq-9',
+    categoryId: 'cat-8',
+    questionText: 'What is your resistance training experience level?',
+    subtitle: 'Calibrates mechanical tension and progressive overload volume.',
+    options: [
+      { label: 'Beginner (<1 year lifting)', sublabel: 'Focus on compound form and spinal safety', icon: '🌱' },
+      { label: 'Intermediate (1–3 years)', sublabel: 'Progressive overload with dedicated split', icon: '⚡' },
+      { label: 'Advanced (3+ years)', sublabel: 'High-volume hypertrophy & micro-adjustments', icon: '🏆' },
+    ],
+    active: true,
+    order: 9,
+  },
+  {
+    id: 'cq-10',
+    categoryId: 'cat-8',
+    questionText: 'What is your primary aesthetic physique target?',
+    subtitle: 'Aligns exercises to accentuate vertical V-taper ratios.',
+    options: [
+      { label: 'V-Taper (Wide lats & capped shoulders)', sublabel: 'Maximizes illusion of shoulder width & height', icon: '📐' },
+      { label: 'Thick Chest & Spinal Extensors', sublabel: 'Upright clinical rib cage posture', icon: '🛡️' },
+      { label: 'Full Body Symmetry & Power', sublabel: 'Balanced athletic hypertrophy', icon: '⚡' },
+    ],
+    active: true,
+    order: 10,
   },
 ];
 
@@ -612,6 +867,8 @@ interface AppState {
   addChatMessage: (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   checkBadges: () => void;
   resetAllData: () => void;
+  deleteAccount: () => Promise<void>;
+  downloadAllUserData: () => string;
 
   // Category Actions
   setCategories: (categories: WorkoutCategory[]) => void;
@@ -903,6 +1160,67 @@ export const useAppStore = create<AppState>()(
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
         });
+      },
+
+      deleteAccount: async () => {
+        try {
+          if (isSupabaseConfigured()) {
+            await (supabase.rpc('delete_user_account') as any);
+            await supabase.auth.signOut();
+          }
+        } catch (e) {
+          // Graceful handling
+        }
+        await AsyncStorage.clear().catch(() => {});
+        set({
+          quizData: null,
+          isPremium: false,
+          streakDays: 1,
+          completedStretches: [],
+          meals: [],
+          sleepLogs: INITIAL_SLEEP_LOGS,
+          user: null,
+          unlockedBadgeIds: [],
+          newlyUnlockedBadge: null,
+          paymentOrderId: null,
+          hasSeenAppTour: false,
+          workoutDaysPerWeek: 4,
+          weeklyPlan: initialSchedule.plan,
+          activePlanDay: initialSchedule.activeDay,
+        });
+      },
+
+      downloadAllUserData: () => {
+        const s = get();
+        const exportPayload = {
+          exportDate: new Date().toISOString(),
+          appName: 'GoTall Biometric Growth & Posture Suite',
+          schemaVersion: '1.2.0',
+          account: s.user || { status: 'Guest User' },
+          biometrics: s.quizData,
+          calculatedProjection: s.quizData ? calculateTarget(s.quizData) : null,
+          routineAndStreaks: {
+            streakDays: s.streakDays,
+            completedStretchesCount: s.completedStretches.length,
+            completedStretchIds: s.completedStretches,
+            workoutDaysPerWeek: s.workoutDaysPerWeek,
+            weeklyPlan: s.weeklyPlan,
+          },
+          nutritionLogs: {
+            loggedMealsCount: s.meals.length,
+            meals: s.meals,
+          },
+          sleepLogs: {
+            targetHours: s.sleepTargetHours,
+            history: s.sleepLogs,
+          },
+          gamification: {
+            unlockedBadgeIds: s.unlockedBadgeIds,
+            totalBadgesCount: s.badges.length,
+          },
+          categories: s.categories,
+        };
+        return JSON.stringify(exportPayload, null, 2);
       },
     }),
     {
