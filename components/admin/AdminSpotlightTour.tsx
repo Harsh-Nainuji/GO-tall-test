@@ -249,3 +249,4 @@ export function AdminSpotlightTour({ isOpen, onClose }: AdminSpotlightTourProps)
     </AnimatePresence>
   )
 }
+

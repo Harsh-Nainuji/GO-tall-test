@@ -8,11 +8,28 @@ import {
   StyleSheet,
   Platform,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+
+// Resilient native video loader: In modern Expo Go (SDK 52+), the legacy ExponentAV native
+// module is not bundled. Dynamically checking prevents uncaught evaluation errors at startup.
+let NativeVideoComponent: any = null;
+let NativeResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch' };
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const ExpoAv = require('expo-av');
+  if (ExpoAv && ExpoAv.Video) {
+    NativeVideoComponent = ExpoAv.Video;
+    NativeResizeMode = ExpoAv.ResizeMode || NativeResizeMode;
+  }
+} catch {
+  // In Expo Go or builds without ExponentAV native binary
+  NativeVideoComponent = null;
+}
 import {
   X,
   Play,
@@ -52,7 +69,7 @@ export default function StretchTimerModal({
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const videoRef = useRef<Video>(null);
+  const videoRef = useRef<any>(null);
 
   // Sync state whenever a new exercise is opened
   useEffect(() => {
@@ -110,7 +127,7 @@ export default function StretchTimerModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setIsRunning(false);
     setTimeLeft(totalDuration);
-    if (videoRef.current) {
+    if (videoRef.current && typeof videoRef.current.setPositionAsync === 'function') {
       videoRef.current.setPositionAsync(0).catch(() => {});
     }
   };
@@ -198,16 +215,47 @@ export default function StretchTimerModal({
           {/* ============================================================== */}
           <View style={styles.mediaContainer}>
             {isVideo ? (
-              <Video
-                ref={videoRef}
-                source={{ uri: exercise.media_url! }}
-                style={styles.mediaPlayer}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={true}
-                isLooping={true}
-                isMuted={true}
-                useNativeControls={false}
-              />
+              NativeVideoComponent ? (
+                <NativeVideoComponent
+                  ref={videoRef}
+                  source={{ uri: exercise.media_url! }}
+                  style={styles.mediaPlayer}
+                  resizeMode={NativeResizeMode.COVER}
+                  shouldPlay={true}
+                  isLooping={true}
+                  isMuted={true}
+                  useNativeControls={false}
+                />
+              ) : (
+                <LinearGradient
+                  colors={['#0F172A', '#1E293B', '#0F172A']}
+                  style={styles.fallbackMedia}
+                >
+                  <View style={styles.fallbackCenterContent}>
+                    <View style={styles.fallbackIconWrap}>
+                      <Film size={32} color="#38BDF8" />
+                    </View>
+                    <Text style={styles.fallbackTitle}>Biomechanical Motion</Text>
+                    <Text style={styles.fallbackSubtitle}>
+                      Active stretching protocol in progress
+                    </Text>
+                    {exercise.media_url ? (
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (exercise.media_url) {
+                            Linking.openURL(exercise.media_url).catch(() => {});
+                          }
+                        }}
+                        style={styles.videoLinkPill}
+                      >
+                        <Play size={12} color="#FFFFFF" fill="#FFFFFF" />
+                        <Text style={styles.videoLinkText}>Open Video Guide</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </LinearGradient>
+              )
             ) : isImageOrGif ? (
               <Image
                 source={{ uri: exercise.media_url! }}
@@ -528,6 +576,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  videoLinkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 9999,
+    marginTop: 10,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  videoLinkText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   mediaOverlayBadge: {
     position: 'absolute',
