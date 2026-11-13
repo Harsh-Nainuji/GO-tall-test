@@ -24,6 +24,7 @@ import {
   Apple,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { useAppStore, CLINICAL_STRETCHES, StretchExercise } from '../../lib/store';
 import { calculateTarget, cmToFtIn } from '../../lib/growth-calc';
@@ -40,6 +41,7 @@ import BadgeModal from '../../components/BadgeModal';
 import AppSpotlightTour from '../../components/AppSpotlightTour';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const quizData = useAppStore((state) => state.quizData);
   const streakDays = useAppStore((state) => state.streakDays);
   const completedStretches = useAppStore((state) => state.completedStretches);
@@ -170,6 +172,28 @@ export default function HomeScreen() {
           </Animated.View>
 
           {/* CARD 1: Tanner Stature Trajectory (Glass Card) */}
+          {!quizData && (
+            <Animated.View entering={FadeInDown.delay(150).springify()}>
+              <GlassCard style={[styles.cardSpacing, { borderColor: 'rgba(2, 132, 199, 0.4)', backgroundColor: 'rgba(2, 132, 199, 0.08)' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#0284C7' }}>⚡ Clean Test Mode Active</Text>
+                    <Text style={{ fontSize: 12, color: '#475569', marginTop: 3, lineHeight: 16 }}>
+                      No mock data is loaded. Take the 15-question clinical assessment to generate your personalized Tanner-Whitehouse stature prediction.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(onboarding)/quiz')}
+                    style={{ backgroundColor: '#0284C7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, shadowColor: '#0284C7', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>Start Test →</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            </Animated.View>
+          )}
+
           <Animated.View entering={FadeInDown.delay(200).springify()}>
             <GlassCard style={styles.cardSpacing}>
               <View style={styles.statureCardContent}>

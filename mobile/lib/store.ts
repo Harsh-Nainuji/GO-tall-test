@@ -896,26 +896,10 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      quizData: {
-        gender: 'male',
-        age: 17,
-        ethnicity: 'Global Population Standard',
-        currentHeight: 172.4,
-        fatherHeight: 178.0,
-        motherHeight: 164.5,
-        growthRate: '2 – 5 cm / year',
-        shoeSize: 9,
-        sleepHours: '8 – 10 hours',
-        dietType: 'Mostly home-cooked balanced',
-        smokeDrink: 'No, never',
-        sittingHours: '4 – 8 hrs',
-        motivation: 'Maximize my genetic height potential',
-        dreamHeight: 182,
-        activityLevel: 'Moderate Active',
-      },
+      quizData: null,
       isPremium: false,
-      streakDays: 4,
-      completedStretches: [0, 1],
+      streakDays: 0,
+      completedStretches: [],
       paymentOrderId: null,
 
       // Weekly plan initial values
@@ -927,8 +911,8 @@ export const useAppStore = create<AppState>()(
       categories: INITIAL_CATEGORIES,
       categoryQuestions: INITIAL_CATEGORY_QUESTIONS,
 
-      // Sleep tracking state
-      sleepLogs: INITIAL_SLEEP_LOGS,
+      // Sleep tracking state (fresh starter state)
+      sleepLogs: [],
       sleepTargetHours: 8.5,
 
       // Authentication state
@@ -941,42 +925,11 @@ export const useAppStore = create<AppState>()(
       aiQuestionsUsedToday: 0,
       lastAiQuestionDate: new Date().toISOString().split('T')[0],
 
-      // Initial logged meals
-      meals: [
-        {
-          id: 'meal-1',
-          name: 'Greek Yogurt 0% & Blueberries',
-          calories: 320,
-          protein: 26,
-          carbs: 24,
-          fat: 2,
-          category: 'Breakfast',
-          time: '8:30 AM',
-        },
-        {
-          id: 'meal-2',
-          name: 'Grilled Chicken & Brown Rice Bowl',
-          calories: 680,
-          protein: 48,
-          carbs: 65,
-          fat: 14,
-          category: 'Lunch',
-          time: '1:15 PM',
-        },
-        {
-          id: 'meal-3',
-          name: 'Hard Boiled Pasture Eggs (x2)',
-          calories: 156,
-          protein: 13,
-          carbs: 1,
-          fat: 11,
-          category: 'Snack',
-          time: '5:00 PM',
-        },
-      ],
+      // Initial clean meals log (ready for real user logging)
+      meals: [],
 
       badges: INITIAL_BADGES,
-      unlockedBadgeIds: ['badge-7', 'badge-1'],
+      unlockedBadgeIds: [],
       newlyUnlockedBadge: null,
 
       chatMessages: [

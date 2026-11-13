@@ -1186,6 +1186,23 @@ export function useAdminData() {
     saveAiChips(INITIAL_AI_CHIPS)
   }
 
+  const clearAllData = () => {
+    saveBadges([])
+    saveStretches([])
+    saveCategories([])
+    saveCategoryQuestions([])
+    saveFoods([])
+    saveUsers([])
+    saveAiChips([])
+  }
+
+  const clearDummyData = () => {
+    // Clears users, stretches, and foods so admin can add 100% real clinical data
+    saveStretches([])
+    saveFoods([])
+    saveUsers([])
+  }
+
   return {
     isLoaded,
     badges,
@@ -1203,6 +1220,8 @@ export function useAdminData() {
     aiChips,
     setAiChips: saveAiChips,
     resetToSeeds,
+    clearAllData,
+    clearDummyData,
   }
 }
 

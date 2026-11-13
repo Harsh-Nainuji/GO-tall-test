@@ -35,6 +35,7 @@ export default function AdminPortalPage() {
     aiChips,
     setAiChips,
     resetToSeeds,
+    clearDummyData,
   } = useAdminData()
 
   // Simplified metadata for non-technical clients
@@ -148,6 +149,8 @@ export default function AdminPortalPage() {
                     foods={foods}
                     users={users}
                     onNavigateTab={setCurrentTab}
+                    onClearDummyData={clearDummyData}
+                    onResetSeeds={resetToSeeds}
                   />
                 )}
 

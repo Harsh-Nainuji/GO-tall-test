@@ -2,8 +2,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 export function getSupabaseAdminConfig() {
   return {
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key',
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xoxhmugmtzscmjlbpfuj.supabase.co',
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_MES0Zue0EHAlgPF0pB2SVQ_49cOcmcg',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   }
 }
@@ -25,77 +25,230 @@ export interface UploadMediaResult {
   publicUrl: string
   mediaType: 'video' | 'gif' | 'image'
   fileName: string
+  fileSize: number
+  path: string
+}
+
+export interface StorageFileItem {
+  id?: string
+  name: string
+  folder: string
+  path: string
+  size: number
+  formattedSize: string
+  createdAt: string
+  publicUrl: string
+  mediaType: 'image' | 'video' | 'gif' | 'other'
+}
+
+export interface LiveStorageTelemetry {
+  totalBytes: number
+  usedMB: number
+  limitMB: number
+  percentUsed: number
+  totalFiles: number
+  status: 'Healthy' | 'Approaching Limit' | 'Critical'
+  bucketName: string
+  breakdown: {
+    images: number
+    videos: number
+    gifs: number
+    others: number
+  }
+  files: StorageFileItem[]
+  lastChecked: string
+}
+
+/**
+ * Format bytes to human readable string (KB, MB, GB)
+ */
+export function formatBytes(bytes: number, decimals: number = 2): string {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 }
 
 /**
  * Uploads media to Supabase Storage bucket 'exercise-media'
- * Enforces file size checks:
- * - Videos: Max 15MB
- * - GIFs / Images: Max 2MB
+ * Organizes into folder: 'stretches', 'foods', 'avatars', 'general'
+ * Handles images, gifs, and video files with direct public URL return
  */
 export async function uploadExerciseMedia(
   file: File,
+  folder: 'stretches' | 'foods' | 'avatars' | 'general' = 'stretches',
   onProgress?: (progress: number) => void
 ): Promise<UploadMediaResult> {
   const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4')
   const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')
   const mediaType: 'video' | 'gif' | 'image' = isVideo ? 'video' : isGif ? 'gif' : 'image'
 
-  const MAX_VIDEO_BYTES = 15 * 1024 * 1024 // 15MB
-  const MAX_IMAGE_BYTES = 2 * 1024 * 1024  // 2MB
+  const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // 50MB for video
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024  // 10MB for image
 
-  if (file.size > MAX_VIDEO_BYTES) {
-    throw new Error('File exceeds 15MB limit. Please upload a smaller video or image.')
+  if (isVideo && file.size > MAX_VIDEO_BYTES) {
+    throw new Error('Video exceeds 50MB limit. Please compress or choose a shorter video.')
   }
 
   if (!isVideo && file.size > MAX_IMAGE_BYTES) {
-    throw new Error('Image/GIF exceeds 2MB limit. Please compress or select a smaller file.')
+    throw new Error('Image exceeds 10MB limit. Please select a smaller file.')
   }
 
-  const config = getSupabaseAdminConfig()
-  const isPlaceholder =
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder')
+  const client = getSupabaseClient()
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+  const filePath = `${folder}/${Date.now()}_${sanitizedName}`
 
-  if (!isPlaceholder) {
-    try {
-      const client = getSupabaseClient()
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-      const filePath = `stretches/${Date.now()}_${sanitizedName}`
+  try {
+    const { error: uploadError } = await client.storage
+      .from('exercise-media')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || (isVideo ? 'video/mp4' : isGif ? 'image/gif' : 'image/jpeg'),
+      })
 
-      const { error: uploadError } = await client.storage
-        .from('exercise-media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file.type || (isVideo ? 'video/mp4' : isGif ? 'image/gif' : 'image/jpeg'),
-        })
-
-      if (uploadError) {
-        console.warn('Supabase bucket upload error:', uploadError.message)
-      } else {
-        const { data: publicData } = client.storage
-          .from('exercise-media')
-          .getPublicUrl(filePath)
-
-        if (publicData?.publicUrl) {
-          return {
-            publicUrl: publicData.publicUrl,
-            mediaType,
-            fileName: file.name,
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Direct bucket upload failed, using browser object preview URL:', err)
+    if (uploadError) {
+      console.warn('Supabase storage upload error:', uploadError.message)
+      throw new Error(`Upload failed: ${uploadError.message}`)
     }
+
+    const { data: publicData } = client.storage
+      .from('exercise-media')
+      .getPublicUrl(filePath)
+
+    if (publicData?.publicUrl) {
+      return {
+        publicUrl: publicData.publicUrl,
+        mediaType,
+        fileName: file.name,
+        fileSize: file.size,
+        path: filePath,
+      }
+    }
+  } catch (err: any) {
+    console.warn('Direct bucket upload failed, using local blob fallback:', err)
   }
 
-  // Graceful browser-side fallback for development/demo
-  const localBlobUrl = URL.createObjectURL(file)
+  // Graceful browser-side fallback for offline/preview
+  const localBlobUrl = typeof window !== 'undefined' ? URL.createObjectURL(file) : ''
   return {
     publicUrl: localBlobUrl,
     mediaType,
     fileName: file.name,
+    fileSize: file.size,
+    path: filePath,
+  }
+}
+
+/**
+ * Fetch live storage telemetry from Supabase bucket 'exercise-media'
+ * Scans 'stretches', 'foods', 'avatars', and root to compute exact usage
+ */
+export async function getLiveStorageTelemetry(): Promise<LiveStorageTelemetry> {
+  const DEFAULT_LIMIT_MB = 1024 // Supabase free tier 1 GB
+  const bucketName = 'exercise-media'
+  const foldersToScan = ['', 'stretches', 'foods', 'avatars', 'general']
+  const allFiles: StorageFileItem[] = []
+  let totalBytes = 0
+
+  const breakdown = {
+    images: 0,
+    videos: 0,
+    gifs: 0,
+    others: 0,
+  }
+
+  try {
+    const client = getSupabaseClient()
+
+    for (const folder of foldersToScan) {
+      const { data, error } = await client.storage
+        .from(bucketName)
+        .list(folder, {
+          limit: 100,
+          sortBy: { column: 'created_at', order: 'desc' },
+        })
+
+      if (error) {
+        console.warn(`Could not list files in folder '${folder}':`, error.message)
+        continue
+      }
+
+      if (data && Array.isArray(data)) {
+        for (const item of data) {
+          // If id is null, it's a subfolder in Supabase storage
+          if (!item.id || item.id === null) continue
+
+          const size = (item.metadata as any)?.size || 0
+          totalBytes += size
+
+          const lowerName = item.name.toLowerCase()
+          const isVideo = lowerName.endsWith('.mp4') || lowerName.endsWith('.webm') || lowerName.endsWith('.mov')
+          const isGif = lowerName.endsWith('.gif')
+          const isImage = lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') || lowerName.endsWith('.webp')
+
+          let mediaType: 'image' | 'video' | 'gif' | 'other' = 'other'
+          if (isVideo) {
+            mediaType = 'video'
+            breakdown.videos++
+          } else if (isGif) {
+            mediaType = 'gif'
+            breakdown.gifs++
+          } else if (isImage) {
+            mediaType = 'image'
+            breakdown.images++
+          } else {
+            breakdown.others++
+          }
+
+          const fullPath = folder ? `${folder}/${item.name}` : item.name
+          const { data: publicUrlData } = client.storage
+            .from(bucketName)
+            .getPublicUrl(fullPath)
+
+          allFiles.push({
+            id: item.id,
+            name: item.name,
+            folder: folder || 'root',
+            path: fullPath,
+            size,
+            formattedSize: formatBytes(size),
+            createdAt: item.created_at || new Date().toISOString(),
+            publicUrl: publicUrlData?.publicUrl || '',
+            mediaType,
+          })
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn('Failed querying live Supabase storage stats:', e.message)
+  }
+
+  const usedMB = Number((totalBytes / (1024 * 1024)).toFixed(2))
+  const percentUsed = Math.min(100, Number(((usedMB / DEFAULT_LIMIT_MB) * 100).toFixed(1)))
+
+  let status: 'Healthy' | 'Approaching Limit' | 'Critical' = 'Healthy'
+  if (percentUsed >= 90) {
+    status = 'Critical'
+  } else if (percentUsed >= 75) {
+    status = 'Approaching Limit'
+  }
+
+  // Sort files by latest
+  allFiles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  return {
+    totalBytes,
+    usedMB,
+    limitMB: DEFAULT_LIMIT_MB,
+    percentUsed,
+    totalFiles: allFiles.length,
+    status,
+    bucketName,
+    breakdown,
+    files: allFiles,
+    lastChecked: new Date().toLocaleTimeString(),
   }
 }

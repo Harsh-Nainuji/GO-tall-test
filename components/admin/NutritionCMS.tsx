@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useDropzone } from 'react-dropzone'
 import {
   Utensils,
   Plus,
@@ -12,12 +14,37 @@ import {
   Sparkles,
   Flame,
   Dna,
+  UploadCloud,
+  FileSpreadsheet,
+  FileCode,
+  Download,
+  AlertCircle,
+  Image as ImageIcon,
+  CheckCircle2,
 } from 'lucide-react'
 import { FoodItem } from '@/lib/admin-store'
+import { uploadExerciseMedia } from '@/lib/supabase'
 
 interface NutritionCMSProps {
   foods: FoodItem[]
   onUpdateFoods: (foods: FoodItem[]) => void
+}
+
+interface ValidatedFoodRow {
+  rowNum: number
+  name: string
+  servingSize: string
+  category: FoodItem['category']
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  calcium: number
+  zinc: number
+  vitaminD3: number
+  clinicalRationale: string
+  isValid: boolean
+  errors: string[]
 }
 
 export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
@@ -26,7 +53,20 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null)
 
-  // Form State
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  // Bulk Upload State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [bulkRawInput, setBulkRawInput] = useState('')
+  const [bulkValidatedRows, setBulkValidatedRows] = useState<ValidatedFoodRow[]>([])
+  const [bulkFileName, setBulkFileName] = useState('')
+
+  // Single Item Form State
   const [formName, setFormName] = useState('')
   const [formServing, setFormServing] = useState('')
   const [formCategory, setFormCategory] = useState<FoodItem['category']>('High Protein')
@@ -40,6 +80,388 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const [formRationale, setFormRationale] = useState('')
   const [formActive, setFormActive] = useState(true)
 
+  // Direct Supabase Media Upload for Single Food
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null)
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
+
+  const onDropMedia = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    if (!file) return
+    setMediaFile(file)
+    setIsUploadingMedia(true)
+
+    try {
+      const uploadRes = await uploadExerciseMedia(file, 'foods')
+      setMediaPreviewUrl(uploadRes.publicUrl)
+      showToast('Image uploaded directly to Supabase Storage!', 'success')
+    } catch (err: any) {
+      showToast(err.message || 'Storage upload error', 'error')
+    } finally {
+      setIsUploadingMedia(false)
+    }
+  }, [])
+
+  const { getRootProps: getMediaRootProps, getInputProps: getMediaInputProps, isDragActive: isMediaDragActive } =
+    useDropzone({
+      onDrop: onDropMedia,
+      accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'] },
+      maxFiles: 1,
+    })
+
+  // -------------------------------------------------------------
+  // 1-CLICK TEMPLATE DOWNLOAD GENERATORS
+  // -------------------------------------------------------------
+  const downloadCSVTemplate = () => {
+    const headers = 'name,servingSize,category,calories,protein,carbs,fat,calcium,zinc,vitaminD3,clinicalRationale\n'
+    const exampleRows = [
+      '"Greek Yogurt 0%","1 cup (200g)","High Protein",130,22,8,0,250,1.5,0,"Concentrated biological casein matrix supports nocturnal somatotropin pulse."',
+      '"Atlantic Salmon Fillet","150g","Bone Mineralization",280,34,0,15,20,0.9,570,"Dense EPA/DHA fatty acids and natural Vitamin D3 to stimulate epiphyseal mineralization."',
+      '"Raw California Almonds","1 handful (30g)","Bone Mineralization",173,6,6,15,76,0.9,0,"Dense magnesium and phosphorus source stabilizing hydroxyapatite bone crystal matrix."',
+      '"Low Fat Cottage Cheese","1 cup (200g)","Bedtime Anabolic",164,28,6,2.4,138,1.3,12,"Slow-digesting micellar casein maintains positive nitrogen balance during deep sleep."',
+      '"Pasture Raised Whole Eggs","2 large (100g)","Growth Micronutrients",143,12.6,0.8,9.5,56,1.3,82,"Bioavailable choline and complete branched-chain amino acids for chondrocyte proliferation."',
+    ].join('\n')
+
+    const blob = new Blob([headers + exampleRows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'gotall_foods_template.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast('Downloaded Standard CSV Template!', 'success')
+  }
+
+  const downloadJSONTemplate = () => {
+    const jsonContent = JSON.stringify(
+      [
+        {
+          name: 'Greek Yogurt 0%',
+          servingSize: '1 cup (200g)',
+          category: 'High Protein',
+          calories: 130,
+          protein: 22,
+          carbs: 8,
+          fat: 0,
+          calcium: 250,
+          zinc: 1.5,
+          vitaminD3: 0,
+          clinicalRationale: 'Concentrated biological casein matrix supports nocturnal somatotropin pulse.',
+        },
+        {
+          name: 'Atlantic Salmon Fillet',
+          servingSize: '150g',
+          category: 'Bone Mineralization',
+          calories: 280,
+          protein: 34,
+          carbs: 0,
+          fat: 15,
+          calcium: 20,
+          zinc: 0.9,
+          vitaminD3: 570,
+          clinicalRationale: 'Dense EPA/DHA fatty acids and natural Vitamin D3 to stimulate epiphyseal mineralization.',
+        },
+        {
+          name: 'Low Fat Cottage Cheese',
+          servingSize: '1 cup (200g)',
+          category: 'Bedtime Anabolic',
+          calories: 164,
+          protein: 28,
+          carbs: 6,
+          fat: 2.4,
+          calcium: 138,
+          zinc: 1.3,
+          vitaminD3: 12,
+          clinicalRationale: 'Slow-digesting micellar casein maintains positive nitrogen balance during deep sleep.',
+        },
+      ],
+      null,
+      2
+    )
+
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'gotall_foods_template.json')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast('Downloaded Standard JSON Template!', 'success')
+  }
+
+  // -------------------------------------------------------------
+  // STRICT CSV & JSON PARSER WITH 100% SCHEMA VALIDATION
+  // -------------------------------------------------------------
+  const parseCSVLine = (text: string): string[] => {
+    const result: string[] = []
+    let cur = ''
+    let inQuotes = false
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      if (char === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          cur += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(cur.trim())
+        cur = ''
+      } else {
+        cur += char
+      }
+    }
+    result.push(cur.trim())
+    return result
+  }
+
+  const validateAndParseBulkData = (rawText: string) => {
+    setBulkRawInput(rawText)
+    const trimmed = rawText.trim()
+    if (!trimmed) {
+      setBulkValidatedRows([])
+      return
+    }
+
+    const rows: ValidatedFoodRow[] = []
+    const validCategories: FoodItem['category'][] = [
+      'High Protein',
+      'Bone Mineralization',
+      'Bedtime Anabolic',
+      'Growth Micronutrients',
+    ]
+
+    // A. JSON parsing
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const items = Array.isArray(parsed) ? parsed : [parsed]
+
+        items.forEach((item: any, idx: number) => {
+          const errors: string[] = []
+          const name = String(item.name || '').trim()
+          if (!name || name.length < 2) errors.push('Name must be at least 2 characters')
+
+          const servingSize = String(item.servingSize || '').trim()
+          if (!servingSize) errors.push('Serving size is required (e.g. 100g, 1 cup)')
+
+          let category: FoodItem['category'] = 'High Protein'
+          const rawCat = String(item.category || '').trim() as FoodItem['category']
+          if (validCategories.includes(rawCat)) {
+            category = rawCat
+          } else {
+            errors.push('Category must be High Protein, Bone Mineralization, Bedtime Anabolic, or Growth Micronutrients')
+          }
+
+          const calories = Number(item.calories)
+          if (isNaN(calories) || calories < 0 || calories > 2500) {
+            errors.push('Calories must be between 0 and 2500 kcal')
+          }
+
+          const protein = Number(item.protein)
+          if (isNaN(protein) || protein < 0 || protein > 200) {
+            errors.push('Protein must be between 0 and 200g')
+          }
+
+          const carbs = Number(item.carbs)
+          if (isNaN(carbs) || carbs < 0 || carbs > 300) {
+            errors.push('Carbs must be between 0 and 300g')
+          }
+
+          const fat = Number(item.fat)
+          if (isNaN(fat) || fat < 0 || fat > 200) {
+            errors.push('Fat must be between 0 and 200g')
+          }
+
+          const calcium = Number(item.calcium ?? 0)
+          if (isNaN(calcium) || calcium < 0 || calcium > 3000) {
+            errors.push('Calcium must be between 0 and 3000mg')
+          }
+
+          const zinc = Number(item.zinc ?? 0)
+          if (isNaN(zinc) || zinc < 0 || zinc > 100) {
+            errors.push('Zinc must be between 0 and 100mg')
+          }
+
+          const vitaminD3 = Number(item.vitaminD3 ?? 0)
+          if (isNaN(vitaminD3) || vitaminD3 < 0 || vitaminD3 > 10000) {
+            errors.push('Vitamin D3 must be between 0 and 10000 IU')
+          }
+
+          const clinicalRationale = String(item.clinicalRationale || '').trim()
+          if (!clinicalRationale || clinicalRationale.length < 10) {
+            errors.push('Clinical rationale must be at least 10 characters')
+          }
+
+          rows.push({
+            rowNum: idx + 1,
+            name,
+            servingSize,
+            category,
+            calories: isNaN(calories) ? 0 : calories,
+            protein: isNaN(protein) ? 0 : protein,
+            carbs: isNaN(carbs) ? 0 : carbs,
+            fat: isNaN(fat) ? 0 : fat,
+            calcium: isNaN(calcium) ? 0 : calcium,
+            zinc: isNaN(zinc) ? 0 : zinc,
+            vitaminD3: isNaN(vitaminD3) ? 0 : vitaminD3,
+            clinicalRationale,
+            isValid: errors.length === 0,
+            errors,
+          })
+        })
+
+        setBulkValidatedRows(rows)
+        return
+      } catch (e) {
+        // Not JSON, fall through to CSV
+      }
+    }
+
+    // B. CSV parsing
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0)
+    if (lines.length < 2) {
+      setBulkValidatedRows([])
+      return
+    }
+
+    const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
+    const nameIdx = headers.findIndex((h) => h.includes('name') || h.includes('food'))
+    const servIdx = headers.findIndex((h) => h.includes('serv') || h.includes('portion'))
+    const catIdx = headers.findIndex((h) => h.includes('cat'))
+    const calIdx = headers.findIndex((h) => h.includes('cal'))
+    const proIdx = headers.findIndex((h) => h.includes('prot'))
+    const carbIdx = headers.findIndex((h) => h.includes('carb'))
+    const fatIdx = headers.findIndex((h) => h.includes('fat'))
+    const caIdx = headers.findIndex((h) => h.includes('calc') || h === 'ca')
+    const znIdx = headers.findIndex((h) => h.includes('zinc') || h === 'zn')
+    const d3Idx = headers.findIndex((h) => h.includes('d3') || h.includes('vitamind'))
+    const ratIdx = headers.findIndex((h) => h.includes('rationale') || h.includes('benefit') || h.includes('desc'))
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i])
+      const errors: string[] = []
+
+      const name = nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx].trim() : ''
+      if (!name || name.length < 2) errors.push('Name must be at least 2 characters')
+
+      const servingSize = servIdx !== -1 && cols[servIdx] ? cols[servIdx].trim() : '100g'
+      if (!servingSize) errors.push('Serving size is required')
+
+      const rawCat = catIdx !== -1 && cols[catIdx] ? cols[catIdx].trim() : 'High Protein'
+      let category: FoodItem['category'] = 'High Protein'
+      const matchedCat = validCategories.find((c) => c.toLowerCase() === rawCat.toLowerCase())
+      if (matchedCat) {
+        category = matchedCat
+      } else {
+        errors.push('Category must match High Protein, Bone Mineralization, Bedtime Anabolic, or Growth Micronutrients')
+      }
+
+      const calRaw = calIdx !== -1 && cols[calIdx] ? parseFloat(cols[calIdx].trim()) : 0
+      const calories = isNaN(calRaw) ? 0 : calRaw
+      if (calories < 0 || calories > 2500) errors.push('Calories must be between 0 and 2500 kcal')
+
+      const proRaw = proIdx !== -1 && cols[proIdx] ? parseFloat(cols[proIdx].trim()) : 0
+      const protein = isNaN(proRaw) ? 0 : proRaw
+      if (protein < 0 || protein > 200) errors.push('Protein must be between 0 and 200g')
+
+      const carbRaw = carbIdx !== -1 && cols[carbIdx] ? parseFloat(cols[carbIdx].trim()) : 0
+      const carbs = isNaN(carbRaw) ? 0 : carbRaw
+      if (carbs < 0 || carbs > 300) errors.push('Carbs must be between 0 and 300g')
+
+      const fatRaw = fatIdx !== -1 && cols[fatIdx] ? parseFloat(cols[fatIdx].trim()) : 0
+      const fat = isNaN(fatRaw) ? 0 : fatRaw
+      if (fat < 0 || fat > 200) errors.push('Fat must be between 0 and 200g')
+
+      const caRaw = caIdx !== -1 && cols[caIdx] ? parseFloat(cols[caIdx].trim()) : 0
+      const calcium = isNaN(caRaw) ? 0 : caRaw
+      if (calcium < 0 || calcium > 3000) errors.push('Calcium must be between 0 and 3000mg')
+
+      const znRaw = znIdx !== -1 && cols[znIdx] ? parseFloat(cols[znIdx].trim()) : 0
+      const zinc = isNaN(znRaw) ? 0 : znRaw
+      if (zinc < 0 || zinc > 100) errors.push('Zinc must be between 0 and 100mg')
+
+      const d3Raw = d3Idx !== -1 && cols[d3Idx] ? parseFloat(cols[d3Idx].trim()) : 0
+      const vitaminD3 = isNaN(d3Raw) ? 0 : d3Raw
+      if (vitaminD3 < 0 || vitaminD3 > 10000) errors.push('Vitamin D3 must be between 0 and 10000 IU')
+
+      const clinicalRationale = ratIdx !== -1 && cols[ratIdx] ? cols[ratIdx].trim() : ''
+      if (!clinicalRationale || clinicalRationale.length < 10) {
+        errors.push('Clinical rationale must be at least 10 characters')
+      }
+
+      rows.push({
+        rowNum: i,
+        name,
+        servingSize,
+        category,
+        calories,
+        protein,
+        carbs,
+        fat,
+        calcium,
+        zinc,
+        vitaminD3,
+        clinicalRationale,
+        isValid: errors.length === 0,
+        errors,
+      })
+    }
+
+    setBulkValidatedRows(rows)
+  }
+
+  const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBulkFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      if (content) {
+        validateAndParseBulkData(content)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleCommitBulkUpload = () => {
+    const validRows = bulkValidatedRows.filter((r) => r.isValid)
+    if (validRows.length === 0) {
+      showToast('No valid food rows found to import', 'error')
+      return
+    }
+
+    const newFoods: FoodItem[] = validRows.map((r, idx) => ({
+      id: `food-${Date.now()}-${idx + 1}`,
+      name: r.name,
+      servingSize: r.servingSize,
+      category: r.category,
+      calories: r.calories,
+      protein: r.protein,
+      carbs: r.carbs,
+      fat: r.fat,
+      calcium: r.calcium,
+      zinc: r.zinc,
+      vitaminD3: r.vitaminD3,
+      clinicalRationale: r.clinicalRationale,
+      active: true,
+    }))
+
+    onUpdateFoods([...newFoods, ...foods])
+    showToast(`Successfully imported ${newFoods.length} verified clinical foods!`, 'success')
+    setIsBulkModalOpen(false)
+    setBulkRawInput('')
+    setBulkValidatedRows([])
+    setBulkFileName('')
+  }
+
+  // -------------------------------------------------------------
+  // SINGLE ITEM MODAL HANDLERS
+  // -------------------------------------------------------------
   const openCreateModal = () => {
     setEditingFood(null)
     setFormName('')
@@ -54,6 +476,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormVitaminD3(0)
     setFormRationale('')
     setFormActive(true)
+    setMediaPreviewUrl(null)
+    setMediaFile(null)
     setIsModalOpen(true)
   }
 
@@ -71,6 +495,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormVitaminD3(food.vitaminD3)
     setFormRationale(food.clinicalRationale)
     setFormActive(food.active)
+    setMediaPreviewUrl(null)
+    setMediaFile(null)
     setIsModalOpen(true)
   }
 
@@ -99,6 +525,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
           : f
       )
       onUpdateFoods(updated)
+      showToast('Food item updated successfully!', 'success')
     } else {
       const newFood: FoodItem = {
         id: `food-${Date.now()}`,
@@ -116,6 +543,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
         active: formActive,
       }
       onUpdateFoods([newFood, ...foods])
+      showToast('New clinical food added to database!', 'success')
     }
     setIsModalOpen(false)
   }
@@ -123,6 +551,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const handleDelete = (id: string) => {
     if (confirm('Delete this verified food item from the clinical nutrition database?')) {
       onUpdateFoods(foods.filter((f) => f.id !== id))
+      showToast('Food removed from database.', 'success')
     }
   }
 
@@ -142,25 +571,48 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   })
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Top Filter Bar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-14">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold border backdrop-blur-xl ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 text-emerald-100 border-emerald-500/40'
+                : 'bg-rose-900/90 text-rose-100 border-rose-500/40'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-none" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-400 flex-none" />
+            )}
+            <span>{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Top Filter and Action Bar */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-3xl bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-xs">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search foods, calcium, protein..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-56"
+              className="pl-9 pr-4 py-2 bg-slate-50/90 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-64 font-medium"
             />
           </div>
 
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="px-3.5 py-2 bg-slate-50/90 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="all">All Nutritional Categories</option>
             <option value="High Protein">High Protein</option>
@@ -170,323 +622,643 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
           </select>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm shadow-blue-600/30 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Verified Food</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* Bulk Upload Foods Button */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setIsBulkModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <UploadCloud className="w-4 h-4 text-emerald-600" />
+            <span>Bulk Upload Foods</span>
+          </motion.button>
+
+          {/* Add Verified Food Button */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-extrabold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Verified Food</span>
+          </motion.button>
+        </div>
       </div>
 
-      {/* Foods Table */}
-      <div className="admin-card overflow-hidden">
+      {/* Foods Table with Sleek Glassmorphism & Hover Pop Animation */}
+      <div className="rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-300">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                <th className="py-3 px-4">Food Item & Serving</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Calories</th>
-                <th className="py-3 px-4">Macros (P / C / F)</th>
-                <th className="py-3 px-4">Bone Minerals (Ca / Zn / D3)</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                <th className="py-3.5 px-5">Food Item &amp; Serving</th>
+                <th className="py-3.5 px-4">Category</th>
+                <th className="py-3.5 px-4">Calories</th>
+                <th className="py-3.5 px-4">Macros (P / C / F)</th>
+                <th className="py-3.5 px-4">Bone Minerals (Ca / Zn / D3)</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredFoods.map((food) => (
-                <tr
-                  key={food.id}
-                  className={`hover:bg-slate-50/80 transition-colors ${
-                    !food.active ? 'opacity-60 bg-slate-50/30' : ''
-                  }`}
-                >
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-900">{food.name}</div>
-                    <div className="text-[11px] text-slate-400">{food.servingSize}</div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        food.category === 'High Protein'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                          : food.category === 'Bone Mineralization'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : food.category === 'Bedtime Anabolic'
-                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {food.category}
-                    </span>
-                  </td>
-
-                  <td className="py-3.5 px-4 font-semibold text-slate-800">
-                    {food.calories} kcal
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-blue-600">{food.protein}g P</span>
-                      <span className="text-slate-300">/</span>
-                      <span className="text-slate-600">{food.carbs}g C</span>
-                      <span className="text-slate-300">/</span>
-                      <span className="text-slate-600">{food.fat}g F</span>
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <div className="text-[11px] text-slate-600">
-                      <span className="font-semibold text-emerald-700">{food.calcium}mg Ca</span> •{' '}
-                      <span>{food.zinc}mg Zn</span>{' '}
-                      {food.vitaminD3 > 0 && (
-                        <span>• <strong className="text-amber-700">{food.vitaminD3} IU D3</strong></span>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <button
-                      onClick={() => handleToggleActive(food.id)}
-                      title={food.active ? 'Active on Mobile' : 'Inactive'}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors ${
-                        food.active
-                          ? 'bg-emerald-500 text-white border-emerald-600'
-                          : 'bg-slate-200 text-slate-500 border-slate-300'
-                      }`}
-                    >
-                      {food.active ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    </button>
-                  </td>
-
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEditModal(food)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Food"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(food.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Food"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+              {filteredFoods.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <Utensils className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p className="font-bold text-slate-600 text-sm">No foods match the filter</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Use Add Food or Bulk Upload to add verified clinical items.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredFoods.map((food) => (
+                  <tr
+                    key={food.id}
+                    className={`hover:bg-blue-50/40 transition-colors ${
+                      !food.active ? 'opacity-60 bg-slate-50/40' : ''
+                    }`}
+                  >
+                    <td className="py-3.5 px-5">
+                      <div className="font-extrabold text-slate-900 text-sm">{food.name}</div>
+                      <div className="text-[11px] text-slate-400 font-medium">{food.servingSize}</div>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          food.category === 'High Protein'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : food.category === 'Bone Mineralization'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : food.category === 'Bedtime Anabolic'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {food.category}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-4 font-bold text-slate-800">
+                      {food.calories} kcal
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span className="text-blue-600">{food.protein}g P</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-slate-600">{food.carbs}g C</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-slate-600">{food.fat}g F</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+                        <span title="Calcium">{food.calcium}mg Ca</span>
+                        <span className="text-slate-300">•</span>
+                        <span title="Zinc">{food.zinc}mg Zn</span>
+                        <span className="text-slate-300">•</span>
+                        <span title="Vitamin D3">{food.vitaminD3} IU D3</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <button
+                        onClick={() => handleToggleActive(food.id)}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all ${
+                          food.active
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}
+                      >
+                        {food.active ? 'Active' : 'Hidden'}
+                      </button>
+                    </td>
+
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEditModal(food)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="Edit Food"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(food.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Food"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal: Add or Edit Food */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden modal-content-animate">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Utensils className="w-5 h-5 text-blue-600" />
-                <h2 className="text-base font-bold text-slate-900">
-                  {editingFood ? 'Edit Verified Food Item' : 'Add Verified Food Item'}
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Food Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Greek Yogurt 0%"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
+      {/* ============================================================== */}
+      {/* MODAL 1: FOOD BULK UPLOAD MODAL WITH 100% SCHEMA VALIDATION    */}
+      {/* ============================================================== */}
+      <AnimatePresence>
+        {isBulkModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <UploadCloud className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Bulk Import Verified Nutrition &amp; Foods
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Upload standard CSV/JSON with 100% strict clinical macro &amp; micronutrient validation
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Serving Size</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 1 cup (200g)"
-                    value={formServing}
-                    onChange={(e) => setFormServing(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nutritional Category</label>
-                <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="High Protein">High Protein</option>
-                  <option value="Bone Mineralization">Bone Mineralization</option>
-                  <option value="Bedtime Anabolic">Bedtime Anabolic</option>
-                  <option value="Growth Micronutrients">Growth Micronutrients</option>
-                </select>
-              </div>
-
-              {/* Macros Row */}
-              <div className="grid grid-cols-4 gap-2.5">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Calories (kcal)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formCalories}
-                    onChange={(e) => setFormCalories(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Protein (g)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    required
-                    value={formProtein}
-                    onChange={(e) => setFormProtein(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Carbs (g)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    required
-                    value={formCarbs}
-                    onChange={(e) => setFormCarbs(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Fat (g)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    required
-                    value={formFat}
-                    onChange={(e) => setFormFat(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-              </div>
-
-              {/* Bone Micronutrients */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Calcium (mg)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formCalcium}
-                    onChange={(e) => setFormCalcium(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Zinc (mg)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    required
-                    value={formZinc}
-                    onChange={(e) => setFormZinc(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Vitamin D3 (IU)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formVitaminD3}
-                    onChange={(e) => setFormVitaminD3(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Clinical Rationale for Skeletal Growth
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  placeholder="Explain why this food supports epiphyseal cartilage, osteoblasts, or slow-wave sleep..."
-                  value={formRationale}
-                  onChange={(e) => setFormRationale(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="foodActive"
-                  checked={formActive}
-                  onChange={(e) => setFormActive(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="foodActive" className="font-medium text-slate-700 cursor-pointer">
-                  Active (available in mobile nutrition log food picker)
-                </label>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-medium"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-200/60 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                {/* 1-Click Standard Template Downloads */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-emerald-800 text-xs font-black uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Standardized Clinical Nutrition Templates</span>
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      Download the template, fill in your foods and macros, and upload directly.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={downloadCSVTemplate}
+                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Download CSV Template</span>
+                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={downloadJSONTemplate}
+                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Download JSON Template</span>
+                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* File Upload / Paste Area */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Option A: File Picker */}
+                  <div className="p-5 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-all">
+                    <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
+                    <p className="text-xs font-bold text-slate-700 mb-1">
+                      {bulkFileName ? `Selected: ${bulkFileName}` : 'Choose CSV or JSON File'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mb-3">
+                      Drag and drop or select file from device
+                    </p>
+                    <label className="px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs transition-all">
+                      Browse File
+                      <input
+                        type="file"
+                        accept=".csv,.json,text/csv,application/json"
+                        onChange={handleBulkFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Option B: Direct Paste */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Or Paste CSV / JSON Data</span>
+                      {bulkRawInput && (
+                        <button
+                          type="button"
+                          onClick={() => validateAndParseBulkData('')}
+                          className="text-[10px] text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={bulkRawInput}
+                      onChange={(e) => validateAndParseBulkData(e.target.value)}
+                      placeholder='Paste standard CSV with header or JSON array here...'
+                      className="w-full p-3 font-mono text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none flex-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Schema Validation Summary & Table */}
+                {bulkValidatedRows.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                          Validation Analysis ({bulkValidatedRows.length} Rows Detected)
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            {bulkValidatedRows.filter((r) => r.isValid).length} Valid
+                          </span>
+                          {bulkValidatedRows.filter((r) => !r.isValid).length > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                              {bulkValidatedRows.filter((r) => !r.isValid).length} Invalid Rows
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Validation Table */}
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
+                          <tr>
+                            <th className="py-2.5 px-3 w-20">Status</th>
+                            <th className="py-2.5 px-3">Name</th>
+                            <th className="py-2.5 px-3">Category</th>
+                            <th className="py-2.5 px-3">Calories</th>
+                            <th className="py-2.5 px-3">Macros</th>
+                            <th className="py-2.5 px-3">Errors / Rationale</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {bulkValidatedRows.map((row) => (
+                            <tr
+                              key={row.rowNum}
+                              className={row.isValid ? 'bg-white' : 'bg-rose-50/60'}
+                            >
+                              <td className="py-2.5 px-3">
+                                {row.isValid ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                    <Check className="w-3 h-3 stroke-[3]" /> Row {row.rowNum}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                                    <AlertCircle className="w-3 h-3" /> Row {row.rowNum}
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 font-bold text-slate-900">
+                                {row.name || <span className="text-rose-500 italic">Missing</span>}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                <span className="text-[11px] font-bold text-slate-700">{row.category}</span>
+                              </td>
+
+                              <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                {row.calories} kcal
+                              </td>
+
+                              <td className="py-2.5 px-3 font-semibold text-blue-600">
+                                {row.protein}P / {row.carbs}C / {row.fat}F
+                              </td>
+
+                              <td className="py-2.5 px-3 max-w-xs">
+                                {row.isValid ? (
+                                  <p className="text-[11px] text-slate-500 truncate font-normal">
+                                    {row.clinicalRationale}
+                                  </p>
+                                ) : (
+                                  <div className="space-y-0.5">
+                                    {row.errors.map((err, eIdx) => (
+                                      <p key={eIdx} className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                                        • {err}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
+
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm shadow-blue-600/30"
+                  type="button"
+                  disabled={bulkValidatedRows.filter((r) => r.isValid).length === 0}
+                  onClick={handleCommitBulkUpload}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer disabled:cursor-not-allowed transition-all"
                 >
-                  {editingFood ? 'Save Changes' : 'Add Food'}
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>
+                    Commit &amp; Import {bulkValidatedRows.filter((r) => r.isValid).length} Verified Foods
+                  </span>
                 </button>
               </div>
-            </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* ============================================================== */}
+      {/* MODAL 2: SINGLE FOOD ADD / EDIT MODAL WITH DIRECT SUPABASE MEDIA */}
+      {/* ============================================================== */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                    <Utensils className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      {editingFood ? 'Edit Clinical Food Item' : 'Add Verified Food Item'}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Configure serving, macros, and bone mineralization micronutrients
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-200/60 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSave} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Food Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Greek Yogurt 0%"
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Serving Size *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 1 cup (200g)"
+                      value={formServing}
+                      onChange={(e) => setFormServing(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Nutritional Category</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="High Protein">High Protein</option>
+                    <option value="Bone Mineralization">Bone Mineralization</option>
+                    <option value="Bedtime Anabolic">Bedtime Anabolic</option>
+                    <option value="Growth Micronutrients">Growth Micronutrients</option>
+                  </select>
+                </div>
+
+                {/* Direct Supabase Storage Photo Upload */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Food Image (Direct Supabase Storage Upload)
+                  </label>
+                  <div
+                    {...getMediaRootProps()}
+                    className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                      isMediaDragActive
+                        ? 'border-blue-500 bg-blue-50/50'
+                        : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input {...getMediaInputProps()} />
+                    {isUploadingMedia ? (
+                      <div className="flex items-center gap-2 text-blue-600 font-bold">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Uploading directly to Supabase...</span>
+                      </div>
+                    ) : mediaPreviewUrl ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={mediaPreviewUrl}
+                          alt="Uploaded Food"
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-200"
+                        />
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Uploaded to Supabase
+                          </p>
+                          <p className="text-[10px] text-slate-400">Click or drag another to replace</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
+                        <p className="text-xs font-bold text-slate-700">Drop image here or click to browse</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Stored in Supabase 'exercise-media/foods' bucket</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Macros Row */}
+                <div className="grid grid-cols-4 gap-2.5">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Calories (kcal)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={formCalories}
+                      onChange={(e) => setFormCalories(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Protein (g)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      required
+                      value={formProtein}
+                      onChange={(e) => setFormProtein(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold text-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Carbs (g)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      required
+                      value={formCarbs}
+                      onChange={(e) => setFormCarbs(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Fat (g)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      required
+                      value={formFat}
+                      onChange={(e) => setFormFat(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Bone Micronutrients */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Calcium (mg)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={formCalcium}
+                      onChange={(e) => setFormCalcium(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Zinc (mg)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      required
+                      value={formZinc}
+                      onChange={(e) => setFormZinc(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1">Vitamin D3 (IU)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={formVitaminD3}
+                      onChange={(e) => setFormVitaminD3(Number(e.target.value))}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Clinical Rationale for Skeletal Growth
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Explain why this food supports epiphyseal cartilage, osteoblasts, or slow-wave sleep..."
+                    value={formRationale}
+                    onChange={(e) => setFormRationale(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="foodActive"
+                    checked={formActive}
+                    onChange={(e) => setFormActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="foodActive" className="font-bold text-slate-700 cursor-pointer">
+                    Active (visible in mobile nutrition log food catalog)
+                  </label>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md shadow-blue-600/20 cursor-pointer transition-all"
+                  >
+                    {editingFood ? 'Save Changes' : 'Add Food'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
-
