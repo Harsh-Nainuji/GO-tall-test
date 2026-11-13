@@ -17,7 +17,12 @@ import {
   User,
   ShieldCheck,
   BookOpen,
+  Zap,
+  Clock,
+  Crown,
+  AlertCircle,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useAppStore, ChatMessage } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
 
@@ -86,15 +91,24 @@ const QUICK_PROMPT_CHIPS: PromptChip[] = [
 ];
 
 export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
+  const router = useRouter();
   const chatMessages = useAppStore((state) => state.chatMessages);
   const addChatMessage = useAppStore((state) => state.addChatMessage);
   const quizData = useAppStore((state) => state.quizData);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const getAiQuota = useAppStore((state) => state.getAiQuota);
+  const incrementAiQuestionsUsed = useAppStore((state) => state.incrementAiQuestionsUsed);
+
+  const quota = getAiQuota();
 
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollViewRef = useRef<any>(null);
 
   const handleSendPrompt = (chip: PromptChip) => {
+    if (quota.isExhausted) return;
+    incrementAiQuestionsUsed();
+
     // Add user question
     addChatMessage({
       role: 'user',
@@ -116,7 +130,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   const handleCustomSend = async () => {
     const query = inputText.trim();
-    if (!query) return;
+    if (!query || quota.isExhausted) return;
+
+    incrementAiQuestionsUsed();
 
     addChatMessage({
       role: 'user',
@@ -158,7 +174,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       >
         <View className="bg-white rounded-t-3xl p-6 h-[90%] border-t border-slate-200 flex-col">
           {/* Header */}
-          <View className="flex-row items-center justify-between pb-4 border-b border-slate-100">
+          <View className="flex-row items-center justify-between pb-3 border-b border-slate-100">
             <View className="flex-row items-center gap-2.5">
               <View className="w-9 h-9 rounded-xl bg-blue-600 items-center justify-center shadow-sm">
                 <Bot size={18} color="#FFFFFF" />
@@ -182,6 +198,77 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             </TouchableOpacity>
           </View>
 
+          {/* Hard Limit Quota Banner */}
+          <View className="my-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center gap-2">
+                <View
+                  className={`px-2 py-0.5 rounded-full ${
+                    isPremium ? 'bg-amber-100 border border-amber-300' : 'bg-blue-100 border border-blue-300'
+                  }`}
+                >
+                  <Text
+                    className={`text-[9px] font-black uppercase tracking-wider ${
+                      isPremium ? 'text-amber-800' : 'text-blue-800'
+                    }`}
+                  >
+                    {quota.planName}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Zap size={11} color="#2563EB" />
+                  <Text className="text-xs font-bold text-slate-800">
+                    {quota.remaining} of {quota.limit} questions left
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Clock size={11} color="#64748B" />
+                <Text className="text-[10px] font-semibold text-slate-500">
+                  Resets in {quota.resetCountdown}
+                </Text>
+              </View>
+            </View>
+
+            {/* Quota Progress Bar */}
+            <View className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <View
+                className={`h-full rounded-full ${
+                  quota.remaining === 0
+                    ? 'bg-rose-500'
+                    : quota.remaining <= (isPremium ? 5 : 1)
+                    ? 'bg-amber-500'
+                    : 'bg-blue-600'
+                }`}
+                style={{ width: `${Math.min(100, (quota.remaining / quota.limit) * 100)}%` }}
+              />
+            </View>
+
+            {quota.isExhausted && (
+              <View className="mt-2.5 pt-2 border-t border-slate-200 flex-row items-center justify-between">
+                <View className="flex-row items-center gap-1.5 flex-1 pr-2">
+                  <AlertCircle size={13} color="#E11D48" />
+                  <Text className="text-[11px] font-bold text-rose-600">
+                    Daily limit reached ({quota.limit}/{quota.limit} used).
+                  </Text>
+                </View>
+                {!isPremium && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClose();
+                      router.push('/(onboarding)/paywall');
+                    }}
+                    className="px-2.5 py-1 bg-blue-600 rounded-lg flex-row items-center gap-1"
+                    style={{ elevation: 1 }}
+                  >
+                    <Crown size={11} color="#FFFFFF" />
+                    <Text className="text-[10px] font-black text-white">Upgrade (50/day)</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
           {/* Quick 1-Tap Suggestion Chips Bar */}
           <View className="py-3 border-b border-slate-100">
             <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
@@ -196,10 +283,21 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                 <TouchableOpacity
                   key={chip.id}
                   onPress={() => handleSendPrompt(chip)}
-                  className="px-3 py-1.5 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 rounded-full flex-row items-center gap-1.5"
+                  disabled={quota.isExhausted}
+                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 ${
+                    quota.isExhausted
+                      ? 'bg-slate-100 border border-slate-200 opacity-50'
+                      : 'bg-blue-50/80 border border-blue-200/80'
+                  }`}
                 >
-                  <Sparkles size={12} color="#0066FF" />
-                  <Text className="text-xs font-bold text-blue-700">{chip.label}</Text>
+                  <Sparkles size={12} color={quota.isExhausted ? '#94A3B8' : '#0066FF'} />
+                  <Text
+                    className={`text-xs font-bold ${
+                      quota.isExhausted ? 'text-slate-400' : 'text-blue-700'
+                    }`}
+                  >
+                    {chip.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -279,21 +377,34 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             <TextInput
               value={inputText}
               onChangeText={setInputText}
-              placeholder="Ask about growth plates, nutrition, or stretches..."
+              editable={!quota.isExhausted}
+              placeholder={
+                quota.isExhausted
+                  ? `Daily limit reached. Resets in ${quota.resetCountdown}`
+                  : 'Ask about growth plates, nutrition, or stretches...'
+              }
               placeholderTextColor="#94A3B8"
               onSubmitEditing={handleCustomSend}
-              className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 font-medium"
+              className={`flex-1 p-3 border rounded-2xl text-xs font-medium ${
+                quota.isExhausted
+                  ? 'bg-slate-100 border-slate-200 text-slate-400'
+                  : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}
             />
 
             <TouchableOpacity
               onPress={handleCustomSend}
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || quota.isExhausted}
               className={`w-11 h-11 rounded-2xl items-center justify-center ${
-                inputText.trim() ? 'bg-blue-600' : 'bg-slate-200'
+                inputText.trim() && !quota.isExhausted ? 'bg-blue-600' : 'bg-slate-200'
               }`}
-              style={inputText.trim() ? { elevation: 2, shadowColor: '#2563EB', shadowOpacity: 0.25, shadowRadius: 4 } : undefined}
+              style={
+                inputText.trim() && !quota.isExhausted
+                  ? { elevation: 2, shadowColor: '#2563EB', shadowOpacity: 0.25, shadowRadius: 4 }
+                  : undefined
+              }
             >
-              <Send size={16} color={inputText.trim() ? '#FFFFFF' : '#94A3B8'} />
+              <Send size={16} color={inputText.trim() && !quota.isExhausted ? '#FFFFFF' : '#94A3B8'} />
             </TouchableOpacity>
           </View>
         </View>

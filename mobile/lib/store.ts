@@ -848,6 +848,19 @@ interface AppState {
   // App Walkthrough Guided Tour
   hasSeenAppTour: boolean;
 
+  // AI Advisor Quota State
+  aiQuestionsUsedToday: number;
+  lastAiQuestionDate: string;
+  incrementAiQuestionsUsed: () => void;
+  getAiQuota: () => {
+    limit: number;
+    used: number;
+    remaining: number;
+    resetCountdown: string;
+    planName: string;
+    isExhausted: boolean;
+  };
+
   // Actions
   setQuizData: (data: QuizData) => void;
   setPremium: (status: boolean) => void;
@@ -923,6 +936,10 @@ export const useAppStore = create<AppState>()(
 
       // Guided Tour state
       hasSeenAppTour: false,
+
+      // AI Advisor Quota state
+      aiQuestionsUsedToday: 0,
+      lastAiQuestionDate: new Date().toISOString().split('T')[0],
 
       // Initial logged meals
       meals: [
@@ -1069,6 +1086,43 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ chatMessages: [...state.chatMessages, newMsg] }));
       },
 
+      incrementAiQuestionsUsed: () => {
+        const today = new Date().toISOString().split('T')[0];
+        const s = get();
+        if (s.lastAiQuestionDate !== today) {
+          set({ lastAiQuestionDate: today, aiQuestionsUsedToday: 1 });
+        } else {
+          set({ aiQuestionsUsedToday: s.aiQuestionsUsedToday + 1 });
+        }
+      },
+
+      getAiQuota: () => {
+        const s = get();
+        const today = new Date().toISOString().split('T')[0];
+        const isToday = s.lastAiQuestionDate === today;
+        const used = isToday ? s.aiQuestionsUsedToday : 0;
+        const limit = s.isPremium ? 50 : 5;
+        const remaining = Math.max(0, limit - used);
+        const planName = s.isPremium ? 'Pro Clinical' : 'Free Plan';
+
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0);
+        const diffMs = Math.max(0, midnight.getTime() - now.getTime());
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const resetCountdown = `${hours}h ${minutes}m`;
+
+        return {
+          limit,
+          used,
+          remaining,
+          resetCountdown,
+          planName,
+          isExhausted: remaining <= 0,
+        };
+      },
+
       checkBadges: () => {
         const state = get();
         const totalProtein = state.meals.reduce((sum, m) => sum + m.protein, 0);
@@ -1159,6 +1213,8 @@ export const useAppStore = create<AppState>()(
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
+          aiQuestionsUsedToday: 0,
+          lastAiQuestionDate: new Date().toISOString().split('T')[0],
         });
       },
 
@@ -1187,6 +1243,8 @@ export const useAppStore = create<AppState>()(
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
+          aiQuestionsUsedToday: 0,
+          lastAiQuestionDate: new Date().toISOString().split('T')[0],
         });
       },
 
@@ -1243,6 +1301,8 @@ export const useAppStore = create<AppState>()(
         categories: state.categories,
         categoryQuestions: state.categoryQuestions,
         hasSeenAppTour: state.hasSeenAppTour,
+        aiQuestionsUsedToday: state.aiQuestionsUsedToday,
+        lastAiQuestionDate: state.lastAiQuestionDate,
       }),
     }
   )

@@ -133,3 +133,134 @@ function getOfflineClinicalResponse(
   };
 }
 
+export interface EstimatedMealMacros {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  category: 'Breakfast' | 'Lunch' | 'Dinner' | 'Bedtime Anabolic' | 'Snack';
+  highlight: string;
+}
+
+/**
+ * AI Nutrition Macro Estimator powered by Gemini 3.5 Flash Lite
+ * Calculates calories, protein, carbs, fat, and meal category for custom user foods.
+ */
+export async function estimateMealMacros(foodName: string): Promise<EstimatedMealMacros> {
+  const defaultFallback: EstimatedMealMacros = getOfflineEstimatedMacros(foodName);
+
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key' || !foodName.trim()) {
+    return defaultFallback;
+  }
+
+  const prompt = `You are a clinical sports nutritionist and pediatric growth dietician.
+Estimate the nutritional macro profile for this meal: "${foodName.trim()}".
+Return ONLY a valid JSON object with exactly these fields (no markdown, no backticks):
+{
+  "calories": <integer in kcal>,
+  "protein": <integer in grams>,
+  "carbs": <integer in grams>,
+  "fat": <integer in grams>,
+  "category": <one of "Breakfast", "Lunch", "Dinner", "Bedtime Anabolic", "Snack">,
+  "highlight": <brief 3-5 word benefit, e.g. "High Leucine Bone Fuel">
+}`;
+
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 200,
+    },
+  };
+
+  const candidateModels = Array.from(
+    new Set([GEMINI_MODEL, 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'])
+  );
+
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(rawText);
+
+        return {
+          calories: Math.max(10, Math.round(Number(parsed.calories) || defaultFallback.calories)),
+          protein: Math.max(0, Math.round(Number(parsed.protein) || defaultFallback.protein)),
+          carbs: Math.max(0, Math.round(Number(parsed.carbs) || defaultFallback.carbs)),
+          fat: Math.max(0, Math.round(Number(parsed.fat) || defaultFallback.fat)),
+          category: (['Breakfast', 'Lunch', 'Dinner', 'Bedtime Anabolic', 'Snack'].includes(parsed.category)
+            ? parsed.category
+            : defaultFallback.category) as any,
+          highlight: String(parsed.highlight || defaultFallback.highlight),
+        };
+      }
+    } catch (e) {
+      // Cascade to next model or offline heuristic
+    }
+  }
+
+  return defaultFallback;
+}
+
+/**
+ * Offline clinical macro heuristics for common foods
+ */
+function getOfflineEstimatedMacros(foodName: string): EstimatedMealMacros {
+  const query = foodName.toLowerCase();
+
+  if (query.includes('chicken') || query.includes('poultry')) {
+    return { calories: 330, protein: 42, carbs: 4, fat: 12, category: 'Lunch', highlight: 'High Skeletal Leucine' };
+  }
+  if (query.includes('egg') || query.includes('omelet') || query.includes('omelette')) {
+    return { calories: 210, protein: 18, carbs: 2, fat: 14, category: 'Breakfast', highlight: 'Choline & Vitamin D3' };
+  }
+  if (query.includes('yogurt') || query.includes('curd') || query.includes('dahi')) {
+    return { calories: 140, protein: 20, carbs: 9, fat: 1, category: 'Breakfast', highlight: '250mg Bone Calcium' };
+  }
+  if (query.includes('paneer') || query.includes('cottage cheese')) {
+    return { calories: 290, protein: 24, carbs: 6, fat: 20, category: 'Bedtime Anabolic', highlight: 'Slow Micellar Casein' };
+  }
+  if (query.includes('dal') || query.includes('lentil') || query.includes('beans')) {
+    return { calories: 260, protein: 16, carbs: 40, fat: 4, category: 'Dinner', highlight: 'Plant Amino Acids & Iron' };
+  }
+  if (query.includes('roti') || query.includes('chapati') || query.includes('bread')) {
+    return { calories: 220, protein: 7, carbs: 42, fat: 3, category: 'Lunch', highlight: 'Complex Carbohydrates' };
+  }
+  if (query.includes('rice') || query.includes('biryani') || query.includes('pulao')) {
+    return { calories: 420, protein: 22, carbs: 58, fat: 12, category: 'Dinner', highlight: 'Glycogen Replenishment' };
+  }
+  if (query.includes('salmon') || query.includes('fish') || query.includes('tuna')) {
+    return { calories: 320, protein: 36, carbs: 0, fat: 18, category: 'Dinner', highlight: 'Omega-3 & Vitamin D3' };
+  }
+  if (query.includes('shake') || query.includes('smoothie') || query.includes('protein')) {
+    return { calories: 280, protein: 30, carbs: 28, fat: 4, category: 'Snack', highlight: 'Rapid Chondrocyte Uptake' };
+  }
+  if (query.includes('milk')) {
+    return { calories: 150, protein: 8, carbs: 12, fat: 8, category: 'Bedtime Anabolic', highlight: 'Calcium & IGF-1 Catalyst' };
+  }
+
+  // General balanced default
+  return {
+    calories: 320,
+    protein: 20,
+    carbs: 35,
+    fat: 10,
+    category: 'Lunch',
+    highlight: 'Balanced Growth Matrix',
+  };
+}
+

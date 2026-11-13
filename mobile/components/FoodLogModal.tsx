@@ -8,9 +8,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { X, Utensils, Plus, Check, Sparkles, Flame } from 'lucide-react-native';
+import { X, Utensils, Plus, Check, Sparkles, Flame, Bot } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useAppStore, LoggedMeal } from '../lib/store';
+import { estimateMealMacros } from '../lib/gemini';
 
 interface FoodLogModalProps {
   visible: boolean;
@@ -110,6 +113,29 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateHighlight, setEstimateHighlight] = useState<string | null>(null);
+
+  const handleAutoEstimateMacros = async () => {
+    if (!mealName.trim()) return;
+    setIsEstimating(true);
+    setEstimateHighlight(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    try {
+      const result = await estimateMealMacros(mealName);
+      setCalories(String(result.calories));
+      setProtein(String(result.protein));
+      setCarbs(String(result.carbs));
+      setFat(String(result.fat));
+      setCategory(result.category);
+      setEstimateHighlight(result.highlight);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (err) {
+      // Handled gracefully
+    } finally {
+      setIsEstimating(false);
+    }
+  };
   const [category, setCategory] = useState<LoggedMeal['category']>('Breakfast');
 
   const handleSelectPreset = (preset: QuickFoodPreset) => {
@@ -255,11 +281,46 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
                   <Text className="text-xs font-bold text-slate-700 mb-1">Food / Meal Name</Text>
                   <TextInput
                     value={mealName}
-                    onChangeText={setMealName}
-                    placeholder="e.g. Scrambled Eggs & Whole Wheat Toast"
+                    onChangeText={(t) => {
+                      setMealName(t);
+                      if (estimateHighlight) setEstimateHighlight(null);
+                    }}
+                    placeholder="e.g. 2 Paneer Parathas, Salmon Bowl, or Chicken Salad"
                     placeholderTextColor="#94A3B8"
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
                   />
+
+                  {/* AI Macro Estimator Button */}
+                  {mealName.trim().length > 1 && (
+                    <TouchableOpacity
+                      onPress={handleAutoEstimateMacros}
+                      disabled={isEstimating}
+                      activeOpacity={0.8}
+                      className="flex-row items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 border border-blue-200 rounded-xl mt-2"
+                    >
+                      {isEstimating ? (
+                        <>
+                          <ActivityIndicator size="small" color="#2563EB" />
+                          <Text className="text-xs font-bold text-blue-700">Calculating macros with AI...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={13} color="#2563EB" />
+                          <Text className="text-xs font-bold text-blue-700">✨ Auto-Estimate Macros with AI</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {/* AI Estimation Result Banner */}
+                  {estimateHighlight ? (
+                    <View className="flex-row items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 mt-2">
+                      <Check size={12} color="#059669" />
+                      <Text className="text-[11px] font-bold text-emerald-800">
+                        AI Calculated: {estimateHighlight}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Category Picker */}

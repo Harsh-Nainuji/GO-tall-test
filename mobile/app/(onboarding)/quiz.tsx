@@ -68,13 +68,8 @@ export default function QuizScreen() {
   const [activityLevel, setActivityLevel] = useState<string>('Moderate Active');
   const [motivation, setMotivation] = useState<string>('Maximize my genetic height potential');
 
-  // Dynamic Category Questions from Admin Store
-  const categoryQuestions = useAppStore((state) => state.categoryQuestions || []);
-  const categories = useAppStore((state) => state.categories || []);
-  const activeCategoryQuestions = categoryQuestions.filter((q) => q.active);
-  const [categoryAnswers, setCategoryAnswers] = useState<Record<string, string>>({});
-
-  const totalSteps = 15 + activeCategoryQuestions.length;
+  // 15 Core Biometric Questions for Tanner-Whitehouse III & Posture Evaluation
+  const totalSteps = 15;
   const progressPercent = (currentStep / totalSteps) * 100;
 
   // Stages definition for clear user context
@@ -82,8 +77,7 @@ export default function QuizScreen() {
     if (step <= 3) return { stage: 1, title: 'Genetic & Biological Foundations' };
     if (step <= 6) return { stage: 2, title: 'Current Physical Stature & Velocity' };
     if (step <= 9) return { stage: 3, title: 'Mid-Parental Tanner Calculation' };
-    if (step <= 15) return { stage: 4, title: 'Hormonal & Lifestyle Catalysts' };
-    return { stage: 5, title: 'Targeted Category Diagnostic' };
+    return { stage: 4, title: 'Hormonal & Lifestyle Catalysts' };
   };
 
   const currentStage = getStageInfo(currentStep);
@@ -1036,82 +1030,6 @@ export default function QuizScreen() {
               </View>
             </Animated.View>
           )}
-
-          {/* ========================================================================= */}
-          {/* DYNAMIC CATEGORY QUESTIONS (STEPS 16+ FROM ADMIN TEMPLATE)                */}
-          {/* ========================================================================= */}
-          {currentStep > 15 && (() => {
-            const cqIndex = currentStep - 16;
-            const cq = activeCategoryQuestions[cqIndex];
-            if (!cq) return null;
-            const cat = categories.find((c) => c.id === cq.categoryId);
-            const currentSelected = categoryAnswers[cq.id] || (cq.options[0]?.label ?? '');
-
-            return (
-              <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-                <View style={styles.categoryQuestionHeader}>
-                  <Text style={styles.questionNumber}>
-                    QUESTION {currentStep} OF {totalSteps}
-                  </Text>
-                  {cat && (
-                    <View style={[styles.catBadgePill, { backgroundColor: `${cat.color || '#0284C7'}18` }]}>
-                      <Text style={styles.catBadgeIcon}>{cat.icon || '🎯'}</Text>
-                      <Text style={[styles.catBadgeName, { color: cat.color || '#0284C7' }]}>
-                        {cat.name}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <Text style={styles.questionTitle}>{cq.questionText}</Text>
-                <Text style={styles.questionSubtitle}>{cq.subtitle}</Text>
-
-                <View style={styles.cardList}>
-                  {cq.options.map((opt, oIdx) => {
-                    const isSelected = currentSelected === opt.label;
-                    return (
-                      <TouchableOpacity
-                        key={oIdx}
-                        style={[
-                          styles.optionCard,
-                          isSelected ? styles.optionCardActive : styles.optionCardInactive,
-                        ]}
-                        onPress={() => {
-                          setCategoryAnswers((prev) => ({ ...prev, [cq.id]: opt.label }));
-                          Haptics.selectionAsync().catch(() => {});
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.optionLeft}>
-                          {opt.icon && (
-                            <View style={styles.optionEmojiWrap}>
-                              <Text style={styles.optionEmoji}>{opt.icon}</Text>
-                            </View>
-                          )}
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.optionTitle}>{opt.label}</Text>
-                            {opt.sublabel && (
-                              <Text style={styles.optionDescription}>{opt.sublabel}</Text>
-                            )}
-                          </View>
-                        </View>
-                        <View
-                          style={[
-                            styles.checkCircle,
-                            isSelected && styles.checkCircleActive,
-                          ]}
-                        >
-                          {isSelected && (
-                            <Check size={14} color="#FFFFFF" strokeWidth={3} />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </Animated.View>
-            );
-          })()}
 
           {/* Continue / Next Button */}
           <View style={styles.bottomCtaRow}>

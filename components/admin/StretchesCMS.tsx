@@ -29,6 +29,11 @@ import {
   Palette,
   Sliders,
   Eye,
+  Download,
+  FileSpreadsheet,
+  FileCode,
+  CheckCheck,
+  FileText,
 } from 'lucide-react'
 import {
   SpinalStretch,
@@ -118,6 +123,347 @@ export function StretchesCMS({
   const [mediaType, setMediaType] = useState<'video' | 'gif' | 'image' | undefined>(undefined)
   const [mediaFileName, setMediaFileName] = useState<string | undefined>(undefined)
   const [isUploading, setIsUploading] = useState(false)
+
+  // Bulk Upload State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [bulkRawInput, setBulkRawInput] = useState('')
+  const [bulkFileName, setBulkFileName] = useState('')
+  const [bulkValidatedRows, setBulkValidatedRows] = useState<
+    Array<{
+      rowNum: number
+      title: string
+      category: string
+      targetZone: string
+      durationSeconds: number
+      intensity: 'Beginner' | 'Intermediate' | 'Advanced'
+      clinicalBenefit: string
+      instructions: string[]
+      media_type: 'video' | 'gif' | 'image'
+      media_url?: string
+      isValid: boolean
+      errors: string[]
+    }>
+  >([])
+
+  const downloadCSVTemplate = () => {
+    const csvContent =
+      'title,category,targetZone,durationSeconds,intensity,clinicalBenefit,instructions,media_type,media_url\n' +
+      '"Prone Cobra Thoracic Arch","Height Growth","Lumbar Lordosis",45,"Beginner","Promotes lumbar lordosis and rehydrates intervertebral discs","Lie face down; Press palms to lift chest; Breathe deeply for 45 seconds","image","https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"\n' +
+      '"Dead Hang Bar Traction","Height Growth","Lumbar & Thoracic",60,"Beginner","Creates axial decompression across L1-L5 spinal column","Grip overhead bar shoulder-width; Allow feet to hang freely; Relax shoulders; Step down gently","video","https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"\n' +
+      '"Standing Axial Reach","Posture","Full Axial Column",45,"Beginner","De-rotates ribcage and elongates posterior longitudinal ligament before sleep","Stand tall; Interlock fingers overhead palms facing ceiling; Reach upward rising on balls of feet","image","https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80"'
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'gotall_workouts_template.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast('Downloaded CSV Template!', 'success')
+  }
+
+  const downloadJSONTemplate = () => {
+    const jsonContent = JSON.stringify(
+      [
+        {
+          title: 'Prone Cobra Thoracic Arch',
+          category: 'Height Growth',
+          targetZone: 'Lumbar Lordosis',
+          durationSeconds: 45,
+          intensity: 'Beginner',
+          clinicalBenefit: 'Promotes lumbar lordosis and rehydrates intervertebral discs',
+          instructions: [
+            'Lie face down on mat with palms beneath shoulders',
+            'Press palms to lift chest',
+            'Breathe deeply into abdomen for 45 seconds',
+          ],
+          media_type: 'image',
+          media_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80',
+        },
+        {
+          title: 'Dead Hang Bar Traction',
+          category: 'Height Growth',
+          targetZone: 'Lumbar & Thoracic',
+          durationSeconds: 60,
+          intensity: 'Beginner',
+          clinicalBenefit: 'Creates axial decompression across L1-L5 spinal column',
+          instructions: [
+            'Grip overhead bar shoulder-width apart',
+            'Allow feet to hang freely',
+            'Relax shoulders and spine',
+            'Step down smoothly',
+          ],
+          media_type: 'video',
+          media_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        },
+      ],
+      null,
+      2
+    )
+
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'gotall_workouts_template.json')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast('Downloaded JSON Template!', 'success')
+  }
+
+  const parseCSVLine = (text: string): string[] => {
+    const result: string[] = []
+    let cur = ''
+    let inQuotes = false
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      if (char === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          cur += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(cur.trim())
+        cur = ''
+      } else {
+        cur += char
+      }
+    }
+    result.push(cur.trim())
+    return result
+  }
+
+  const validateAndParseBulkData = (rawText: string) => {
+    setBulkRawInput(rawText)
+    const trimmed = rawText.trim()
+    if (!trimmed) {
+      setBulkValidatedRows([])
+      return
+    }
+
+    const rows: Array<{
+      rowNum: number
+      title: string
+      category: string
+      targetZone: string
+      durationSeconds: number
+      intensity: 'Beginner' | 'Intermediate' | 'Advanced'
+      clinicalBenefit: string
+      instructions: string[]
+      media_type: 'video' | 'gif' | 'image'
+      media_url?: string
+      isValid: boolean
+      errors: string[]
+    }> = []
+
+    // Try parsing as JSON first
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        const items = Array.isArray(parsed) ? parsed : [parsed]
+        items.forEach((item: any, idx: number) => {
+          const errors: string[] = []
+          const title = String(item.title || '').trim()
+          if (!title || title.length < 3) errors.push('Title must be at least 3 characters')
+
+          const category = String(item.category || 'Height Growth').trim()
+          const targetZone = String(item.targetZone || '').trim()
+          if (!targetZone || targetZone.length < 3) errors.push('Target zone is required')
+
+          const durationSeconds = Number(item.durationSeconds || 60)
+          if (isNaN(durationSeconds) || durationSeconds < 15 || durationSeconds > 300) {
+            errors.push('Duration must be between 15 and 300 seconds')
+          }
+
+          let intensity: 'Beginner' | 'Intermediate' | 'Advanced' = 'Beginner'
+          const rawInt = String(item.intensity || 'Beginner').trim()
+          if (['Beginner', 'Intermediate', 'Advanced'].includes(rawInt)) {
+            intensity = rawInt as any
+          } else {
+            errors.push('Intensity must be Beginner, Intermediate, or Advanced')
+          }
+
+          const clinicalBenefit = String(item.clinicalBenefit || '').trim()
+          if (!clinicalBenefit || clinicalBenefit.length < 10) {
+            errors.push('Clinical benefit must be at least 10 characters')
+          }
+
+          let instructions: string[] = []
+          if (Array.isArray(item.instructions)) {
+            instructions = item.instructions.map((ins: any) => String(ins).trim()).filter(Boolean)
+          } else if (typeof item.instructions === 'string') {
+            instructions = item.instructions.split(';').map((s: string) => s.trim()).filter(Boolean)
+          }
+          if (instructions.length === 0) {
+            errors.push('At least 1 instruction step is required')
+          }
+
+          let media_type: 'video' | 'gif' | 'image' = 'image'
+          if (['video', 'gif', 'image'].includes(item.media_type)) {
+            media_type = item.media_type
+          }
+
+          const media_url = item.media_url ? String(item.media_url).trim() : undefined
+          if (media_url && !media_url.startsWith('http')) {
+            errors.push('Media URL must start with http:// or https://')
+          }
+
+          rows.push({
+            rowNum: idx + 1,
+            title,
+            category,
+            targetZone,
+            durationSeconds,
+            intensity,
+            clinicalBenefit,
+            instructions,
+            media_type,
+            media_url,
+            isValid: errors.length === 0,
+            errors,
+          })
+        })
+
+        setBulkValidatedRows(rows)
+        return
+      } catch (e) {
+        // Not JSON, fallback to CSV parsing
+      }
+    }
+
+    // CSV Parsing
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0)
+    if (lines.length < 2) {
+      setBulkValidatedRows([])
+      return
+    }
+
+    const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
+    const titleIdx = headers.findIndex((h) => h.includes('title') || h.includes('name'))
+    const catIdx = headers.findIndex((h) => h.includes('category'))
+    const zoneIdx = headers.findIndex((h) => h.includes('zone') || h.includes('target'))
+    const durIdx = headers.findIndex((h) => h.includes('duration') || h.includes('seconds'))
+    const intIdx = headers.findIndex((h) => h.includes('intensity') || h.includes('level'))
+    const benIdx = headers.findIndex((h) => h.includes('benefit') || h.includes('clinical'))
+    const insIdx = headers.findIndex((h) => h.includes('instruction') || h.includes('steps'))
+    const mTypeIdx = headers.findIndex((h) => h.includes('mediatype') || h.includes('type'))
+    const mUrlIdx = headers.findIndex((h) => h.includes('mediaurl') || h.includes('url'))
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i])
+      const errors: string[] = []
+
+      const title = titleIdx !== -1 && cols[titleIdx] ? cols[titleIdx].trim() : ''
+      if (!title || title.length < 3) errors.push('Title must be at least 3 characters')
+
+      const category = catIdx !== -1 && cols[catIdx] ? cols[catIdx].trim() : 'Height Growth'
+      const targetZone = zoneIdx !== -1 && cols[zoneIdx] ? cols[zoneIdx].trim() : ''
+      if (!targetZone || targetZone.length < 3) errors.push('Target zone is required')
+
+      const durationRaw = durIdx !== -1 && cols[durIdx] ? parseInt(cols[durIdx].trim(), 10) : 60
+      const durationSeconds = isNaN(durationRaw) ? 60 : durationRaw
+      if (durationSeconds < 15 || durationSeconds > 300) {
+        errors.push('Duration must be between 15 and 300 seconds')
+      }
+
+      let intensity: 'Beginner' | 'Intermediate' | 'Advanced' = 'Beginner'
+      const rawInt = intIdx !== -1 && cols[intIdx] ? cols[intIdx].trim() : 'Beginner'
+      if (['Beginner', 'Intermediate', 'Advanced'].includes(rawInt)) {
+        intensity = rawInt as any
+      } else {
+        errors.push('Intensity must be Beginner, Intermediate, or Advanced')
+      }
+
+      const clinicalBenefit = benIdx !== -1 && cols[benIdx] ? cols[benIdx].trim() : ''
+      if (!clinicalBenefit || clinicalBenefit.length < 10) {
+        errors.push('Clinical benefit must be at least 10 characters')
+      }
+
+      const instructionsRaw = insIdx !== -1 && cols[insIdx] ? cols[insIdx].trim() : ''
+      const instructions = instructionsRaw
+        ? instructionsRaw.split(';').map((s) => s.trim()).filter(Boolean)
+        : []
+      if (instructions.length === 0) {
+        errors.push('At least 1 instruction step is required (semicolon-separated)')
+      }
+
+      let media_type: 'video' | 'gif' | 'image' = 'image'
+      const rawMType = mTypeIdx !== -1 && cols[mTypeIdx] ? cols[mTypeIdx].trim().toLowerCase() : ''
+      if (['video', 'gif', 'image'].includes(rawMType)) {
+        media_type = rawMType as any
+      }
+
+      const media_url = mUrlIdx !== -1 && cols[mUrlIdx] ? cols[mUrlIdx].trim() : undefined
+      if (media_url && !media_url.startsWith('http')) {
+        errors.push('Media URL must start with http:// or https://')
+      }
+
+      rows.push({
+        rowNum: i,
+        title,
+        category,
+        targetZone,
+        durationSeconds,
+        intensity,
+        clinicalBenefit,
+        instructions,
+        media_type,
+        media_url,
+        isValid: errors.length === 0,
+        errors,
+      })
+    }
+
+    setBulkValidatedRows(rows)
+  }
+
+  const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBulkFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      if (content) {
+        validateAndParseBulkData(content)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleCommitBulkUpload = () => {
+    const validRows = bulkValidatedRows.filter((r) => r.isValid)
+    if (validRows.length === 0) {
+      showToast('No valid rows found to import', 'error')
+      return
+    }
+
+    const newStretches: SpinalStretch[] = validRows.map((r, idx) => ({
+      id: `stretch-${Date.now()}-${idx + 1}`,
+      title: r.title,
+      category: (r.category as any) || 'Height Growth',
+      targetZone: r.targetZone,
+      durationSeconds: r.durationSeconds,
+      intensity: r.intensity,
+      clinicalBenefit: r.clinicalBenefit,
+      instructions: r.instructions,
+      active: true,
+      order: stretches.length + idx + 1,
+      media_type: r.media_type,
+      media_url: r.media_url,
+    }))
+
+    onUpdateStretches([...stretches, ...newStretches])
+    showToast(`Successfully imported ${newStretches.length} workouts!`, 'success')
+    setIsBulkModalOpen(false)
+    setBulkRawInput('')
+    setBulkValidatedRows([])
+    setBulkFileName('')
+  }
 
   // -------------------------------------------------------------
   // WORKOUT MODAL HANDLERS
@@ -588,15 +934,32 @@ export function StretchesCMS({
               </select>
             </div>
 
-            {/* Add Exercise Button */}
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={openCreateModal}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-600/20 transition-all flex-none"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Add Clinical Exercise</span>
-            </motion.button>
+            <div className="flex items-center gap-2.5 flex-none">
+              {/* Bulk Upload Button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  setBulkRawInput('')
+                  setBulkValidatedRows([])
+                  setBulkFileName('')
+                  setIsBulkModalOpen(true)
+                }}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer border border-slate-300 transition-all"
+              >
+                <UploadCloud className="w-4 h-4 text-blue-600 stroke-[2.5]" />
+                <span>Bulk Upload Workouts</span>
+              </motion.button>
+
+              {/* Add Exercise Button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={openCreateModal}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-600/20 transition-all flex-none"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Add Clinical Exercise</span>
+              </motion.button>
+            </div>
           </div>
 
           {/* Grid of Exercises */}
@@ -1565,6 +1928,241 @@ export function StretchesCMS({
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* BULK UPLOAD MODAL (CSV & JSON WITH STRICT VALIDATION)          */}
+        {/* ============================================================== */}
+        {isBulkModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                    <UploadCloud className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Bulk Import Workouts &amp; Stretches
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Upload standard CSV/JSON with 100% strict clinical schema validation
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-200/60 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                {/* 1-Click Standard Template Downloads */}
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-blue-800 text-xs font-black uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Standardized Clinical Templates</span>
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      Download the template, fill in your workouts, and upload directly.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={downloadCSVTemplate}
+                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Download CSV Template</span>
+                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={downloadJSONTemplate}
+                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Download JSON Template</span>
+                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* File Upload / Paste Area */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Option A: File Picker */}
+                  <div className="p-5 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-all">
+                    <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
+                    <p className="text-xs font-bold text-slate-700 mb-1">
+                      {bulkFileName ? `Selected: ${bulkFileName}` : 'Choose CSV or JSON File'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mb-3">
+                      Drag and drop or select file from device
+                    </p>
+                    <label className="px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs transition-all">
+                      Browse File
+                      <input
+                        type="file"
+                        accept=".csv,.json,text/csv,application/json"
+                        onChange={handleBulkFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Option B: Direct Paste */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Or Paste CSV / JSON Data</span>
+                      {bulkRawInput && (
+                        <button
+                          type="button"
+                          onClick={() => validateAndParseBulkData('')}
+                          className="text-[10px] text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={bulkRawInput}
+                      onChange={(e) => validateAndParseBulkData(e.target.value)}
+                      placeholder='Paste standard CSV with header or JSON array here...'
+                      className="w-full p-3 font-mono text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none flex-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Schema Validation Summary & Table */}
+                {bulkValidatedRows.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                          Validation Analysis ({bulkValidatedRows.length} Rows Detected)
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            {bulkValidatedRows.filter((r) => r.isValid).length} Valid
+                          </span>
+                          {bulkValidatedRows.filter((r) => !r.isValid).length > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                              {bulkValidatedRows.filter((r) => !r.isValid).length} Invalid Rows
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Validation Table */}
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
+                          <tr>
+                            <th className="py-2.5 px-3 w-20">Status</th>
+                            <th className="py-2.5 px-3">Title</th>
+                            <th className="py-2.5 px-3">Category</th>
+                            <th className="py-2.5 px-3">Zone</th>
+                            <th className="py-2.5 px-3">Duration</th>
+                            <th className="py-2.5 px-3">Clinical Benefit / Errors</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {bulkValidatedRows.map((row) => (
+                            <tr
+                              key={row.rowNum}
+                              className={row.isValid ? 'bg-white' : 'bg-rose-50/60'}
+                            >
+                              <td className="py-2.5 px-3">
+                                {row.isValid ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                    <Check className="w-3 h-3 stroke-[3]" /> Row {row.rowNum}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                                    <X className="w-3 h-3 stroke-[3]" /> Row {row.rowNum}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 font-bold text-slate-800">
+                                {row.title || <span className="text-rose-500 italic">Empty Title</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600">{row.category}</td>
+                              <td className="py-2.5 px-3 text-slate-600">{row.targetZone || '—'}</td>
+                              <td className="py-2.5 px-3 text-slate-600">{row.durationSeconds}s</td>
+                              <td className="py-2.5 px-3">
+                                {row.isValid ? (
+                                  <span className="text-slate-500 line-clamp-1">{row.clinicalBenefit}</span>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {row.errors.map((err, eIdx) => (
+                                      <span
+                                        key={eIdx}
+                                        className="text-[10px] bg-rose-200/80 text-rose-900 px-1.5 py-0.5 rounded font-bold"
+                                      >
+                                        {err}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <p className="text-xs text-slate-500 font-semibold">
+                  {bulkValidatedRows.filter((r) => r.isValid).length > 0
+                    ? `${bulkValidatedRows.filter((r) => r.isValid).length} ready to import`
+                    : 'Download template or upload file above'}
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={bulkValidatedRows.filter((r) => r.isValid).length === 0}
+                    onClick={handleCommitBulkUpload}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer"
+                  >
+                    <CheckCheck className="w-4 h-4 stroke-[2.5]" />
+                    <span>
+                      Import {bulkValidatedRows.filter((r) => r.isValid).length} Workouts
+                    </span>
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

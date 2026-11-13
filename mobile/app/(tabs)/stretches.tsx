@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
@@ -26,6 +27,7 @@ import {
   HelpCircle,
   X,
   ChevronRight,
+  Tag,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -38,6 +40,7 @@ import StretchTimerModal from '../../components/StretchTimerModal';
 import BadgeModal from '../../components/BadgeModal';
 
 export default function StretchesScreen() {
+  const router = useRouter();
   const completedStretches = useAppStore((state) => state.completedStretches);
   const toggleStretch = useAppStore((state) => state.toggleStretch);
   const newlyUnlockedBadge = useAppStore((state) => state.newlyUnlockedBadge);
@@ -146,10 +149,25 @@ export default function StretchesScreen() {
             <View style={styles.onlineDot} />
           </View>
 
-          <View style={styles.completedBadge}>
-            <Text style={styles.completedBadgeText}>
-              {dayCompleted} of {dayTotal} Done Today
-            </Text>
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                router.push('/workout-categories');
+              }}
+              style={styles.categoriesHeaderBtn}
+            >
+              <Tag size={12} color="#0284C7" />
+              <Text style={styles.categoriesHeaderBtnText}>Categories</Text>
+              <ChevronRight size={12} color="#0284C7" />
+            </TouchableOpacity>
+
+            <View style={styles.completedBadge}>
+              <Text style={styles.completedBadgeText}>
+                {dayCompleted}/{dayTotal} Done
+              </Text>
+            </View>
           </View>
         </Animated.View>
 
@@ -714,6 +732,27 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#10B981',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoriesHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(224, 242, 254, 0.85)',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  categoriesHeaderBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284C7',
   },
   completedBadge: {
     paddingHorizontal: 12,

@@ -22,6 +22,7 @@ import {
   Dumbbell,
   Sparkles,
   CheckCircle2,
+  UserPlus,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -31,11 +32,15 @@ import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import StatureCalculationGraph from '../../components/StatureCalculationGraph';
+import AuthModal from '../../components/AuthModal';
 
 export default function RevealScreen() {
   const router = useRouter();
   const quizData = useAppStore((state) => state.quizData);
+  const user = useAppStore((state) => state.user);
   const [calculationFinished, setCalculationFinished] = useState(false);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authDefaultMode, setAuthDefaultMode] = useState<'signin' | 'signup'>('signup');
 
   const safeData: QuizData = quizData || {
     gender: 'male',
@@ -253,6 +258,60 @@ export default function RevealScreen() {
             </View>
           </Animated.View>
 
+          {/* Growth Profile Creation Option */}
+          <Animated.View entering={FadeInDown.delay(450).springify()}>
+            {user?.isLoggedIn ? (
+              <GlassCard style={styles.profileSavedCard}>
+                <View style={styles.profileSavedIconWrap}>
+                  <CheckCircle2 size={18} color="#10B981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.profileSavedTitle}>Growth Profile Connected</Text>
+                  <Text style={styles.profileSavedSub}>
+                    Trajectory synced to {user.name || user.email}
+                  </Text>
+                </View>
+              </GlassCard>
+            ) : (
+              <GlassCard style={styles.createProfileCard}>
+                <View style={styles.createProfileHeader}>
+                  <View style={styles.createProfileIconWrap}>
+                    <UserPlus size={18} color="#0284C7" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.createProfileTitle}>Save Your Growth Profile</Text>
+                    <Text style={styles.createProfileSub}>
+                      Save your Tanner-Whitehouse trajectory & sync across devices.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.createProfileButtonsRow}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAuthDefaultMode('signup');
+                      setAuthModalVisible(true);
+                    }}
+                    style={styles.signupButton}
+                  >
+                    <Sparkles size={14} color="#FFFFFF" />
+                    <Text style={styles.signupButtonText}>Create Account</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAuthDefaultMode('signin');
+                      setAuthModalVisible(true);
+                    }}
+                    style={styles.signinButton}
+                  >
+                    <Text style={styles.signinButtonText}>Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            )}
+          </Animated.View>
+
           {/* Primary Action Button */}
           <Animated.View entering={FadeInDown.delay(500).springify()}>
             <GlassButton
@@ -275,6 +334,12 @@ export default function RevealScreen() {
             </Text>
           </Animated.View>
         </ScrollView>
+
+        <AuthModal
+          visible={authModalVisible}
+          onClose={() => setAuthModalVisible(false)}
+          defaultMode={authDefaultMode}
+        />
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -559,6 +624,100 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
     lineHeight: 15,
+  },
+  createProfileCard: {
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(186, 230, 253, 0.9)',
+    backgroundColor: 'rgba(240, 249, 255, 0.85)',
+  },
+  createProfileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  createProfileIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createProfileTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  createProfileSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  createProfileButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  signupButton: {
+    flex: 1,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#0284C7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  signupButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  signinButton: {
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signinButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  profileSavedCard: {
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(240, 253, 244, 0.85)',
+    borderColor: 'rgba(187, 247, 208, 0.9)',
+    borderWidth: 1,
+  },
+  profileSavedIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileSavedTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  profileSavedSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#15803D',
   },
   ctaButton: {
     height: 54,
