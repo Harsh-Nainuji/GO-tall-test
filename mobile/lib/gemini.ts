@@ -4,6 +4,12 @@ export const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
   '';
 
+export const GEMINI_MODEL =
+  process.env.EXPO_PUBLIC_GEMINI_MODEL ||
+  process.env.NEXT_PUBLIC_GEMINI_MODEL ||
+  process.env.GEMINI_MODEL ||
+  'gemini-3.5-flash-lite';
+
 export const GEMINI_SYSTEM_INSTRUCTION = `You are the GoTall Clinical Growth Advisor. You provide honest, peer-reviewed pediatric growth and spinal biomechanics guidance.
 Guardrails:
 1. Never promise impossible height gains beyond epiphyseal biology.
@@ -13,7 +19,7 @@ Guardrails:
 5. Conclude with a brief reminder that this is educational guidance, not medical diagnosis.`;
 
 /**
- * Queries Google Gemini 1.5 Flash API with strict pediatric guardrails
+ * Queries Google Gemini API (gemini-3.5-flash-lite) with strict pediatric guardrails
  */
 export async function queryGeminiAdvisor(
   userQuery: string,
@@ -29,53 +35,55 @@ export async function queryGeminiAdvisor(
     return getOfflineClinicalResponse(userQuery, userProfile);
   }
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const contextPrefix = userProfile
+    ? `User context: Age ${userProfile.age || 17}, Biological Sex: ${userProfile.gender || 'Male'}, Current Height: ${userProfile.currentHeight || 172.4} cm, Annual Velocity: ${userProfile.growthRate || '2–5 cm/year'}.\n\n`
+    : '';
 
-    const contextPrefix = userProfile
-      ? `User context: Age ${userProfile.age || 17}, Biological Sex: ${userProfile.gender || 'Male'}, Current Height: ${userProfile.currentHeight || 172.4} cm, Annual Velocity: ${userProfile.growthRate || '2–5 cm/year'}.\n\n`
-      : '';
-
-    const payload = {
-      systemInstruction: {
-        parts: [{ text: GEMINI_SYSTEM_INSTRUCTION }],
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: GEMINI_SYSTEM_INSTRUCTION }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: `${contextPrefix}User Question: ${userQuery}` }],
       },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `${contextPrefix}User Question: ${userQuery}` }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 300,
-      },
-    };
+    ],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 300,
+    },
+  };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+  // Modern Gemini models cascade starting with gemini-3.5-flash-lite
+  const candidateModels = Array.from(
+    new Set([GEMINI_MODEL, 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'])
+  );
 
-    if (!response.ok) {
-      console.warn('Gemini API call failed, falling back to clinical engine');
-      return getOfflineClinicalResponse(userQuery, userProfile);
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const candidateText =
+          data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        if (candidateText) {
+          return {
+            text: candidateText.trim(),
+            citation: `Ref: Gemini (${model}) • Tanner-Whitehouse III & AAP Guidelines`,
+          };
+        }
+      }
+    } catch (err) {
+      // Continue to next model in cascade
     }
-
-    const data = await response.json();
-    const candidateText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      '';
-
-    if (candidateText) {
-      return {
-        text: candidateText.trim(),
-        citation: 'Ref: Gemini 1.5 Flash • Tanner-Whitehouse III & AAP Guidelines',
-      };
-    }
-  } catch (err) {
-    console.warn('Gemini fetch exception:', err);
   }
 
   return getOfflineClinicalResponse(userQuery, userProfile);
