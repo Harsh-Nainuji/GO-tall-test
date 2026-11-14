@@ -27,19 +27,23 @@ import CircularProgressRingGlass from './CircularProgressRingGlass';
 import { useAppStore, StretchExercise } from '../lib/store';
 import { colors } from '../lib/theme';
 import { haptics } from '../lib/animations';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
-let NativeVideoComponent: any = null;
-let NativeResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch' };
+function ExerciseVideoPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const ExpoAv = require('expo-av');
-  if (ExpoAv && ExpoAv.Video) {
-    NativeVideoComponent = ExpoAv.Video;
-    NativeResizeMode = ExpoAv.ResizeMode || NativeResizeMode;
-  }
-} catch {
-  NativeVideoComponent = null;
+  return (
+    <VideoView
+      style={styles.mediaPlayer}
+      player={player}
+      nativeControls={false}
+      contentFit="cover"
+    />
+  );
 }
 
 interface StretchTimerModalProps {
@@ -60,7 +64,6 @@ export default function StretchTimerModal({
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const videoRef = useRef<any>(null);
 
   useEffect(() => {
     if (exercise) {
@@ -115,9 +118,6 @@ export default function StretchTimerModal({
     haptics.selection();
     setIsRunning(false);
     setTimeLeft(totalDuration);
-    if (videoRef.current && typeof videoRef.current.setPositionAsync === 'function') {
-      videoRef.current.setPositionAsync(0).catch(() => {});
-    }
   };
 
   const handleManualComplete = () => {
@@ -158,44 +158,7 @@ export default function StretchTimerModal({
         {/* MEDIA VIEWER */}
         <View style={styles.mediaContainer}>
           {isVideo ? (
-            NativeVideoComponent ? (
-              <NativeVideoComponent
-                ref={videoRef}
-                source={{ uri: exercise.media_url! }}
-                style={styles.mediaPlayer}
-                resizeMode={NativeResizeMode.COVER}
-                shouldPlay={true}
-                isLooping={true}
-                isMuted={true}
-                useNativeControls={false}
-              />
-            ) : (
-              <LinearGradient
-                colors={['#0F172A', '#1E293B', '#0F172A']}
-                style={styles.fallbackMedia}
-              >
-                <View style={styles.fallbackCenterContent}>
-                  <View style={styles.fallbackIconWrap}>
-                    <Film size={28} color="#38BDF8" />
-                  </View>
-                  <Text style={styles.fallbackTitle}>Motion Video</Text>
-                  {exercise.media_url ? (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        if (exercise.media_url) {
-                          Linking.openURL(exercise.media_url).catch(() => {});
-                        }
-                      }}
-                      style={styles.videoLinkPill}
-                    >
-                      <Play size={12} color="#FFFFFF" fill="#FFFFFF" />
-                      <Text style={styles.videoLinkText}>Open Video Guide</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              </LinearGradient>
-            )
+            <ExerciseVideoPlayer uri={exercise.media_url!} />
           ) : isImageOrGif ? (
             <Image
               source={{ uri: exercise.media_url! }}
