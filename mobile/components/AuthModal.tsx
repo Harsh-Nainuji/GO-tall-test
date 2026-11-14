@@ -20,8 +20,10 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  Zap,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 
 import GlassCard from './GlassCard';
 import GlassButton from './GlassButton';
@@ -32,14 +34,20 @@ interface AuthModalProps {
   visible: boolean;
   onClose: () => void;
   defaultMode?: 'signin' | 'signup';
+  onSuccess?: () => void;
+  onSuccessRedirect?: string;
 }
 
 export default function AuthModal({
   visible,
   onClose,
   defaultMode = 'signup',
+  onSuccess,
+  onSuccessRedirect,
 }: AuthModalProps) {
+  const router = useRouter();
   const setUser = useAppStore((state) => state.setUser);
+  const setPremium = useAppStore((state) => state.setPremium);
 
   const [mode, setMode] = useState<'signin' | 'signup'>(defaultMode);
   const [name, setName] = useState('');
@@ -73,6 +81,7 @@ export default function AuthModal({
       };
 
       setUser(mockProfile);
+      setPremium(true);
       setSuccessMessage(`Signed in successfully with ${provider === 'google' ? 'Google' : 'Apple'}!`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
@@ -80,6 +89,10 @@ export default function AuthModal({
         setIsLoading(false);
         setSuccessMessage(null);
         onClose();
+        onSuccess?.();
+        if (onSuccessRedirect) {
+          router.replace(onSuccessRedirect as any);
+        }
       }, 900);
     } catch (err: any) {
       setIsLoading(false);
@@ -130,6 +143,7 @@ export default function AuthModal({
       };
 
       setUser(profile);
+      setPremium(true);
       setSuccessMessage(
         mode === 'signup'
           ? 'Account created successfully! Welcome to GoTall.'
@@ -141,11 +155,39 @@ export default function AuthModal({
         setIsLoading(false);
         setSuccessMessage(null);
         onClose();
+        onSuccess?.();
+        if (onSuccessRedirect) {
+          router.replace(onSuccessRedirect as any);
+        }
       }, 900);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMessage(err.message || 'Authentication error. Please check your credentials.');
     }
+  };
+
+  const handleFastDirectLogin = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setIsLoading(true);
+    const profile: UserProfile = {
+      id: `user-${Date.now()}`,
+      name: 'GoTall Member',
+      email: 'member@gotall.app',
+      provider: 'email',
+      isLoggedIn: true,
+    };
+    setUser(profile);
+    setPremium(true);
+    setSuccessMessage('Welcome! Direct access granted.');
+    setTimeout(() => {
+      setIsLoading(false);
+      setSuccessMessage(null);
+      onClose();
+      onSuccess?.();
+      if (onSuccessRedirect) {
+        router.replace(onSuccessRedirect as any);
+      }
+    }, 500);
   };
 
   return (
@@ -251,6 +293,17 @@ export default function AuthModal({
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* 1-Tap Fast Direct Login Button (Skip Lengthy Process) */}
+            <TouchableOpacity
+              style={styles.fastLoginButton}
+              onPress={handleFastDirectLogin}
+              activeOpacity={0.8}
+              disabled={isLoading}
+            >
+              <Zap size={15} color="#D97706" />
+              <Text style={styles.fastLoginButtonText}>1-Tap Direct Login (Instant Access)</Text>
+            </TouchableOpacity>
 
             {/* Divider */}
             <View style={styles.dividerRow}>
@@ -510,6 +563,23 @@ const styles = StyleSheet.create({
   },
   appleButtonText: {
     color: '#FFFFFF',
+  },
+  fastLoginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  fastLoginButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
   },
   dividerRow: {
     flexDirection: 'row',

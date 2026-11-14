@@ -47,10 +47,22 @@ export default function HomeScreen() {
   const completedStretches = useAppStore((state) => state.completedStretches);
   const toggleStretch = useAppStore((state) => state.toggleStretch);
   const meals = useAppStore((state) => state.meals);
+  const sleepLogs = useAppStore((state) => state.sleepLogs);
+  const sleepTargetHours = useAppStore((state) => state.sleepTargetHours);
   const newlyUnlockedBadge = useAppStore((state) => state.newlyUnlockedBadge);
   const clearNewlyUnlockedBadge = useAppStore((state) => state.clearNewlyUnlockedBadge);
   const hasSeenAppTour = useAppStore((state) => state.hasSeenAppTour);
   const setHasSeenAppTour = useAppStore((state) => state.setHasSeenAppTour);
+  const user = useAppStore((state) => state.user);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const hasHydrated = useAppStore((state) => state.hasHydrated);
+
+  // Protected route guard: if user is not logged in or has no subscription, kick out to landing page
+  React.useEffect(() => {
+    if (hasHydrated && (!user?.isLoggedIn || !isPremium)) {
+      router.replace('/');
+    }
+  }, [hasHydrated, user?.isLoggedIn, isPremium]);
 
   // Modal dialog states
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -87,14 +99,15 @@ export default function HomeScreen() {
   };
   const result = calculateTarget(safeData);
 
-  // Biological Quota Computations
+  // Biological Quota Computations (Real user data only)
   const proteinLogged = meals.reduce((sum, m) => sum + m.protein, 0);
   const proteinTarget = 130;
   const proteinPct = Math.min(100, Math.round((proteinLogged / proteinTarget) * 100));
 
-  const sleepHoursLogged = 8.2;
-  const sleepTarget = 9.0;
-  const sleepPct = Math.min(100, Math.round((sleepHoursLogged / sleepTarget) * 100));
+  const sleepTarget = sleepTargetHours || 8.5;
+  const latestSleep = sleepLogs.length > 0 ? sleepLogs[sleepLogs.length - 1].hours : 0;
+  const sleepHoursLogged = latestSleep;
+  const sleepPct = sleepTarget > 0 && sleepHoursLogged > 0 ? Math.min(100, Math.round((sleepHoursLogged / sleepTarget) * 100)) : 0;
 
   const stretchCount = completedStretches.length;
   const stretchTotal = CLINICAL_STRETCHES.length;
@@ -201,10 +214,10 @@ export default function HomeScreen() {
                   <View>
                     <Text style={styles.metricLabel}>Current Stature</Text>
                     <Text style={styles.metricValue}>
-                      {(safeData.currentHeight ?? 172.4).toFixed(1)} cm
+                      {quizData ? `${quizData.currentHeight.toFixed(1)} cm` : 'Not Set'}
                     </Text>
                     <Text style={styles.metricSubvalue}>
-                      {cmToFtIn(safeData.currentHeight ?? 172.4)}
+                      {quizData ? cmToFtIn(quizData.currentHeight) : 'Pending assessment'}
                     </Text>
                   </View>
 
@@ -213,10 +226,10 @@ export default function HomeScreen() {
                       Tanner Ceiling
                     </Text>
                     <Text style={[styles.metricValue, styles.accentColor]}>
-                      {result.target.toFixed(1)} cm
+                      {quizData ? `${result.target.toFixed(1)} cm` : '-- cm'}
                     </Text>
                     <Text style={[styles.metricSubvalue, styles.accentSubcolor]}>
-                      {cmToFtIn(result.target)}
+                      {quizData ? cmToFtIn(result.target) : 'Calibrate to view'}
                     </Text>
                   </View>
                 </View>
@@ -230,13 +243,13 @@ export default function HomeScreen() {
                     <View>
                       <Text style={styles.gainTitle}>Epiphyseal Window Gain</Text>
                       <Text style={styles.gainSubtitle}>
-                        Range: {result.rangeMin} – {result.rangeMax} cm
+                        {quizData ? `Range: ${result.rangeMin} – ${result.rangeMax} cm` : 'Run clinical quiz to calculate'}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.gainBadge}>
                     <Text style={styles.gainBadgeText}>
-                      +{(result.target - (safeData.currentHeight ?? 172.4)).toFixed(1)} cm
+                      {quizData ? `+${(result.target - quizData.currentHeight).toFixed(1)} cm` : '--'}
                     </Text>
                   </View>
                 </View>
@@ -430,6 +443,25 @@ export default function HomeScreen() {
             </GlassButton>
           </Animated.View>
         </ScrollView>
+
+        {/* Floating Dr. Jack AI Summon Button */}
+        <TouchableOpacity
+          style={styles.floatingAiFab}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setIsAiModalOpen(true);
+          }}
+          activeOpacity={0.88}
+        >
+          <LinearGradient
+            colors={['#2563EB', '#1D4ED8', '#1E40AF']}
+            style={styles.floatingAiFabGradient}
+          >
+            <Bot size={22} color="#FFFFFF" />
+            <Text style={styles.floatingAiFabText}>Ask Dr. Jack</Text>
+            <Sparkles size={14} color="#93C5FD" />
+          </LinearGradient>
+        </TouchableOpacity>
 
         {/* Modal Panels */}
         <AIChatModal
@@ -895,5 +927,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  floatingAiFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    borderRadius: 28,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 99,
+  },
+  floatingAiFabGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  floatingAiFabText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 });

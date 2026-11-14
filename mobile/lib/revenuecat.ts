@@ -9,7 +9,8 @@ import Purchases, {
 export const REVENUECAT_API_KEY =
   process.env.EXPO_PUBLIC_REVENUECAT_KEY ||
   process.env.NEXT_PUBLIC_REVENUECAT_KEY ||
-  'test_NvioQMUEEYXEajsWqmbSzHmsnCa';
+  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ||
+  '';
 
 export const ENTITLEMENT_ID = 'pro_access';
 

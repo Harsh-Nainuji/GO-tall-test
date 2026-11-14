@@ -11,6 +11,7 @@ import { NutritionCMS } from '@/components/admin/NutritionCMS'
 import { UsersCRM } from '@/components/admin/UsersCRM'
 import { AiPromptsCMS } from '@/components/admin/AiPromptsCMS'
 import { AdminSpotlightTour } from '@/components/admin/AdminSpotlightTour'
+import { AdminAuthGate } from '@/components/admin/AdminAuthGate'
 import { useAdminData } from '@/lib/admin-store'
 
 export default function AdminPortalPage() {
@@ -90,7 +91,8 @@ export default function AdminPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex relative overflow-x-hidden">
+    <AdminAuthGate>
+      <div className="min-h-screen bg-[#F8FAFC] flex relative overflow-x-hidden">
       {/* Subtle Ambient Blue Lighting Glow */}
       <div
         className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(219,234,254,0.4),rgba(255,255,255,0))] z-0"
@@ -192,5 +194,6 @@ export default function AdminPortalPage() {
         onClose={() => setIsTourOpen(false)}
       />
     </div>
+    </AdminAuthGate>
   )
 }

@@ -1,8 +1,10 @@
 # Documentation folder (per user instruction: do not push doc folder)
 docs/
 docs
+IMP_DOCS
+IMP_DOCS/
 
-# Environment variables & secrets
+# Environment variables & secrets (comprehensive coverage)
 .env
 .env*
 .env*.local
@@ -10,6 +12,14 @@ docs
 .env.development
 mobile/.env
 mobile/.env*
+**/.env
+**/.env*
+**/.env*.local
+**/.env.production
+**/.env.development
+**/env
+*.env
+*.env.*
 
 # Dependencies
 node_modules/

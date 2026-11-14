@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Dimensions,
   Platform,
   TextInput,
+  LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -41,6 +42,8 @@ export default function AgeSelector({
   min = 10,
   max = 26,
 }: AgeSelectorProps) {
+  // Track container width for exact subpixel center needle alignment
+  const [containerWidth, setContainerWidth] = useState<number>(Math.max(280, SCREEN_WIDTH - 64));
   const scrollRef = useRef<Animated.ScrollView>(null);
   const clampedValue = Math.min(max, Math.max(min, value));
   const initialOffset = (clampedValue - min) * AGE_TICK_SPACING;
@@ -50,7 +53,7 @@ export default function AgeSelector({
   const isDragging = useRef(false);
 
   const triggerHaptic = () => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
   };
 
   const notifyChange = (newVal: number) => {
@@ -111,17 +114,20 @@ export default function AgeSelector({
     }
   }, [value, min]);
 
-  // Initial alignment on mount
+  // Initial alignment on mount or when container width is determined
   useEffect(() => {
     const timer = setTimeout(() => {
+      const targetOffset = (clampedValue - min) * AGE_TICK_SPACING;
+      scrollX.value = targetOffset;
+      lastSnappedValue.value = clampedValue;
       scrollRef.current?.scrollTo({
-        x: initialOffset,
+        x: targetOffset,
         y: 0,
         animated: false,
       });
     }, 60);
     return () => clearTimeout(timer);
-  }, []);
+  }, [containerWidth, min]);
 
   const handleStepDelta = (delta: number) => {
     const current = lastSnappedValue.value;
@@ -171,8 +177,22 @@ export default function AgeSelector({
 
   const status = getClinicalBadge(clampedValue);
 
+  // Exact subpixel center alignment:
+  // Needle is at containerWidth / 2.
+  // Major tick line is centered within yearSlot (at AGE_TICK_SPACING / 2 = 16px).
+  // For year `a` to align with the needle when offset = (a - min) * AGE_TICK_SPACING,
+  // paddingHorizontal must be: (containerWidth / 2) - (AGE_TICK_SPACING / 2)
+  const horizontalPadding = Math.max(0, containerWidth / 2 - AGE_TICK_SPACING / 2);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && Math.abs(w - containerWidth) > 1) {
+      setContainerWidth(w);
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={handleLayout}>
       {/* 1. Large Prominent Age Display with Fine-Tuning Touch Buttons */}
       <View style={styles.numberRow}>
         <TouchableOpacity
@@ -237,7 +257,7 @@ export default function AgeSelector({
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingHorizontal: HALF_WIDTH - 24,
+              paddingHorizontal: horizontalPadding,
             },
           ]}
         >

@@ -179,14 +179,22 @@ VALUES ('exercise-media', 'exercise-media', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Public read for exercise-media
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 CREATE POLICY "Public Access"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'exercise-media');
 
--- Authenticated upload for exercise-media
-CREATE POLICY "Authenticated users can upload"
+-- Authenticated upload for exercise-media with strict file extension validation
+DROP POLICY IF EXISTS "Authenticated users can upload" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload restricted media" ON storage.objects;
+CREATE POLICY "Authenticated users can upload restricted media"
 ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'exercise-media');
+WITH CHECK (
+    bucket_id = 'exercise-media'
+    AND (
+        LOWER(storage.extension(name)) IN ('jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm')
+    )
+);
 
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -203,21 +211,77 @@ ALTER TABLE public.meals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
--- Public read policies
+-- 1. Public read-only catalog policies
+DROP POLICY IF EXISTS "Public can view active achievements" ON public.achievements;
 CREATE POLICY "Public can view active achievements" ON public.achievements FOR SELECT USING (active = true);
+
+DROP POLICY IF EXISTS "Public can view active stretches" ON public.stretches;
 CREATE POLICY "Public can view active stretches" ON public.stretches FOR SELECT USING (active = true);
+
+DROP POLICY IF EXISTS "Public can view active workout categories" ON public.workout_categories;
 CREATE POLICY "Public can view active workout categories" ON public.workout_categories FOR SELECT USING (active = true);
+
+DROP POLICY IF EXISTS "Public can view category workouts" ON public.category_workouts;
 CREATE POLICY "Public can view category workouts" ON public.category_workouts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public can view active category questions" ON public.category_questions;
 CREATE POLICY "Public can view active category questions" ON public.category_questions FOR SELECT USING (active = true);
+
+DROP POLICY IF EXISTS "Public can view active preset meals" ON public.meals;
 CREATE POLICY "Public can view active preset meals" ON public.meals FOR SELECT USING (active = true AND user_id IS NULL);
 
--- User-scoped policies
-CREATE POLICY "Users can manage own profile" ON public.profiles FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own user_achievements" ON public.user_achievements FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own sleep logs" ON public.sleep_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own meals" ON public.meals FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own daily logs" ON public.daily_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can view own payments" ON public.payments FOR SELECT USING (auth.uid() = user_id);
+-- 2. User-isolated data policies with strict WITH CHECK clauses
+DROP POLICY IF EXISTS "Users can manage own profile" ON public.profiles;
+CREATE POLICY "Users can manage own profile" ON public.profiles FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own user_achievements" ON public.user_achievements;
+CREATE POLICY "Users can manage own user_achievements" ON public.user_achievements FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own sleep logs" ON public.sleep_logs;
+CREATE POLICY "Users can manage own sleep logs" ON public.sleep_logs FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own meals" ON public.meals;
+CREATE POLICY "Users can manage own meals" ON public.meals FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own daily logs" ON public.daily_logs;
+CREATE POLICY "Users can manage own daily logs" ON public.daily_logs FOR ALL
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- 3. Payments: Read-only for authenticated user; writes reserved strictly for service_role webhooks
+DROP POLICY IF EXISTS "Users can view own payments" ON public.payments;
+CREATE POLICY "Users can view own payments" ON public.payments FOR SELECT
+USING (auth.uid() = user_id);
+
+-- =============================================================================
+-- PRIVILEGE ESCALATION DEFENSE (ANTI-TAMPER TRIGGER FOR PROFILES)
+-- Prevents unauthorized users from modifying their is_premium status directly via client
+-- =============================================================================
+CREATE OR REPLACE FUNCTION public.protect_profile_subscription_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If update is initiated by a regular authenticated user, lock subscription fields to existing values
+    IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role' THEN
+        NEW.is_premium := OLD.is_premium;
+        NEW.subscription_tier := OLD.subscription_tier;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_subscription ON public.profiles;
+CREATE TRIGGER trg_protect_profile_subscription
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.protect_profile_subscription_fields();
 
 -- =============================================================================
 -- SEED DATA INSERTS

@@ -1,10 +1,7 @@
 // Resend Email Integration for GoTall Biometric Suite
 // Uses the official Resend REST API for high reliability across Edge and Node runtimes
 
-const RESEND_API_KEY =
-  process.env.RESEND_API_KEY ||
-  process.env.NEXT_PUBLIC_RESEND_API_KEY ||
-  ''
+const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 
 export interface SendEmailOptions {
   to: string | string[]

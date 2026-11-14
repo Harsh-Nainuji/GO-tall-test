@@ -35,15 +35,23 @@ import {
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
+import AuthModal from '../../components/AuthModal';
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const setPremium = useAppStore((state) => state.setPremium);
   const setPaymentOrderId = useAppStore((state) => state.setPaymentOrderId);
+  const pendingRegistration = useAppStore((state) => state.pendingRegistration);
+  const user = useAppStore((state) => state.user);
+  const completeSubscriptionAndCreateAccount = useAppStore(
+    (state) => state.completeSubscriptionAndCreateAccount
+  );
 
   const [tier, setTier] = useState<'annual' | 'quarterly' | 'monthly'>('annual');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [rcPackage, setRcPackage] = useState<any>(null);
 
   React.useEffect(() => {
@@ -72,13 +80,19 @@ export default function PaywallScreen() {
   const handlePayment = async () => {
     Haptics.selectionAsync().catch(() => {});
     setIsProcessing(true);
+    setPaymentError(null);
+
+    const plan = getTierPricing();
+    const customerEmail = pendingRegistration?.email || user?.email || 'patient@gotall.app';
+    const customerName = pendingRegistration?.name || user?.name || 'GoTall Patient';
 
     if (rcPackage) {
       const res = await purchaseRevenueCatPackage(rcPackage);
       if (res.success) {
+        // Complete registration and create account upon confirmed payment
+        await completeSubscriptionAndCreateAccount(res.customerInfo?.originalAppUserId || `rc_${Date.now()}`, plan.name);
         setIsProcessing(false);
         setPaymentSuccess(true);
-        setPremium(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         setTimeout(() => {
           router.replace('/(tabs)/home');
@@ -87,18 +101,16 @@ export default function PaywallScreen() {
       }
     }
 
-    const plan = getTierPricing();
-
     openRazorpayCheckout({
       amountPaise: plan.amountPaise,
       planName: plan.name,
-      userEmail: 'member@gotall.app',
-      userName: 'GoTall Patient',
-      onSuccess: (res) => {
+      userEmail: customerEmail,
+      userName: customerName,
+      onSuccess: async (res) => {
+        // Strict business rule: Only create account when subscription is successfully completed!
+        await completeSubscriptionAndCreateAccount(res.razorpay_payment_id, plan.name);
         setIsProcessing(false);
         setPaymentSuccess(true);
-        setPaymentOrderId(res.razorpay_payment_id);
-        setPremium(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
         setTimeout(() => {
@@ -107,6 +119,7 @@ export default function PaywallScreen() {
       },
       onFailure: (err) => {
         setIsProcessing(false);
+        setPaymentError(err?.message || 'Payment was not completed. Your account has not been created.');
         console.warn('Payment dismiss / error:', err);
       },
     });
@@ -139,7 +152,7 @@ export default function PaywallScreen() {
 
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={() => router.back()}
             accessibilityLabel="Close paywall"
           >
             <X size={18} color="#0F172A" />
@@ -150,6 +163,22 @@ export default function PaywallScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Pending Account Notice */}
+          {pendingRegistration?.email && (
+            <View style={styles.pendingAccountPill}>
+              <Lock size={12} color="#0284C7" />
+              <Text style={styles.pendingAccountText}>
+                Account for <Text style={styles.pendingAccountBold}>{pendingRegistration.email}</Text> will activate upon subscription
+              </Text>
+            </View>
+          )}
+
+          {paymentError && (
+            <View style={styles.paymentErrorBanner}>
+              <Text style={styles.paymentErrorText}>{paymentError}</Text>
+            </View>
+          )}
+
           {/* Hero Headline */}
           <View style={styles.heroSection}>
             <Text style={styles.heroTitle}>
@@ -314,7 +343,25 @@ export default function PaywallScreen() {
           <Text style={styles.termsDisclaimer}>
             Recurring billing. Cancel anytime from App Store or Play Store subscriptions settings.
           </Text>
+
+          {/* Restore / Sign In Row */}
+          <View style={styles.restoreRow}>
+            <TouchableOpacity onPress={handleRestore} activeOpacity={0.7}>
+              <Text style={styles.restoreLinkText}>Restore Purchases</Text>
+            </TouchableOpacity>
+            <Text style={styles.restoreDivider}>•</Text>
+            <TouchableOpacity onPress={() => setIsAuthModalVisible(true)} activeOpacity={0.7}>
+              <Text style={styles.restoreLinkText}>Already Subscribed? Sign In</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
+
+        <AuthModal
+          visible={isAuthModalVisible}
+          onClose={() => setIsAuthModalVisible(false)}
+          defaultMode="signin"
+          onSuccessRedirect="/(tabs)/home"
+        />
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -551,11 +598,61 @@ const styles = StyleSheet.create({
   },
   termsDisclaimer: {
     fontSize: 10,
-    fontWeight: '500',
     color: '#94A3B8',
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 14,
+    marginTop: 10,
+    fontWeight: '500',
+  },
+  pendingAccountPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 14,
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  pendingAccountText: {
+    fontSize: 11,
+    color: '#0369A1',
+    fontWeight: '500',
+    flex: 1,
+  },
+  pendingAccountBold: {
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  paymentErrorBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 14,
+  },
+  paymentErrorText: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  restoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  restoreLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  restoreDivider: {
+    fontSize: 12,
+    color: '#94A3B8',
   },
 });

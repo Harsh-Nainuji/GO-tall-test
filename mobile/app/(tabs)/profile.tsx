@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 
 import { useAppStore, AchievementBadgeItem } from '../../lib/store';
 import { calculateTarget, cmToFtIn } from '../../lib/growth-calc';
@@ -46,6 +47,7 @@ import AuthModal from '../../components/AuthModal';
 import AppSpotlightTour from '../../components/AppSpotlightTour';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const quizData = useAppStore((state) => state.quizData);
   const badges = useAppStore((state) => state.badges);
   const unlockedBadgeIds = useAppStore((state) => state.unlockedBadgeIds);
@@ -112,6 +114,7 @@ export default function ProfileScreen() {
       setIsDeleting(false);
       setDeleteModalVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      router.replace('/');
     } catch (err) {
       setIsDeleting(false);
     }
@@ -120,7 +123,9 @@ export default function ProfileScreen() {
   const goals = [
     {
       title: 'Genetic Potential Target',
-      sub: `${result.target.toFixed(1)} cm (${cmToFtIn(result.target)}) projected ceiling`,
+      sub: quizData
+        ? `${result.target.toFixed(1)} cm (${cmToFtIn(result.target)}) projected ceiling`
+        : 'Take assessment to calculate target',
       icon: Target,
       color: '#2563EB',
     },
@@ -233,6 +238,7 @@ export default function ProfileScreen() {
                     onPress={() => {
                       Haptics.selectionAsync().catch(() => {});
                       signOut();
+                      router.replace('/');
                     }}
                     activeOpacity={0.7}
                   >

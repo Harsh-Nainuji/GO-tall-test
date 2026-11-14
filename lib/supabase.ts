@@ -76,13 +76,48 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
  * Organizes into folder: 'stretches', 'foods', 'avatars', 'general'
  * Handles images, gifs, and video files with direct public URL return
  */
+// Whitelisted media types for secure storage uploads
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+])
+
+const ALLOWED_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'mp4',
+  'webm',
+])
+
 export async function uploadExerciseMedia(
   file: File,
   folder: 'stretches' | 'foods' | 'avatars' | 'general' = 'stretches',
   onProgress?: (progress: number) => void
 ): Promise<UploadMediaResult> {
-  const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4')
-  const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')
+  // 1. Strict extension and MIME type validation
+  const extMatch = file.name.match(/\.([a-zA-Z0-9]+)$/)
+  const ext = extMatch ? extMatch[1].toLowerCase() : ''
+
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `Unsupported file extension '.${ext}'. Permitted formats: JPG, PNG, WebP, GIF, MP4, WebM.`
+    )
+  }
+
+  // Reject SVG and HTML files to prevent stored XSS attacks
+  if (file.type === 'image/svg+xml' || file.type.includes('html') || ext === 'svg' || ext === 'html') {
+    throw new Error('SVG and HTML files are strictly disallowed for security reasons.')
+  }
+
+  const isVideo = ext === 'mp4' || ext === 'webm' || file.type.startsWith('video/')
+  const isGif = ext === 'gif' || file.type === 'image/gif'
   const mediaType: 'video' | 'gif' | 'image' = isVideo ? 'video' : isGif ? 'gif' : 'image'
 
   const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // 50MB for video
@@ -97,16 +132,18 @@ export async function uploadExerciseMedia(
   }
 
   const client = getSupabaseClient()
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-  const filePath = `${folder}/${Date.now()}_${sanitizedName}`
+  // Sanitize filename and prevent directory traversal
+  const safeBaseName = file.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)
+  const safeRandomId = Math.random().toString(36).substring(2, 10)
+  const filePath = `${folder}/${Date.now()}_${safeRandomId}_${safeBaseName}.${ext}`
 
   try {
     const { error: uploadError } = await client.storage
       .from('exercise-media')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true,
-        contentType: file.type || (isVideo ? 'video/mp4' : isGif ? 'image/gif' : 'image/jpeg'),
+        upsert: false,
+        contentType: isVideo ? (ext === 'webm' ? 'video/webm' : 'video/mp4') : isGif ? 'image/gif' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
       })
 
     if (uploadError) {

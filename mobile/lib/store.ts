@@ -704,78 +704,7 @@ export const INITIAL_CATEGORY_QUESTIONS: CategoryQuestion[] = [
   },
 ];
 
-export const INITIAL_SLEEP_LOGS: SleepLog[] = [
-  {
-    id: 'sleep-mon',
-    date: '2026-11-09',
-    dayOfWeek: 'Mon',
-    bedtime: '10:30 PM',
-    wakeupTime: '06:45 AM',
-    hours: 8.25,
-    quality: 'Deep Restorative',
-    timestamp: '2026-11-09T06:45:00.000Z',
-  },
-  {
-    id: 'sleep-tue',
-    date: '2026-11-10',
-    dayOfWeek: 'Tue',
-    bedtime: '11:00 PM',
-    wakeupTime: '07:30 AM',
-    hours: 8.5,
-    quality: 'Deep Restorative',
-    timestamp: '2026-11-10T07:30:00.000Z',
-  },
-  {
-    id: 'sleep-wed',
-    date: '2026-11-11',
-    dayOfWeek: 'Wed',
-    bedtime: '11:45 PM',
-    wakeupTime: '06:45 AM',
-    hours: 7.0,
-    quality: 'Normal Rest',
-    timestamp: '2026-11-11T06:45:00.000Z',
-  },
-  {
-    id: 'sleep-thu',
-    date: '2026-11-12',
-    dayOfWeek: 'Thu',
-    bedtime: '10:15 PM',
-    wakeupTime: '07:00 AM',
-    hours: 8.75,
-    quality: 'Deep Restorative',
-    timestamp: '2026-11-12T07:00:00.000Z',
-  },
-  {
-    id: 'sleep-fri',
-    date: '2026-11-13',
-    dayOfWeek: 'Fri',
-    bedtime: '10:45 PM',
-    wakeupTime: '06:30 AM',
-    hours: 7.75,
-    quality: 'Normal Rest',
-    timestamp: '2026-11-13T06:30:00.000Z',
-  },
-  {
-    id: 'sleep-sat',
-    date: '2026-11-14',
-    dayOfWeek: 'Sat',
-    bedtime: '11:00 PM',
-    wakeupTime: '08:15 AM',
-    hours: 9.25,
-    quality: 'Deep Restorative',
-    timestamp: '2026-11-14T08:15:00.000Z',
-  },
-  {
-    id: 'sleep-sun',
-    date: '2026-11-15',
-    dayOfWeek: 'Sun',
-    bedtime: '10:30 PM',
-    wakeupTime: '07:00 AM',
-    hours: 8.5,
-    quality: 'Deep Restorative',
-    timestamp: '2026-11-15T07:00:00.000Z',
-  },
-];
+export const INITIAL_SLEEP_LOGS: SleepLog[] = [];
 
 export function buildWeeklyPlanSchedule(
   exercises: StretchExercise[],
@@ -844,6 +773,7 @@ interface AppState {
 
   // Authentication state
   user: UserProfile | null;
+  pendingRegistration: { name: string; email: string; password: string } | null;
 
   // App Walkthrough Guided Tour
   hasSeenAppTour: boolean;
@@ -861,10 +791,16 @@ interface AppState {
     isExhausted: boolean;
   };
 
+  // App Hydration State
+  hasHydrated: boolean;
+  setHasHydrated: (val: boolean) => void;
+
   // Actions
   setQuizData: (data: QuizData) => void;
   setPremium: (status: boolean) => void;
   setPaymentOrderId: (orderId: string | null) => void;
+  setPendingRegistration: (data: { name: string; email: string; password: string } | null) => void;
+  completeSubscriptionAndCreateAccount: (paymentId: string, planName: string) => Promise<boolean>;
   setHasSeenAppTour: (seen: boolean) => void;
   toggleStretch: (index: number) => void;
   markStretchComplete: (index: number) => void;
@@ -901,6 +837,8 @@ export const useAppStore = create<AppState>()(
       streakDays: 0,
       completedStretches: [],
       paymentOrderId: null,
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
       // Weekly plan initial values
       workoutDaysPerWeek: 4,
@@ -917,6 +855,7 @@ export const useAppStore = create<AppState>()(
 
       // Authentication state
       user: null,
+      pendingRegistration: null,
 
       // Guided Tour state
       hasSeenAppTour: false,
@@ -1005,8 +944,92 @@ export const useAppStore = create<AppState>()(
         set({ user });
       },
 
+      setPendingRegistration: (data) => {
+        set({ pendingRegistration: data });
+      },
+
+      completeSubscriptionAndCreateAccount: async (paymentId: string, planName: string) => {
+        const { pendingRegistration, quizData } = get();
+        const email = pendingRegistration?.email || 'patient@gotall.app';
+        const name = pendingRegistration?.name || email.split('@')[0];
+        const password = pendingRegistration?.password || 'GoTallSecure2026';
+
+        let userId = `user-${Date.now()}`;
+
+        if (isSupabaseConfigured()) {
+          try {
+            // Register in Supabase Auth
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: { display_name: name },
+              },
+            });
+
+            if (signUpData?.user?.id) {
+              userId = signUpData.user.id;
+            } else if (signUpError) {
+              // If already registered, sign in to link session
+              const { data: signInData } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
+              if (signInData?.user?.id) {
+                userId = signInData.user.id;
+              }
+            }
+
+            // Sync user profile in Supabase
+            await supabase.from('profiles').upsert({
+              id: userId,
+              user_id: userId,
+              email,
+              name,
+              gender: quizData?.gender === 'female' ? 'Female' : 'Male',
+              age: quizData?.age || 17,
+              current_height: quizData?.currentHeight || 172.4,
+              subscription_tier: planName.includes('Annual') ? 'Pro Annual' : 'Pro Monthly',
+              is_premium: true,
+            });
+
+            // Log payment
+            await supabase.from('payments').insert({
+              user_id: userId,
+              revenuecat_original_transaction_id: paymentId,
+              plan_name: planName,
+              amount_paise: planName.includes('Annual') ? 149900 : planName.includes('Quarterly') ? 59900 : 29900,
+              currency: 'INR',
+              status: 'success',
+            });
+          } catch (e) {
+            console.warn('Supabase account provisioning error:', e);
+          }
+        }
+
+        const newUser: UserProfile = {
+          id: userId,
+          email,
+          name,
+          provider: 'email',
+          isLoggedIn: true,
+        };
+
+        set({
+          user: newUser,
+          isPremium: true,
+          paymentOrderId: paymentId,
+          pendingRegistration: null,
+        });
+
+        return true;
+      },
+
       signOut: () => {
-        set({ user: null });
+        if (isSupabaseConfigured()) {
+          supabase.auth.signOut().catch(() => {});
+        }
+        set({ user: null, isPremium: false, pendingRegistration: null });
       },
 
       setCategories: (categories) => {
@@ -1155,14 +1178,17 @@ export const useAppStore = create<AppState>()(
 
       resetAllData: () => {
         set({
+          quizData: null,
           isPremium: false,
-          streakDays: 1,
+          streakDays: 0,
           completedStretches: [],
           meals: [],
-          sleepLogs: INITIAL_SLEEP_LOGS,
+          sleepLogs: [],
           user: null,
-          unlockedBadgeIds: ['badge-7'],
+          unlockedBadgeIds: [],
+          newlyUnlockedBadge: null,
           paymentOrderId: null,
+          pendingRegistration: null,
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
@@ -1184,14 +1210,15 @@ export const useAppStore = create<AppState>()(
         set({
           quizData: null,
           isPremium: false,
-          streakDays: 1,
+          streakDays: 0,
           completedStretches: [],
           meals: [],
-          sleepLogs: INITIAL_SLEEP_LOGS,
+          sleepLogs: [],
           user: null,
           unlockedBadgeIds: [],
           newlyUnlockedBadge: null,
           paymentOrderId: null,
+          pendingRegistration: null,
           hasSeenAppTour: false,
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
@@ -1257,6 +1284,11 @@ export const useAppStore = create<AppState>()(
         aiQuestionsUsedToday: state.aiQuestionsUsedToday,
         lastAiQuestionDate: state.lastAiQuestionDate,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHasHydrated(true);
+        }
+      },
     }
   )
 );

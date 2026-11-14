@@ -36,6 +36,7 @@ import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import BiometricRulerGlass from '../../components/BiometricRulerGlass';
 import AgeSelector from '../../components/AgeSelector';
 import GlobeGraphic from '../../components/GlobeGraphic';
+import AuthModal from '../../components/AuthModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -45,6 +46,8 @@ export default function QuizScreen() {
 
   // Stepped Questionnaire: 1 to 15
   const [currentStep, setCurrentStep] = useState<number>(1);
+
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
   // Form State for All 15 Clinical Parameters
   const [gender, setGender] = useState<'male' | 'female'>('male');
@@ -83,7 +86,7 @@ export default function QuizScreen() {
   const currentStage = getStageInfo(currentStep);
 
   const handleNext = () => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
     } else {
@@ -115,7 +118,7 @@ export default function QuizScreen() {
   };
 
   const handleBack = () => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1);
     } else {
@@ -148,6 +151,15 @@ export default function QuizScreen() {
                 STAGE {currentStage.stage} OF 4 • {currentStage.title}
               </Text>
             </View>
+
+            <TouchableOpacity
+              onPress={() => setIsAuthModalVisible(true)}
+              style={styles.quizSignInPill}
+              activeOpacity={0.7}
+              accessibilityLabel="Direct Sign In"
+            >
+              <Text style={styles.quizSignInText}>Sign In</Text>
+            </TouchableOpacity>
 
             <View style={styles.stepCounterPill}>
               <Text style={styles.stepCounterText}>{currentStep}/{totalSteps}</Text>
@@ -191,7 +203,7 @@ export default function QuizScreen() {
                   ]}
                   onPress={() => {
                     setGender('male');
-                    Haptics.selectionAsync().catch(() => {});
+                    Haptics.selectionAsync().catch(() => { });
                   }}
                   activeOpacity={0.8}
                 >
@@ -242,7 +254,7 @@ export default function QuizScreen() {
                   ]}
                   onPress={() => {
                     setGender('female');
-                    Haptics.selectionAsync().catch(() => {});
+                    Haptics.selectionAsync().catch(() => { });
                   }}
                   activeOpacity={0.8}
                 >
@@ -313,7 +325,7 @@ export default function QuizScreen() {
                   value={age}
                   onChange={(val) => setAge(val)}
                   min={10}
-                  max={26}
+                  max={100}
                 />
               </GlassCard>
 
@@ -367,7 +379,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setEthnicity(item.name);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -459,7 +471,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setGrowthRate(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -508,7 +520,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setShoeSize(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -731,7 +743,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setSleepHours(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -786,7 +798,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setDietType(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -840,7 +852,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setSmokeDrink(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -894,7 +906,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setSittingHours(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -949,7 +961,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setActivityLevel(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -1004,7 +1016,7 @@ export default function QuizScreen() {
                       ]}
                       onPress={() => {
                         setMotivation(item.title);
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                       }}
                       activeOpacity={0.8}
                     >
@@ -1050,6 +1062,14 @@ export default function QuizScreen() {
             </GlassButton>
           </View>
         </ScrollView>
+
+        {/* Direct Account Login Modal */}
+        <AuthModal
+          visible={isAuthModalVisible}
+          onClose={() => setIsAuthModalVisible(false)}
+          defaultMode="signin"
+          onSuccessRedirect="/(tabs)/home"
+        />
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -1093,6 +1113,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0284C7',
     letterSpacing: 0.5,
+  },
+  quizSignInPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(2, 132, 199, 0.4)',
+  },
+  quizSignInText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284C7',
   },
   stepCounterPill: {
     paddingHorizontal: 10,

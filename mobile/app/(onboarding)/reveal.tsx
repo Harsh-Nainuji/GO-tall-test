@@ -315,7 +315,7 @@ export default function RevealScreen() {
           {/* Primary Action Button */}
           <Animated.View entering={FadeInDown.delay(500).springify()}>
             <GlassButton
-              onPress={() => router.push('/(onboarding)/paywall')}
+              onPress={() => router.push('/(onboarding)/details')}
               style={styles.ctaButton}
             >
               <LinearGradient
@@ -325,7 +325,7 @@ export default function RevealScreen() {
                 style={StyleSheet.absoluteFill}
               />
               <Text style={styles.ctaButtonText}>
-                Unlock My Growth Protocol Plan
+                Continue to Account Setup
               </Text>
               <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />
             </GlassButton>
@@ -339,6 +339,7 @@ export default function RevealScreen() {
           visible={authModalVisible}
           onClose={() => setAuthModalVisible(false)}
           defaultMode={authDefaultMode}
+          onSuccessRedirect="/(tabs)/home"
         />
       </SafeAreaView>
     </GlassBackgroundCanvas>

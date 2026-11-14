@@ -299,43 +299,54 @@ export default function SleepScreen() {
           >
             <Text style={styles.recentLogsTitle}>Recent Nocturnal Cycles</Text>
             <View style={styles.logsList}>
-              {sleepLogs.slice(0, 5).map((item) => (
-                <GlassCard key={item.id} style={styles.logCard}>
-                  <View style={styles.logLeft}>
-                    <View style={styles.logIcon}>
-                      <Moon size={16} color="#0284C7" />
-                    </View>
-                    <View>
-                      <View style={styles.logRow}>
-                        <Text style={styles.logDay}>{item.dayOfWeek}</Text>
-                        <Text style={styles.logDate}>{item.date}</Text>
-                      </View>
-                      <Text style={styles.logTimes}>
-                        {item.bedtime && item.wakeupTime
-                          ? `${item.bedtime} – ${item.wakeupTime}`
-                          : `${item.hours} hours logged`}
-                      </Text>
-                      <Text style={styles.logQuality}>{item.quality}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.logRight}>
-                    <View style={styles.logHoursBadge}>
-                      <Text style={styles.logHoursText}>{item.hours}h</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
-                        deleteSleepLog(item.id);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      style={styles.deleteBtn}
-                    >
-                      <Trash2 size={14} color="#94A3B8" />
-                    </TouchableOpacity>
-                  </View>
+              {sleepLogs.length === 0 ? (
+                <GlassCard style={{ padding: 16, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>
+                    No sleep records logged yet
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, textAlign: 'center' }}>
+                    Tap &ldquo;+ Log Sleep&rdquo; above to track nocturnal somatotropin release windows.
+                  </Text>
                 </GlassCard>
-              ))}
+              ) : (
+                sleepLogs.slice(0, 5).map((item) => (
+                  <GlassCard key={item.id} style={styles.logCard}>
+                    <View style={styles.logLeft}>
+                      <View style={styles.logIcon}>
+                        <Moon size={16} color="#0284C7" />
+                      </View>
+                      <View>
+                        <View style={styles.logRow}>
+                          <Text style={styles.logDay}>{item.dayOfWeek}</Text>
+                          <Text style={styles.logDate}>{item.date}</Text>
+                        </View>
+                        <Text style={styles.logTimes}>
+                          {item.bedtime && item.wakeupTime
+                            ? `${item.bedtime} – ${item.wakeupTime}`
+                            : `${item.hours} hours logged`}
+                        </Text>
+                        <Text style={styles.logQuality}>{item.quality}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.logRight}>
+                      <View style={styles.logHoursBadge}>
+                        <Text style={styles.logHoursText}>{item.hours}h</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          deleteSleepLog(item.id);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={styles.deleteBtn}
+                      >
+                        <Trash2 size={14} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  </GlassCard>
+                ))
+              )}
             </View>
           </Animated.View>
         </ScrollView>

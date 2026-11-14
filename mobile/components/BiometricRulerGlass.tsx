@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
+  LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -33,7 +34,6 @@ interface BiometricRulerGlassProps {
 
 // 20px spacing gives controlled, calm, physics-weighted scrolling (same as homepage)
 const TICK_SPACING = 20;
-const HALF_WIDTH = SCREEN_WIDTH / 2;
 
 export default function BiometricRulerGlass({
   min = 120,
@@ -50,6 +50,10 @@ export default function BiometricRulerGlass({
   const totalTicks = Math.round((max - min) / step);
   const initialOffset = ((clampedInitial - min) / step) * TICK_SPACING;
 
+  // Track actual container width dynamically for perfect subpixel center alignment
+  const [containerWidth, setContainerWidth] = useState<number>(Math.max(280, SCREEN_WIDTH - 64));
+  const [currentValue, setCurrentValue] = useState<number>(clampedInitial);
+
   const scrollRef = useRef<Animated.ScrollView>(null);
   const scrollX = useSharedValue(initialOffset);
   const lastSnappedValue = useSharedValue(clampedInitial);
@@ -62,6 +66,7 @@ export default function BiometricRulerGlass({
 
   const notifyChange = (val: number) => {
     valueRef.current = val;
+    setCurrentValue(val);
     if (onValueChange) {
       onValueChange(val);
     }
@@ -79,9 +84,7 @@ export default function BiometricRulerGlass({
       if (computedValue !== lastSnappedValue.value) {
         lastSnappedValue.value = computedValue;
         runOnJS(triggerHaptic)();
-        if (Platform.OS === 'web') {
-          runOnJS(notifyChange)(computedValue);
-        }
+        runOnJS(notifyChange)(computedValue);
       }
     },
     onBeginDrag: () => {
@@ -100,7 +103,7 @@ export default function BiometricRulerGlass({
     },
   });
 
-  // UI-thread animated numeric display (does not trigger React re-renders)
+  // UI-thread animated numeric display (does not trigger React re-renders on native)
   const animatedTextProps = useAnimatedProps(() => {
     const rawVal = min + (scrollX.value / TICK_SPACING) * step;
     const clamped = Math.min(max, Math.max(min, rawVal));
@@ -124,12 +127,30 @@ export default function BiometricRulerGlass({
     };
   });
 
-  // Initial alignment on mount or when switching steps
+  // Sync when prop value changes from outside
+  useEffect(() => {
+    if (value !== undefined && value !== valueRef.current) {
+      const clamped = Math.min(max, Math.max(min, value));
+      valueRef.current = clamped;
+      lastSnappedValue.value = clamped;
+      setCurrentValue(clamped);
+      const nextOffset = ((clamped - min) / step) * TICK_SPACING;
+      scrollX.value = nextOffset;
+      scrollRef.current?.scrollTo({
+        x: nextOffset,
+        y: 0,
+        animated: true,
+      });
+    }
+  }, [value, min, step]);
+
+  // Initial alignment on mount or when container width is calculated
   useEffect(() => {
     const timer = setTimeout(() => {
-      const offset = ((clampedInitial - min) / step) * TICK_SPACING;
+      const targetVal = value !== undefined ? value : clampedInitial;
+      const offset = ((targetVal - min) / step) * TICK_SPACING;
       scrollX.value = offset;
-      lastSnappedValue.value = clampedInitial;
+      lastSnappedValue.value = targetVal;
       scrollRef.current?.scrollTo({
         x: offset,
         y: 0,
@@ -137,7 +158,7 @@ export default function BiometricRulerGlass({
       });
     }, 60);
     return () => clearTimeout(timer);
-  }, [min, max]);
+  }, [min, max, containerWidth]);
 
   const handleStepDelta = (delta: number) => {
     const current = lastSnappedValue.value;
@@ -155,7 +176,7 @@ export default function BiometricRulerGlass({
   };
 
   // Generate tick markers array
-  const ticks = React.useMemo(() => {
+  const ticks = useMemo(() => {
     const items = [];
     for (let i = 0; i <= totalTicks; i++) {
       const val = min + i * step;
@@ -170,15 +191,29 @@ export default function BiometricRulerGlass({
     return items;
   }, [min, totalTicks, step]);
 
-  const initialImperial = React.useMemo(() => {
-    const totalInches = clampedInitial / 2.54;
+  const currentImperial = useMemo(() => {
+    const totalInches = currentValue / 2.54;
     const feet = Math.floor(totalInches / 12);
     const inches = Math.round(totalInches % 12);
     return `${feet}' ${inches}"`;
-  }, [clampedInitial]);
+  }, [currentValue]);
+
+  // Mathematical center alignment:
+  // Container needle is at containerWidth / 2.
+  // Each tick line is centered within its tickWrapper (at TICK_SPACING / 2 = 10px).
+  // Therefore, for tick `i` to align with the needle at offset = i * TICK_SPACING,
+  // paddingHorizontal must be: (containerWidth / 2) - (TICK_SPACING / 2)
+  const horizontalPadding = Math.max(0, containerWidth / 2 - TICK_SPACING / 2);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && Math.abs(w - containerWidth) > 1) {
+      setContainerWidth(w);
+    }
+  };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={handleLayout}>
       {/* Floating Measurement Header */}
       <View style={styles.numberDisplayContainer}>
         <View style={styles.numberRow}>
@@ -196,7 +231,7 @@ export default function BiometricRulerGlass({
             <View style={styles.primaryValueRow}>
               {Platform.OS === 'web' || !AnimatedTextInput ? (
                 <Text style={styles.primaryNumberText}>
-                  {clampedInitial.toFixed(step < 1 ? 1 : 0)}
+                  {currentValue.toFixed(step < 1 ? 1 : 0)}
                 </Text>
               ) : (
                 <AnimatedTextInput
@@ -204,7 +239,7 @@ export default function BiometricRulerGlass({
                   editable={false}
                   style={styles.primaryNumberText}
                   animatedProps={animatedTextProps}
-                  defaultValue={`${clampedInitial.toFixed(step < 1 ? 1 : 0)}`}
+                  defaultValue={`${currentValue.toFixed(step < 1 ? 1 : 0)}`}
                 />
               )}
               <Text style={styles.unitText}>{unit}</Text>
@@ -213,14 +248,14 @@ export default function BiometricRulerGlass({
             {/* Imperial subtitle display */}
             <View style={styles.imperialRow}>
               {Platform.OS === 'web' || !AnimatedTextInput ? (
-                <Text style={styles.imperialText}>{initialImperial}</Text>
+                <Text style={styles.imperialText}>{currentImperial}</Text>
               ) : (
                 <AnimatedTextInput
                   underlineColorAndroid="transparent"
                   editable={false}
                   style={styles.imperialText}
                   animatedProps={animatedImperialProps}
-                  defaultValue={initialImperial}
+                  defaultValue={currentImperial}
                 />
               )}
               <Text style={styles.imperialSublabel}>• {subLabel}</Text>
@@ -258,7 +293,7 @@ export default function BiometricRulerGlass({
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingHorizontal: HALF_WIDTH - 24,
+              paddingHorizontal: horizontalPadding,
             },
           ]}
         >

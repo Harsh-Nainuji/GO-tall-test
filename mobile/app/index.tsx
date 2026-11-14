@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,7 @@ import {
   Moon,
   Sparkles,
   Zap,
+  LogIn,
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -20,12 +21,55 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
+import { useAppStore } from '../lib/store';
 import GlassBackgroundCanvas from '../components/GlassBackgroundCanvas';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
+import AuthModal from '../components/AuthModal';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const user = useAppStore((state) => state.user);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+
+  // Check persistent session on mount: if user is already logged in with subscription, bypass onboarding!
+  useEffect(() => {
+    // 1. Immediate check if store is already hydrated
+    if (user?.isLoggedIn && isPremium) {
+      router.replace('/(tabs)/home');
+      return;
+    }
+
+    // 2. Listen for store hydration completion from AsyncStorage
+    let hasChecked = false;
+    const unsubscribe = useAppStore.persist.onFinishHydration((hydratedState) => {
+      hasChecked = true;
+      if (hydratedState.user?.isLoggedIn && hydratedState.isPremium) {
+        router.replace('/(tabs)/home');
+      } else {
+        setIsCheckingSession(false);
+      }
+    });
+
+    // 3. Fallback check after 120ms
+    const timer = setTimeout(() => {
+      if (!hasChecked) {
+        const state = useAppStore.getState();
+        if (state.user?.isLoggedIn && state.isPremium) {
+          router.replace('/(tabs)/home');
+        } else {
+          setIsCheckingSession(false);
+        }
+      }
+    }, 120);
+
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [user, isPremium]);
 
   // Smooth, non-jiggly bottom-to-top fluid entrance animations
   const headerOpacity = useSharedValue(0);
@@ -74,6 +118,19 @@ export default function WelcomeScreen() {
     transform: [{ translateY: buttonY.value }],
   }));
 
+  if (isCheckingSession) {
+    return (
+      <GlassBackgroundCanvas>
+        <SafeAreaView style={[styles.safeArea, { alignItems: 'center', justifyContent: 'center' }]}>
+          <ActivityIndicator size="large" color="#0284C7" />
+          <Text style={{ marginTop: 14, fontSize: 13, fontWeight: '700', color: '#475569' }}>
+            Restoring your GoTall session...
+          </Text>
+        </SafeAreaView>
+      </GlassBackgroundCanvas>
+    );
+  }
+
   return (
     <GlassBackgroundCanvas>
       <SafeAreaView style={styles.safeArea}>
@@ -81,13 +138,23 @@ export default function WelcomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Header Pill */}
+          {/* Top Header Pill & Direct Sign In Button */}
           <Animated.View style={[headerStyle, styles.headerWrap]}>
             <View style={styles.brandPill}>
               <Activity size={14} color="#0284C7" />
               <Text style={styles.brandText}>GoTall Stature Science</Text>
               <View style={styles.brandDot} />
             </View>
+
+            <TouchableOpacity
+              onPress={() => setIsAuthModalVisible(true)}
+              style={styles.headerSignInBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Direct Sign In"
+            >
+              <LogIn size={14} color="#0284C7" />
+              <Text style={styles.headerSignInText}>Sign In</Text>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Hero Section */}
@@ -177,19 +244,21 @@ export default function WelcomeScreen() {
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFill}
               />
-              <Text style={styles.primaryCtaText}>Start Clinical Assessment</Text>
+              <Text style={styles.primaryCtaText}>Start Clinical Assessment (2 Min)</Text>
               <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />
             </GlassButton>
 
-            {/* Direct Jump to Dashboard */}
+            {/* Direct Login Button - Bypass Lengthy Quiz */}
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/home')}
-              style={styles.demoLink}
-              activeOpacity={0.7}
+              onPress={() => setIsAuthModalVisible(true)}
+              style={styles.directLoginBtn}
+              activeOpacity={0.8}
+              accessibilityLabel="Direct Account Login"
             >
-              <Text style={styles.demoLinkText}>
-                Open Dashboard (Glassmorphic Demo) →
-              </Text>
+                <LogIn size={16} color="#0284C7" />
+                <Text style={styles.directLoginBtnText}>
+                  Direct Sign In (Skip Quiz & Go to Account)
+                </Text>
             </TouchableOpacity>
 
             {/* Medical Disclaimer Card */}
@@ -204,6 +273,14 @@ export default function WelcomeScreen() {
             </GlassCard>
           </Animated.View>
         </ScrollView>
+
+        {/* Direct Account Login Modal */}
+        <AuthModal
+          visible={isAuthModalVisible}
+          onClose={() => setIsAuthModalVisible(false)}
+          defaultMode="signin"
+          onSuccessRedirect="/(tabs)/home"
+        />
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -219,8 +296,27 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   headerWrap: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginTop: 4,
+  },
+  headerSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(2, 132, 199, 0.3)',
+  },
+  headerSignInText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
   },
   brandPill: {
     flexDirection: 'row',
@@ -366,36 +462,50 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  demoLink: {
-    paddingVertical: 6,
-  },
-  demoLinkText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0284C7',
-  },
-  disclaimerCard: {
-    padding: 12,
-    borderRadius: 16,
-    width: '100%',
-  },
-  disclaimerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  disclaimerTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0284C7',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  disclaimerText: {
-    fontSize: 10,
-    color: '#64748B',
-    lineHeight: 14,
-    fontWeight: '500',
-  },
-});
+    directLoginBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      width: '100%',
+      paddingVertical: 13,
+      borderRadius: 27,
+      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+      borderWidth: 1.5,
+      borderColor: '#BAE6FD',
+      shadowColor: '#0284C7',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+      directLoginBtnText: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#0284C7',
+      },
+      disclaimerCard: {
+        padding: 12,
+        borderRadius: 16,
+        width: '100%',
+      },
+      disclaimerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 4,
+      },
+      disclaimerTitle: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#0284C7',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+      },
+      disclaimerText: {
+        fontSize: 10,
+        color: '#64748B',
+        lineHeight: 14,
+        fontWeight: '500',
+      },
+    });

@@ -1,8 +1,21 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Home, Apple, BedDouble, AlignJustify, User } from 'lucide-react-native';
+import { useAppStore } from '../../lib/store';
 
 export default function TabLayout() {
+  const router = useRouter();
+  const user = useAppStore((state) => state.user);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const hasHydrated = useAppStore((state) => state.hasHydrated);
+
+  // Protected route guard: if user is not logged in or has no active subscription, redirect immediately to landing page
+  useEffect(() => {
+    if (hasHydrated && (!user?.isLoggedIn || !isPremium)) {
+      router.replace('/');
+    }
+  }, [hasHydrated, user?.isLoggedIn, isPremium]);
+
   return (
     <Tabs
       screenOptions={{

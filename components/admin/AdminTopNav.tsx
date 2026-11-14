@@ -2,7 +2,8 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, CheckCircle2, Sparkles } from 'lucide-react'
+import { Search, Plus, CheckCircle2, Sparkles, LogOut } from 'lucide-react'
+import { logoutAdminSession } from './AdminAuthGate'
 
 interface AdminTopNavProps {
   title: string
@@ -63,6 +64,18 @@ export function AdminTopNav({
           <span>Live Synced</span>
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-0.5" />
         </div>
+
+        {/* Secure Admin Logout Button */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.02 }}
+          onClick={logoutAdminSession}
+          className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200 text-slate-600 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+          title="Sign out of Admin Session"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </motion.button>
 
         {/* Action Button: Strictly Color-Coded Vibrant Emerald Green with Framer Motion Micro-interaction */}
         {onQuickAction && quickActionLabel && (
