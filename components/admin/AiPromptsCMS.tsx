@@ -134,32 +134,35 @@ Guardrails:
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search prompt chips..."
+              placeholder="Search prompt chips / શોધો..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-52"
+              className="pl-8 pr-3 py-2 bg-slate-900/60 border border-slate-700/80 rounded-xl text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-cyan-500/50 w-56"
             />
           </div>
 
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="px-3 py-2 bg-slate-900/60 border border-slate-700/80 rounded-xl text-xs text-slate-200 font-medium focus:outline-none focus:border-cyan-500/50"
           >
-            <option value="all">All Prompt Categories</option>
-            <option value="Biometrics">Biometrics</option>
-            <option value="Nutrition">Nutrition</option>
-            <option value="Sleep & Hormones">Sleep & Hormones</option>
-            <option value="Posture & Spine">Posture & Spine</option>
+            <option value="all" className="bg-slate-900 text-slate-100">All Prompt Categories / બધી કેટેગરી</option>
+            <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics / બાયોમેટ્રિક્સ</option>
+            <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition / પોષણ</option>
+            <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep & Hormones / ઊંઘ અને હોર્મોન્સ</option>
+            <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture & Spine / મુદ્રા અને કરોડરજ્જુ</option>
           </select>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm shadow-blue-600/30 transition-all"
+          className="glow-button flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Add 1-Tap Prompt Chip</span>
+          <div className="flex flex-col text-left leading-tight">
+            <span>+ Add Question</span>
+            <span className="text-[10px] font-normal opacity-85">+ પ્રશ્ન ઉમેરો</span>
+          </div>
         </button>
       </div>
 
@@ -168,10 +171,10 @@ Guardrails:
         {/* Left Column: Chips List */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">
+            <h2 className="text-sm font-bold text-slate-100">
               Configured 1-Tap Quick Suggestion Chips ({filteredChips.length})
             </h2>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-400">
               Users tap these to trigger immediate advisor responses
             </span>
           </div>
@@ -180,36 +183,36 @@ Guardrails:
             {filteredChips.map((chip) => (
               <div
                 key={chip.id}
-                className={`admin-card p-4 transition-all ${
-                  !chip.active ? 'opacity-60 bg-slate-50/50' : 'bg-white'
+                className={`glass p-4 transition-all ${
+                  !chip.active ? 'opacity-50' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">{chip.label}</span>
+                      <span className="font-bold text-slate-100 text-sm">{chip.label}</span>
                       <span
                         className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                           chip.category === 'Biometrics'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
                             : chip.category === 'Nutrition'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                             : chip.category === 'Sleep & Hormones'
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                            ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                            : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                         }`}
                       >
                         {chip.category}
                       </span>
                     </div>
 
-                    <p className="text-xs font-medium text-slate-700 mt-2 flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5 text-blue-500 flex-none" />
+                    <p className="text-xs font-medium text-slate-300 mt-2 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-cyan-400 flex-none" />
                       <span>&ldquo;{chip.prompt}&rdquo;</span>
                     </p>
 
-                    <div className="mt-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[11px] text-slate-600 line-clamp-2">
-                      <strong className="text-slate-800">Response: </strong>
+                    <div className="mt-2.5 p-2.5 bg-slate-900/70 rounded-xl border border-slate-800 text-[11px] text-slate-300 line-clamp-2">
+                      <strong className="text-cyan-400">Response: </strong>
                       {chip.presetResponse}
                     </div>
                   </div>
@@ -219,26 +222,26 @@ Guardrails:
                     <button
                       onClick={() => handleToggleActive(chip.id)}
                       title={chip.active ? 'Active on Mobile' : 'Inactive'}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors ${
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors cursor-pointer ${
                         chip.active
-                          ? 'bg-emerald-500 text-white border-emerald-600'
-                          : 'bg-slate-200 text-slate-500 border-slate-300'
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                          : 'bg-slate-800 text-slate-500 border-slate-700'
                       }`}
                     >
-                      {chip.active ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                      {chip.active ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                     </button>
 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEditModal(chip)}
-                        className="p-1 text-slate-400 hover:text-blue-600 rounded"
+                        className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
                         title="Edit"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(chip.id)}
-                        className="p-1 text-slate-400 hover:text-red-600 rounded"
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -258,21 +261,21 @@ Guardrails:
         {/* Right Column: Live Mobile UI Preview & Guardrails */}
         <div className="space-y-6">
           {/* Mobile Chatbox Preview Mock */}
-          <div className="admin-card p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md">
+          <div className="glass p-5 text-white shadow-xl border border-slate-700/60">
             <div className="flex items-center justify-between pb-3 border-b border-slate-700/80 mb-3">
               <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-blue-400" />
+                <Smartphone className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-white">Mobile Chatbox Preview</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                 Client Input
               </span>
             </div>
 
             {/* Mock Chat View */}
             <div className="space-y-3 text-xs">
-              <div className="bg-slate-800/90 p-3 rounded-2xl rounded-tl-sm border border-slate-700 text-slate-200 text-[11px] leading-relaxed">
-                <div className="flex items-center gap-1.5 text-blue-400 font-bold mb-1">
+              <div className="bg-slate-900/90 p-3 rounded-2xl rounded-tl-sm border border-slate-800 text-slate-200 text-[11px] leading-relaxed">
+                <div className="flex items-center gap-1.5 text-cyan-400 font-bold mb-1">
                   <Bot className="w-3.5 h-3.5" /> GoTall Growth Advisor
                 </div>
                 Hi! Ask me anything about your epiphyseal plates, bedtime nutrition, or spinal decompression.
@@ -290,7 +293,7 @@ Guardrails:
                     .map((chip) => (
                       <div
                         key={chip.id}
-                        className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/40 rounded-full text-[10px] text-blue-200 whitespace-nowrap cursor-pointer transition-colors"
+                        className="px-2.5 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 rounded-full text-[10px] text-cyan-200 whitespace-nowrap cursor-pointer transition-colors"
                       >
                         {chip.label}
                       </div>
@@ -299,33 +302,33 @@ Guardrails:
               </div>
 
               {/* Mock Chat Input */}
-              <div className="mt-2 flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2 border border-slate-700 text-slate-400 text-xs">
+              <div className="mt-2 flex items-center gap-2 bg-slate-900/80 rounded-xl px-3 py-2 border border-slate-700/80 text-slate-400 text-xs">
                 <input
                   type="text"
                   readOnly
                   placeholder="Ask a direct growth question..."
                   className="bg-transparent text-xs text-white placeholder-slate-500 outline-none flex-1"
                 />
-                <Send className="w-3.5 h-3.5 text-blue-400" />
+                <Send className="w-3.5 h-3.5 text-cyan-400" />
               </div>
             </div>
           </div>
 
           {/* System Prompt & Guardrails Config */}
-          <div className="admin-card p-5 space-y-3">
+          <div className="glass p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-xs font-bold text-slate-900">Clinical System Guardrails</h3>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-bold text-slate-100">Clinical System Guardrails</h3>
               </div>
               {guardrailSaved && (
-                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Saved!
+                <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Saved! / સાચવ્યું!
                 </span>
               )}
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
               Enforced across all user conversations. Prevents fake claims and ensures scientific fidelity.
             </p>
 
@@ -333,14 +336,17 @@ Guardrails:
               rows={7}
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full p-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-slate-200 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-cyan-500/50"
             />
 
             <button
               onClick={handleSaveGuardrails}
-              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+              className="glow-button w-full py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
             >
-              Update AI Guardrails
+              <div className="flex flex-col items-center justify-center leading-tight">
+                <span>Update AI Guardrails</span>
+                <span className="text-[10px] font-normal opacity-85">AI નિયમો સાચવો</span>
+              </div>
             </button>
           </div>
         </div>
@@ -348,18 +354,18 @@ Guardrails:
 
       {/* Modal: Add or Edit Prompt Chip */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden modal-content-animate">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass w-full max-w-lg overflow-hidden border border-slate-700/70 bg-slate-950/95 p-0 text-slate-100 shadow-2xl modal-content-animate">
+            <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-blue-600" />
-                <h2 className="text-base font-bold text-slate-900">
-                  {editingChip ? 'Edit Prompt Chip' : 'Add 1-Tap Prompt Chip'}
+                <Bot className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base font-bold text-slate-100">
+                  {editingChip ? 'Edit Prompt Chip / પ્રશ્ન સંપાદિત કરો' : 'Add 1-Tap Prompt Chip / નવો પ્રશ્ન ઉમેરો'}
                 </h2>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center"
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -368,34 +374,34 @@ Guardrails:
             <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Chip Button Label</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Chip Button Label</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. 🦴 Growth Plate Status"
                     value={formLabel}
                     onChange={(e) => setFormLabel(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Category</label>
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/80 rounded-xl text-slate-100 focus:outline-none focus:border-cyan-500/60"
                   >
-                    <option value="Biometrics">Biometrics</option>
-                    <option value="Nutrition">Nutrition</option>
-                    <option value="Sleep & Hormones">Sleep & Hormones</option>
-                    <option value="Posture & Spine">Posture & Spine</option>
+                    <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics / બાયોમેટ્રિક્સ</option>
+                    <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition / પોષણ</option>
+                    <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep & Hormones / ઊંઘ અને હોર્મોન્સ</option>
+                    <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture & Spine / મુદ્રા અને કરોડરજ્જુ</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-300 mb-1">
                   Question Sent to AI when Tapped
                 </label>
                 <input
@@ -404,12 +410,12 @@ Guardrails:
                   placeholder="e.g. Are my growth plates still open based on my age and velocity?"
                   value={formPrompt}
                   onChange={(e) => setFormPrompt(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-300 mb-1">
                   Preset Peer-Reviewed Clinical Response
                 </label>
                 <textarea
@@ -418,7 +424,7 @@ Guardrails:
                   placeholder="Verified response provided when offline or cached..."
                   value={formResponse}
                   onChange={(e) => setFormResponse(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
                 />
               </div>
 
@@ -428,26 +434,29 @@ Guardrails:
                   id="chipActive"
                   checked={formActive}
                   onChange={(e) => setFormActive(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
+                  className="rounded text-cyan-500 focus:ring-cyan-500 bg-slate-900 border-slate-700 cursor-pointer"
                 />
-                <label htmlFor="chipActive" className="font-medium text-slate-700 cursor-pointer">
+                <label htmlFor="chipActive" className="font-medium text-slate-300 cursor-pointer">
                   Active (appears in mobile AI advisor prompt bar)
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-medium"
+                  className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 font-medium cursor-pointer"
                 >
-                  Cancel
+                  Cancel / રદ કરો
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm shadow-blue-600/30"
+                  className="glow-button px-5 py-2 text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  {editingChip ? 'Save Changes' : 'Add Prompt Chip'}
+                  <div className="flex flex-col text-left leading-tight">
+                    <span>{editingChip ? 'Save Changes' : 'Add Prompt Chip'}</span>
+                    <span className="text-[10px] font-normal opacity-85">{editingChip ? 'ફેરફાર સાચવો' : 'પ્રશ્ન ઉમેરો'}</span>
+                  </div>
                 </button>
               </div>
             </form>

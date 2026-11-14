@@ -1,21 +1,33 @@
+// ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
-  Platform,
-  Dimensions,
   Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  ShieldCheck,
+  ShieldAlert,
+  Sparkles,
+  Film,
+  FileImage,
+  Activity,
+  Layers,
+} from 'lucide-react-native';
+import BottomSheet from './ui/BottomSheet';
+import CircularProgressRingGlass from './CircularProgressRingGlass';
+import { useAppStore, StretchExercise } from '../lib/store';
+import { colors } from '../lib/theme';
+import { haptics } from '../lib/animations';
 
-// Resilient native video loader: In modern Expo Go (SDK 52+), the legacy ExponentAV native
-// module is not bundled. Dynamically checking prevents uncaught evaluation errors at startup.
 let NativeVideoComponent: any = null;
 let NativeResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch' };
 
@@ -27,29 +39,8 @@ try {
     NativeResizeMode = ExpoAv.ResizeMode || NativeResizeMode;
   }
 } catch {
-  // In Expo Go or builds without ExponentAV native binary
   NativeVideoComponent = null;
 }
-import {
-  X,
-  Play,
-  Pause,
-  RotateCcw,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  ShieldAlert,
-  Sparkles,
-  Film,
-  FileImage,
-  Flame,
-  Activity,
-  Layers,
-} from 'lucide-react-native';
-import CircularProgressRingGlass from './CircularProgressRingGlass';
-import { useAppStore, StretchExercise } from '../lib/store';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface StretchTimerModalProps {
   visible: boolean;
@@ -71,7 +62,6 @@ export default function StretchTimerModal({
   const [isCompleted, setIsCompleted] = useState(false);
   const videoRef = useRef<any>(null);
 
-  // Sync state whenever a new exercise is opened
   useEffect(() => {
     if (exercise) {
       const dur = exercise.durationSeconds || 60;
@@ -81,15 +71,13 @@ export default function StretchTimerModal({
     }
   }, [exercise, completedStretches]);
 
-  // High precision countdown timer
   useEffect(() => {
     let timer: any = null;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            // Timer finished
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            haptics.success();
             return 0;
           }
           return prev - 1;
@@ -119,12 +107,12 @@ export default function StretchTimerModal({
   };
 
   const handleToggleTimer = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    haptics.ctaPress();
     setIsRunning(!isRunning);
   };
 
   const handleResetTimer = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptics.selection();
     setIsRunning(false);
     setTimeLeft(totalDuration);
     if (videoRef.current && typeof videoRef.current.setPositionAsync === 'function') {
@@ -133,7 +121,7 @@ export default function StretchTimerModal({
   };
 
   const handleManualComplete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    haptics.success();
     setIsRunning(false);
     setTimeLeft(0);
     setIsCompleted(true);
@@ -144,403 +132,248 @@ export default function StretchTimerModal({
   const isImageOrGif = (exercise.media_type === 'image' || exercise.media_type === 'gif') && !!exercise.media_url;
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        {/* Soft Ice-Blue Gradient Background Canvas */}
-        <LinearGradient
-          colors={['#EFF6FF', '#DBEAFE', '#F8FAFC']}
-          locations={[0, 0.45, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* Modal Top Bar */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextGroup}>
-            <View style={styles.badgeRow}>
-              <View
-                style={[
-                  styles.categoryPill,
-                  exercise.category === 'Height Growth'
-                    ? styles.pillGrowth
-                    : exercise.category === 'Strength'
-                    ? styles.pillStrength
-                    : styles.pillPosture,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    exercise.category === 'Height Growth'
-                      ? styles.textGrowth
-                      : exercise.category === 'Strength'
-                      ? styles.textStrength
-                      : styles.textPosture,
-                  ]}
-                >
-                  {exercise.category || 'Height Growth'}
-                </Text>
-              </View>
-
-              <Text style={styles.targetZoneTag}>• {exercise.targetZone}</Text>
-            </View>
-
-            <Text style={styles.exerciseTitle} numberOfLines={1}>
-              {exercise.title}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              onClose();
-            }}
-            style={styles.closeBtn}
-          >
-            <X size={18} color="#475569" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+      onClose={onClose}
+      title={exercise.title}
+      subtitle={`${exercise.category} • ${exercise.targetZone}`}
+      footer={
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            haptics.selection();
+            onClose();
+          }}
+          style={styles.doneBtn}
+          accessibilityLabel="Save and close exercise"
+          accessibilityRole="button"
         >
-          {/* ============================================================== */}
-          {/* MEDIA VIEWER: Looping Muted Video or Cached High-Res Image/GIF */}
-          {/* ============================================================== */}
-          <View style={styles.mediaContainer}>
-            {isVideo ? (
-              NativeVideoComponent ? (
-                <NativeVideoComponent
-                  ref={videoRef}
-                  source={{ uri: exercise.media_url! }}
-                  style={styles.mediaPlayer}
-                  resizeMode={NativeResizeMode.COVER}
-                  shouldPlay={true}
-                  isLooping={true}
-                  isMuted={true}
-                  useNativeControls={false}
-                />
-              ) : (
-                <LinearGradient
-                  colors={['#0F172A', '#1E293B', '#0F172A']}
-                  style={styles.fallbackMedia}
-                >
-                  <View style={styles.fallbackCenterContent}>
-                    <View style={styles.fallbackIconWrap}>
-                      <Film size={32} color="#38BDF8" />
-                    </View>
-                    <Text style={styles.fallbackTitle}>Biomechanical Motion</Text>
-                    <Text style={styles.fallbackSubtitle}>
-                      Active stretching protocol in progress
-                    </Text>
-                    {exercise.media_url ? (
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          if (exercise.media_url) {
-                            Linking.openURL(exercise.media_url).catch(() => {});
-                          }
-                        }}
-                        style={styles.videoLinkPill}
-                      >
-                        <Play size={12} color="#FFFFFF" fill="#FFFFFF" />
-                        <Text style={styles.videoLinkText}>Open Video Guide</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </LinearGradient>
-              )
-            ) : isImageOrGif ? (
-              <Image
+          <Text style={styles.doneBtnText}>
+            {isCompleted ? 'Done ✓ Save progress' : 'Close stretch'}
+          </Text>
+        </TouchableOpacity>
+      }
+    >
+      <View style={styles.bodyContainer}>
+        {/* MEDIA VIEWER */}
+        <View style={styles.mediaContainer}>
+          {isVideo ? (
+            NativeVideoComponent ? (
+              <NativeVideoComponent
+                ref={videoRef}
                 source={{ uri: exercise.media_url! }}
                 style={styles.mediaPlayer}
-                contentFit="cover"
-                transition={300}
-                cachePolicy="memory-disk"
+                resizeMode={NativeResizeMode.COVER}
+                shouldPlay={true}
+                isLooping={true}
+                isMuted={true}
+                useNativeControls={false}
               />
             ) : (
-              /* Fallback 3D Anatomical Visualizer */
               <LinearGradient
-                colors={['#1E293B', '#0F172A']}
+                colors={['#0F172A', '#1E293B', '#0F172A']}
                 style={styles.fallbackMedia}
               >
                 <View style={styles.fallbackCenterContent}>
                   <View style={styles.fallbackIconWrap}>
-                    <Activity size={32} color="#38BDF8" />
+                    <Film size={28} color="#38BDF8" />
                   </View>
-                  <Text style={styles.fallbackTitle}>Spinal Traction Active</Text>
-                  <Text style={styles.fallbackSubtitle}>
-                    Follow the calibrated biomechanical breathing cues
-                  </Text>
+                  <Text style={styles.fallbackTitle}>Motion Video</Text>
+                  {exercise.media_url ? (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (exercise.media_url) {
+                          Linking.openURL(exercise.media_url).catch(() => {});
+                        }
+                      }}
+                      style={styles.videoLinkPill}
+                    >
+                      <Play size={12} color="#FFFFFF" fill="#FFFFFF" />
+                      <Text style={styles.videoLinkText}>Open Video Guide</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </LinearGradient>
-            )}
+            )
+          ) : isImageOrGif ? (
+            <Image
+              source={{ uri: exercise.media_url! }}
+              style={styles.mediaPlayer}
+              contentFit="cover"
+              transition={300}
+              cachePolicy="memory-disk"
+              accessibilityRole="image"
+              accessibilityLabel={`Form guide for ${exercise.title}`}
+            />
+          ) : (
+            <LinearGradient
+              colors={['#1E293B', '#0F172A']}
+              style={styles.fallbackMedia}
+            >
+              <View style={styles.fallbackCenterContent}>
+                <View style={styles.fallbackIconWrap}>
+                  <Activity size={28} color="#38BDF8" />
+                </View>
+                <Text style={styles.fallbackTitle}>Follow the exercise form</Text>
+              </View>
+            </LinearGradient>
+          )}
 
-            {/* Media Type Floating Tag */}
-            <View style={styles.mediaOverlayBadge}>
-              {isVideo ? (
+          <View style={styles.mediaOverlayBadge}>
+            {isVideo ? (
+              <>
+                <Film size={11} color="#FFFFFF" />
+                <Text style={styles.mediaOverlayText}>Video Guide</Text>
+              </>
+            ) : isImageOrGif ? (
+              <>
+                <FileImage size={11} color="#FFFFFF" />
+                <Text style={styles.mediaOverlayText}>Photo Form</Text>
+              </>
+            ) : (
+              <>
+                <Layers size={11} color="#FFFFFF" />
+                <Text style={styles.mediaOverlayText}>Form Guide</Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* TIMER SECTION */}
+        <View style={styles.timerCard}>
+          <View style={styles.timerGaugeWrap}>
+            <CircularProgressRingGlass
+              size={130}
+              strokeWidth={10}
+              percentage={progressPct}
+              color={isCompleted ? colors.green600 : isRunning ? colors.blue600 : colors.blue500}
+              gradientSecondary={isCompleted ? '#34D399' : '#38BDF8'}
+              valueText={formatTime(timeLeft)}
+              unitText={isCompleted ? 'Done!' : isRunning ? 'Remaining' : 'Ready'}
+              label={isCompleted ? 'Goal hit' : `${totalDuration}s goal`}
+            />
+          </View>
+
+          {/* Controls */}
+          <View style={styles.controlsRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleResetTimer}
+              style={styles.iconCircleBtn}
+              accessibilityLabel="Reset timer"
+              accessibilityRole="button"
+            >
+              <RotateCcw size={16} color={colors.slate600} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleToggleTimer}
+              style={[
+                styles.primaryTimerBtn,
+                isRunning ? styles.btnRunning : styles.btnPaused,
+              ]}
+              accessibilityLabel={isRunning ? 'Pause timer' : 'Start timer'}
+              accessibilityRole="button"
+            >
+              {isRunning ? (
                 <>
-                  <Film size={12} color="#FFFFFF" />
-                  <Text style={styles.mediaOverlayText}>Looping Video Demonstration</Text>
-                </>
-              ) : isImageOrGif ? (
-                <>
-                  <FileImage size={12} color="#FFFFFF" />
-                  <Text style={styles.mediaOverlayText}>Visual Form Guide</Text>
+                  <Pause size={16} color="#FFFFFF" />
+                  <Text style={styles.primaryTimerBtnText}>Pause</Text>
                 </>
               ) : (
                 <>
-                  <Layers size={12} color="#FFFFFF" />
-                  <Text style={styles.mediaOverlayText}>Clinical Motion Sensor</Text>
+                  <Play size={16} color="#FFFFFF" />
+                  <Text style={styles.primaryTimerBtnText}>
+                    {timeLeft === totalDuration ? 'Start timer' : 'Resume'}
+                  </Text>
                 </>
               )}
-            </View>
-          </View>
+            </TouchableOpacity>
 
-          {/* ============================================================== */}
-          {/* CIRCULAR COUNTDOWN TIMER & CONTROLS SECTION                   */}
-          {/* ============================================================== */}
-          <View style={styles.glassTimerCard}>
-            <View style={styles.timerGaugeWrap}>
-              <CircularProgressRingGlass
-                size={148}
-                strokeWidth={11}
-                percentage={progressPct}
-                color={isCompleted ? '#10B981' : isRunning ? '#0284C7' : '#2563EB'}
-                gradientSecondary={isCompleted ? '#34D399' : '#38BDF8'}
-                valueText={formatTime(timeLeft)}
-                unitText={isCompleted ? 'Done!' : isRunning ? 'Remaining' : 'Ready'}
-                label={isCompleted ? 'Goal Hit' : `${totalDuration}s Session`}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleManualComplete}
+              style={[
+                styles.iconCircleBtn,
+                isCompleted && styles.iconCircleBtnDone,
+              ]}
+              accessibilityLabel="Mark done"
+              accessibilityRole="button"
+            >
+              <CheckCircle2
+                size={18}
+                color={isCompleted ? '#FFFFFF' : colors.slate600}
               />
-            </View>
-
-            {/* Timer Controls Row */}
-            <View style={styles.controlsRow}>
-              {/* Reset Button */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handleResetTimer}
-                style={styles.iconCircleBtn}
-              >
-                <RotateCcw size={16} color="#64748B" />
-              </TouchableOpacity>
-
-              {/* Start / Pause Main Action Pill */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleToggleTimer}
-                style={[
-                  styles.primaryTimerBtn,
-                  isRunning ? styles.btnRunning : styles.btnPaused,
-                ]}
-              >
-                {isRunning ? (
-                  <>
-                    <Pause size={17} color="#FFFFFF" />
-                    <Text style={styles.primaryTimerBtnText}>Pause Session</Text>
-                  </>
-                ) : (
-                  <>
-                    <Play size={17} color="#FFFFFF" />
-                    <Text style={styles.primaryTimerBtnText}>
-                      {timeLeft === totalDuration ? 'Start Timer' : 'Resume'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Manual Complete Checkbox */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handleManualComplete}
-                style={[
-                  styles.iconCircleBtn,
-                  isCompleted && styles.iconCircleBtnDone,
-                ]}
-              >
-                <CheckCircle2
-                  size={19}
-                  color={isCompleted ? '#FFFFFF' : '#64748B'}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Completion Banner */}
-            {isCompleted && (
-              <View style={styles.completeBanner}>
-                <Sparkles size={14} color="#059669" />
-                <Text style={styles.completeBannerText}>
-                  Spinal Decompression Logged (+XP Earned)
-                </Text>
-              </View>
-            )}
+            </TouchableOpacity>
           </View>
 
-          {/* ============================================================== */}
-          {/* BIOMECHANICAL CLINICAL BENEFIT CARD                            */}
-          {/* ============================================================== */}
-          <View style={styles.glassInfoCard}>
-            <View style={styles.infoCardHeader}>
-              <ShieldCheck size={16} color="#2563EB" />
-              <Text style={styles.infoCardTitle}>Biomechanical Action Target</Text>
-            </View>
-            <Text style={styles.infoCardBody}>{exercise.clinicalBenefit}</Text>
-          </View>
-
-          {/* ============================================================== */}
-          {/* STEP-BY-STEP EXECUTION INSTRUCTIONS                            */}
-          {/* ============================================================== */}
-          <View style={styles.stepsSection}>
-            <Text style={styles.stepsSectionTitle}>
-              Execution Steps ({exercise.instructions.length} steps)
-            </Text>
-
-            <View style={styles.stepsList}>
-              {exercise.instructions.map((step, idx) => (
-                <View key={idx} style={styles.stepItemRow}>
-                  <View style={styles.stepIndexPill}>
-                    <Text style={styles.stepIndexText}>{idx + 1}</Text>
-                  </View>
-                  <Text style={styles.stepText}>{step}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Contraindication Caution */}
-          {exercise.contraindications && (
-            <View style={styles.cautionCard}>
-              <ShieldAlert size={15} color="#D97706" />
-              <Text style={styles.cautionText}>
-                <Text style={styles.cautionBold}>Clinical Caution: </Text>
-                {exercise.contraindications}
+          {isCompleted && (
+            <View style={styles.completeBanner}>
+              <Sparkles size={14} color="#059669" />
+              <Text style={styles.completeBannerText}>
+                Your stretch is done ✓
               </Text>
             </View>
           )}
+        </View>
 
-          {/* Bottom Dismiss / Complete Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              onClose();
-            }}
-            style={styles.doneBtn}
-          >
-            <Text style={styles.doneBtnText}>
-              {isCompleted ? 'Close & Save Progress' : 'Dismiss Exercise'}
+        {/* CLINICAL NOTE */}
+        {exercise.clinicalBenefit ? (
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <ShieldCheck size={16} color={colors.blue600} />
+              <Text style={styles.infoCardTitle}>Clinical note</Text>
+            </View>
+            <Text style={styles.infoCardBody}>{exercise.clinicalBenefit}</Text>
+          </View>
+        ) : null}
+
+        {/* STEPS */}
+        <View style={styles.stepsSection}>
+          <Text style={styles.stepsSectionTitle}>
+            How to do it ({exercise.instructions.length} steps)
+          </Text>
+
+          <View style={styles.stepsList}>
+            {exercise.instructions.map((step, idx) => (
+              <View key={idx} style={styles.stepItemRow}>
+                <View style={styles.stepIndexPill}>
+                  <Text style={styles.stepIndexText}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.stepText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* CAUTION */}
+        {exercise.contraindications && (
+          <View style={styles.cautionCard}>
+            <ShieldAlert size={15} color={colors.amber600} />
+            <Text style={styles.cautionText}>
+              <Text style={styles.cautionBold}>Caution: </Text>
+              {exercise.contraindications}
             </Text>
-          </TouchableOpacity>
-        </ScrollView>
+          </View>
+        )}
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#F0F6FF',
-  },
-  headerRow: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 18 : 22,
-    paddingBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
-  },
-  headerTextGroup: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  categoryPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  pillGrowth: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-  },
-  pillStrength: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-  },
-  pillPosture: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  categoryPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  textGrowth: {
-    color: '#1D4ED8',
-  },
-  textStrength: {
-    color: '#4338CA',
-  },
-  textPosture: {
-    color: '#047857',
-  },
-  targetZoneTag: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  exerciseTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
+  bodyContainer: {
+    gap: 16,
   },
   mediaContainer: {
     width: '100%',
-    height: 220,
-    borderRadius: 22,
+    height: 180,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 16,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    position: 'relative',
   },
   mediaPlayer: {
     width: '100%',
@@ -549,47 +382,36 @@ const styles = StyleSheet.create({
   fallbackMedia: {
     width: '100%',
     height: '100%',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   fallbackCenterContent: {
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   fallbackIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   fallbackTitle: {
     color: '#F8FAFC',
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  fallbackSubtitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '700',
   },
   videoLinkPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 9999,
-    marginTop: 10,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    backgroundColor: colors.blue600,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginTop: 8,
   },
   videoLinkText: {
     color: '#FFFFFF',
@@ -599,134 +421,116 @@ const styles = StyleSheet.create({
   mediaOverlayBadge: {
     position: 'absolute',
     top: 10,
-    right: 10,
+    left: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   mediaOverlayText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
   },
-  glassTimerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
-    borderRadius: 24,
+  timerCard: {
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-    marginBottom: 16,
   },
   timerGaugeWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    marginVertical: 4,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+    width: '100%',
   },
   iconCircleBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.slate100,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconCircleBtnDone: {
-    backgroundColor: '#10B981',
-    borderColor: '#059669',
+    backgroundColor: colors.green600,
   },
   primaryTimerBtn: {
+    flex: 1,
+    maxWidth: 180,
+    height: 44,
+    borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
   btnRunning: {
-    backgroundColor: '#D97706',
+    backgroundColor: colors.amber600,
   },
   btnPaused: {
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.blue600,
   },
   primaryTimerBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   completeBanner: {
-    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(209, 250, 229, 0.8)',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
   },
   completeBannerText: {
-    color: '#065F46',
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
   },
-  glassInfoCard: {
-    backgroundColor: 'rgba(239, 246, 255, 0.7)',
-    borderRadius: 20,
+  infoCard: {
+    padding: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    padding: 16,
-    marginBottom: 16,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
   },
   infoCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 4,
   },
   infoCardTitle: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#1E3A8A',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: colors.slate900,
   },
   infoCardBody: {
     fontSize: 12,
-    color: '#1E40AF',
-    fontWeight: '500',
+    color: colors.slate600,
     lineHeight: 18,
   },
   stepsSection: {
-    marginBottom: 16,
+    gap: 8,
   },
   stepsSectionTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.slate900,
   },
   stepsList: {
     gap: 8,
@@ -735,69 +539,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.60)',
+    padding: 10,
+    borderRadius: 14,
   },
   stepIndexPill: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: colors.blue50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
   },
   stepIndexText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#1D4ED8',
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.blue600,
   },
   stepText: {
     flex: 1,
     fontSize: 12,
-    color: '#334155',
-    fontWeight: '500',
+    color: colors.slate600,
     lineHeight: 18,
   },
   cautionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    padding: 10,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FDE68A',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 20,
   },
   cautionText: {
     flex: 1,
     fontSize: 11,
-    color: '#92400E',
-    fontWeight: '500',
+    color: colors.amber600,
     lineHeight: 16,
   },
   cautionBold: {
-    fontWeight: '800',
+    fontWeight: '700',
   },
   doneBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    paddingVertical: 14,
+    height: 48,
+    backgroundColor: colors.blue600,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
   doneBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

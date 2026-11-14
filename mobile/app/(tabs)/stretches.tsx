@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   Dimensions,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { SkeletonRow } from '../../components/ui/SkeletonShimmer';
 import {
   Activity,
   Waves,
@@ -62,16 +65,61 @@ export default function StretchesScreen() {
   const [diagnosticModalVisible, setDiagnosticModalVisible] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [liveExercises, setLiveExercises] = useState<StretchExercise[] | null>(null);
+  const [isLoadingLive, setIsLoadingLive] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadLiveStretches = async () => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const { data, error } = await supabase
+        .from('stretches')
+        .select('*')
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const mapped: StretchExercise[] = data.map((d: any, idx: number) => ({
+          id: Number(d.id) || idx + 1,
+          title: d.title,
+          category: (d.category as any) || 'Height Growth',
+          tag: d.tag || 'Spine',
+          targetZone: d.target_area || d.targetZone || 'Thoracic Spine',
+          durationSeconds: Number(d.duration_seconds) || 60,
+          intensity: 'Beginner',
+          clinicalBenefit: Array.isArray(d.benefits) ? d.benefits[0] : (d.benefits || 'Spinal disc rehydration'),
+          instructions: Array.isArray(d.instructions) ? d.instructions : [d.instructions || 'Follow posture guide'],
+          media_url: d.media_url,
+          media_type: d.media_type || 'image',
+        }));
+        setLiveExercises(mapped);
+      }
+    } catch {
+      // Keep local plan on network error
+    } finally {
+      setIsLoadingLive(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    setIsLoadingLive(true);
+    loadLiveStretches();
+  }, []);
 
   const scheduleDays = Object.keys(weeklyPlan);
   const currentDayKey = scheduleDays.includes(activePlanDay)
     ? activePlanDay
     : scheduleDays[0] || 'Monday';
 
-  const dailyExercises: StretchExercise[] =
-    weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0
+  const baseExercises: StretchExercise[] =
+    liveExercises && liveExercises.length > 0
+      ? liveExercises
+      : weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0
       ? weeklyPlan[currentDayKey]
       : CLINICAL_STRETCHES;
+
+  const dailyExercises: StretchExercise[] = baseExercises;
 
   const selectedCategory = categories.find(
     (c) => c.slug === selectedCategorySlug || c.id === selectedCategorySlug
@@ -174,6 +222,16 @@ export default function StretchesScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => {
+                setIsRefreshing(true);
+                loadLiveStretches();
+              }}
+              colors={['#2563EB']}
+            />
+          }
         >
           {/* Title Section */}
           <Animated.View
@@ -440,7 +498,14 @@ export default function StretchesScreen() {
 
           {/* Stretches List */}
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stretchesListWrap}>
-            {displayedExercises.map((s) => {
+            {isLoadingLive && displayedExercises.length === 0 ? (
+              <View style={{ gap: 10 }}>
+                <SkeletonRow height={80} borderRadius={18} />
+                <SkeletonRow height={80} borderRadius={18} />
+                <SkeletonRow height={80} borderRadius={18} />
+              </View>
+            ) : (
+              displayedExercises.map((s) => {
               const isDone = completedStretches.includes(Number(s.id));
               return (
                 <GlassCard
@@ -549,7 +614,8 @@ export default function StretchesScreen() {
                   </TouchableOpacity>
                 </GlassCard>
               );
-            })}
+            })
+          )}
           </Animated.View>
 
           {/* Scientific Citation Card */}

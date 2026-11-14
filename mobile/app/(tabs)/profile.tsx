@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Share,
   Modal,
   ActivityIndicator,
+  Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,6 +47,7 @@ import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import BadgeModal from '../../components/BadgeModal';
 import AuthModal from '../../components/AuthModal';
 import AppSpotlightTour from '../../components/AppSpotlightTour';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -64,6 +67,38 @@ export default function ProfileScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [liveBadges, setLiveBadges] = useState<AchievementBadgeItem[] | null>(null);
+
+  const loadLiveBadges = async () => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const { data, error } = await supabase.from('achievements').select('*');
+      if (!error && data && data.length > 0) {
+        const mapped: AchievementBadgeItem[] = data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description || '',
+          icon: a.icon || '🏆',
+          icon_url: a.icon_url,
+          category: a.category || 'stretches',
+          targetMetric: a.target_metric || 'stretches_completed',
+          targetValue: Number(a.target_value) || 1,
+          xpReward: Number(a.xp_reward) || 50,
+          tier: (a.tier as any) || 'bronze',
+        }));
+        setLiveBadges(mapped);
+      }
+    } catch {
+      // Keep local badges
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLiveBadges();
+  }, []);
 
   const safeData = quizData || {
     gender: 'male' as const,
@@ -172,6 +207,16 @@ export default function ProfileScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => {
+                setIsRefreshing(true);
+                loadLiveBadges();
+              }}
+              colors={['#2563EB']}
+            />
+          }
         >
           {/* User Bio & Cloud Auth Card */}
           <Animated.View entering={FadeInDown.delay(100).springify()}>
@@ -304,7 +349,7 @@ export default function ProfileScreen() {
 
           {/* Badges Grid (2-column) */}
           <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.badgesGrid}>
-            {badges.map((badge) => {
+            {(liveBadges || badges).map((badge) => {
               const isUnlocked = unlockedBadgeIds.includes(badge.id);
 
               return (
@@ -329,7 +374,15 @@ export default function ProfileScreen() {
                           isUnlocked ? styles.badgeIconBoxUnlocked : styles.badgeIconBoxLocked,
                         ]}
                       >
-                        <Text style={styles.badgeIconEmoji}>{badge.icon}</Text>
+                        {badge.icon_url ? (
+                          <Image
+                            source={{ uri: badge.icon_url }}
+                            style={{ width: 26, height: 26 }}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <Text style={styles.badgeIconEmoji}>{badge.icon}</Text>
+                        )}
                       </View>
 
                       <View

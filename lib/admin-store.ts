@@ -7,6 +7,7 @@ export interface AchievementBadge {
   title: string
   description: string
   icon: string
+  icon_url?: string
   category: 'streak' | 'stretches' | 'nutrition' | 'sleep' | 'biometrics'
   metricTrigger: string
   targetValue: number
@@ -1113,26 +1114,59 @@ export function useAdminData() {
       const savedUsers = localStorage.getItem('gotall_admin_users')
       const savedAiChips = localStorage.getItem('gotall_admin_aichips')
 
-      const isDummyUserPresent = savedUsers && savedUsers.includes('Marcus Vance')
-      const isDummyFoodPresent = savedFoods && savedFoods.includes('food-1')
+      if (savedBadges) setBadges(JSON.parse(savedBadges))
+      if (savedStretches) setStretches(JSON.parse(savedStretches))
+      if (savedCategories) setCategories(JSON.parse(savedCategories))
+      if (savedCategoryQuestions) setCategoryQuestions(JSON.parse(savedCategoryQuestions))
+      if (savedFoods) setFoods(JSON.parse(savedFoods))
+      if (savedUsers) setUsers(JSON.parse(savedUsers))
+      if (savedAiChips) setAiChips(JSON.parse(savedAiChips))
 
-      if (isDummyUserPresent || isDummyFoodPresent) {
-        // Automatic one-time cleanup of legacy mock dummy records
-        localStorage.removeItem('gotall_admin_users')
-        localStorage.removeItem('gotall_admin_foods')
-        localStorage.removeItem('gotall_admin_stretches')
-        setUsers([])
-        setFoods([])
-        setStretches([])
-      } else {
-        if (savedBadges) setBadges(JSON.parse(savedBadges))
-        if (savedStretches) setStretches(JSON.parse(savedStretches))
-        if (savedCategories) setCategories(JSON.parse(savedCategories))
-        if (savedCategoryQuestions) setCategoryQuestions(JSON.parse(savedCategoryQuestions))
-        if (savedFoods) setFoods(JSON.parse(savedFoods))
-        if (savedUsers) setUsers(JSON.parse(savedUsers))
-        if (savedAiChips) setAiChips(JSON.parse(savedAiChips))
-      }
+      // Sync live catalog & CRM data from Supabase database
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+      fetch('/api/admin/sync', {
+        headers: { 'x-admin-token': token },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data) return
+          if (data.stretches && Array.isArray(data.stretches) && data.stretches.length > 0) {
+            setStretches(data.stretches)
+            try { localStorage.setItem('gotall_admin_stretches', JSON.stringify(data.stretches)) } catch (e) {}
+          }
+          if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+            setCategories(data.categories)
+            try { localStorage.setItem('gotall_admin_categories', JSON.stringify(data.categories)) } catch (e) {}
+          }
+          if (data.categoryQuestions && Array.isArray(data.categoryQuestions) && data.categoryQuestions.length > 0) {
+            setCategoryQuestions(data.categoryQuestions)
+            try { localStorage.setItem('gotall_admin_category_questions', JSON.stringify(data.categoryQuestions)) } catch (e) {}
+          }
+          if (data.badges && Array.isArray(data.badges) && data.badges.length > 0) {
+            setBadges(data.badges)
+            try { localStorage.setItem('gotall_admin_badges', JSON.stringify(data.badges)) } catch (e) {}
+          }
+          if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+            setUsers(data.users)
+            try { localStorage.setItem('gotall_admin_users', JSON.stringify(data.users)) } catch (e) {}
+          }
+        })
+        .catch((err) => console.warn('Could not sync live catalog from Supabase:', err))
+
+      // Sync live foods directly from Supabase database
+      fetch('/api/admin/meals', {
+        headers: { 'x-admin-token': token },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.foods && Array.isArray(data.foods) && data.foods.length > 0) {
+            setFoods(data.foods)
+            try {
+              localStorage.setItem('gotall_admin_foods', JSON.stringify(data.foods))
+            } catch (e) {}
+          }
+        })
+        .catch((err) => console.warn('Could not sync live meals from Supabase:', err))
     } catch (e) {
       console.warn('Failed reading from localStorage', e)
     } finally {
@@ -1140,12 +1174,25 @@ export function useAdminData() {
     }
   }, [])
 
-  // Auto-save helpers
+  // Auto-save helpers with live Supabase database synchronization
+  const syncToSupabase = (entity: string, items: any[]) => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    fetch('/api/admin/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': token,
+      },
+      body: JSON.stringify({ entity, items }),
+    }).catch((err) => console.warn(`Failed saving ${entity} to Supabase:`, err))
+  }
+
   const saveBadges = (newBadges: AchievementBadge[]) => {
     setBadges(newBadges)
     try {
       localStorage.setItem('gotall_admin_badges', JSON.stringify(newBadges))
     } catch (e) {}
+    syncToSupabase('badges', newBadges)
   }
 
   const saveStretches = (newStretches: SpinalStretch[]) => {
@@ -1153,6 +1200,7 @@ export function useAdminData() {
     try {
       localStorage.setItem('gotall_admin_stretches', JSON.stringify(newStretches))
     } catch (e) {}
+    syncToSupabase('stretches', newStretches)
   }
 
   const saveCategories = (newCategories: WorkoutCategory[]) => {
@@ -1160,6 +1208,7 @@ export function useAdminData() {
     try {
       localStorage.setItem('gotall_admin_categories', JSON.stringify(newCategories))
     } catch (e) {}
+    syncToSupabase('categories', newCategories)
   }
 
   const saveCategoryQuestions = (newQuestions: CategoryQuestion[]) => {
@@ -1167,6 +1216,7 @@ export function useAdminData() {
     try {
       localStorage.setItem('gotall_admin_category_questions', JSON.stringify(newQuestions))
     } catch (e) {}
+    syncToSupabase('questions', newQuestions)
   }
 
   const saveFoods = (newFoods: FoodItem[]) => {
@@ -1174,6 +1224,17 @@ export function useAdminData() {
     try {
       localStorage.setItem('gotall_admin_foods', JSON.stringify(newFoods))
     } catch (e) {}
+
+    // Persist to Supabase live database
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    fetch('/api/admin/meals', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': token,
+      },
+      body: JSON.stringify({ foods: newFoods }),
+    }).catch((err) => console.warn('Could not save foods to Supabase:', err))
   }
 
   const saveUsers = (newUsers: UserBiometricProfile[]) => {
@@ -1181,6 +1242,7 @@ export function useAdminData() {
     try {
       localStorage.setItem('gotall_admin_users', JSON.stringify(newUsers))
     } catch (e) {}
+    syncToSupabase('users', newUsers)
   }
 
   const saveAiChips = (newChips: AiPromptChip[]) => {

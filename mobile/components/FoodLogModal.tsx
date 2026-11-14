@@ -1,158 +1,140 @@
-import React, { useState } from 'react';
+// ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { X, Utensils, Plus, Check, Sparkles, Flame, Bot } from 'lucide-react-native';
+import { Search, Plus, Utensils, Check, Flame } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import BottomSheet from './ui/BottomSheet';
+import SkeletonShimmer from './ui/SkeletonShimmer';
 import { useAppStore, LoggedMeal } from '../lib/store';
-import { estimateMealMacros } from '../lib/gemini';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { colors } from '../lib/theme';
 
 interface FoodLogModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-interface QuickFoodPreset {
+interface FoodItem {
+  id: string;
   name: string;
-  serving: string;
+  serving_size?: string;
+  category?: string;
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
-  category: LoggedMeal['category'];
-  highlight: string;
 }
 
-const VERIFIED_PRESETS: QuickFoodPreset[] = [
-  {
-    name: 'Greek Yogurt 0%',
-    serving: '200g bowl',
-    calories: 120,
-    protein: 22,
-    carbs: 8,
-    fat: 0,
-    category: 'Breakfast',
-    highlight: '250mg Calcium',
-  },
-  {
-    name: 'Grilled Chicken Breast',
-    serving: '150g cooked',
-    calories: 247,
-    protein: 46,
-    carbs: 0,
-    fat: 5,
-    category: 'Lunch',
-    highlight: 'High Chondrocyte Leucine',
-  },
-  {
-    name: 'Hard Boiled Eggs (x2)',
-    serving: '2 large eggs',
-    calories: 156,
-    protein: 13,
-    carbs: 1,
-    fat: 11,
-    category: 'Snack',
-    highlight: '88 IU Vitamin D3',
-  },
-  {
-    name: 'Organic Whole Milk',
-    serving: '1 glass (250ml)',
-    calories: 152,
-    protein: 8,
-    carbs: 12,
-    fat: 8,
-    category: 'Bedtime Anabolic',
-    highlight: '290mg Calcium + IGF-1',
-  },
-  {
-    name: 'Steamed Edamame in Pods',
-    serving: '150g bowl',
-    calories: 188,
-    protein: 18,
-    carbs: 14,
-    fat: 8,
-    category: 'Snack',
-    highlight: '2.1mg Bone Zinc',
-  },
-  {
-    name: 'Wild Salmon Fillet',
-    serving: '150g baked',
-    calories: 280,
-    protein: 34,
-    carbs: 0,
-    fat: 15,
-    category: 'Dinner',
-    highlight: '570 IU D3 + Omega-3',
-  },
-  {
-    name: 'Low Fat Cottage Cheese',
-    serving: '200g bowl',
-    calories: 164,
-    protein: 28,
-    carbs: 6,
-    fat: 2,
-    category: 'Bedtime Anabolic',
-    highlight: 'Slow Casein for Sleep hGH',
-  },
+const DEFAULT_PRESETS: FoodItem[] = [
+  { id: 'p1', name: 'Greek Yogurt', serving_size: '200g', calories: 120, protein: 22, carbs: 8, fat: 0 },
+  { id: 'p2', name: 'Boiled Eggs (2)', serving_size: '2 eggs', calories: 156, protein: 13, carbs: 1, fat: 11 },
+  { id: 'p3', name: 'Whole Milk', serving_size: '250ml', calories: 152, protein: 8, carbs: 12, fat: 8 },
+  { id: 'p4', name: 'Paneer Bowl', serving_size: '150g', calories: 260, protein: 20, carbs: 4, fat: 18 },
+  { id: 'p5', name: 'Chicken Breast', serving_size: '150g', calories: 247, protein: 46, carbs: 0, fat: 5 },
 ];
+
+const MEAL_CATEGORIES: LoggedMeal['category'][] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
 export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
   const addMeal = useAppStore((state) => state.addMeal);
 
-  const [activeTab, setActiveTab] = useState<'presets' | 'custom'>('presets');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<FoodItem[]>(DEFAULT_PRESETS);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Form values
   const [mealName, setMealName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
-  const [isEstimating, setIsEstimating] = useState(false);
-  const [estimateHighlight, setEstimateHighlight] = useState<string | null>(null);
-
-  const handleAutoEstimateMacros = async () => {
-    if (!mealName.trim()) return;
-    setIsEstimating(true);
-    setEstimateHighlight(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    try {
-      const result = await estimateMealMacros(mealName);
-      setCalories(String(result.calories));
-      setProtein(String(result.protein));
-      setCarbs(String(result.carbs));
-      setFat(String(result.fat));
-      setCategory(result.category);
-      setEstimateHighlight(result.highlight);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    } catch (err) {
-      // Handled gracefully
-    } finally {
-      setIsEstimating(false);
-    }
-  };
   const [category, setCategory] = useState<LoggedMeal['category']>('Breakfast');
 
-  const handleSelectPreset = (preset: QuickFoodPreset) => {
-    addMeal({
-      name: preset.name,
-      calories: preset.calories,
-      protein: preset.protein,
-      carbs: preset.carbs,
-      fat: preset.fat,
-      category: preset.category,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
-    onClose();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 300ms debounced search against Supabase meals table
+  useEffect(() => {
+    if (!visible) return;
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    if (!searchQuery.trim()) {
+      setSearchResults(DEFAULT_PRESETS);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        if (isSupabaseConfigured()) {
+          const { data, error } = await supabase
+            .from('meals')
+            .select('*')
+            .ilike('name', `%${searchQuery.trim()}%`)
+            .limit(10);
+
+          if (!error && data && data.length > 0) {
+            setSearchResults(
+              data.map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                serving_size: m.serving_size || '1 serving',
+                category: m.category || 'High Protein',
+                calories: Number(m.calories) || 0,
+                protein: Number(m.protein) || 0,
+                carbs: Number(m.carbs) || 0,
+                fat: Number(m.fat) || 0,
+              }))
+            );
+          } else {
+            // Local fallback filter
+            const filtered = DEFAULT_PRESETS.filter((p) =>
+              p.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+            setSearchResults(filtered);
+          }
+        } else {
+          const filtered = DEFAULT_PRESETS.filter((p) =>
+            p.name.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+          setSearchResults(filtered);
+        }
+      } catch {
+        setSearchResults(DEFAULT_PRESETS);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchQuery, visible]);
+
+  // Autofill form when an item is tapped
+  const handleSelectFood = (item: FoodItem) => {
+    Haptics.selectionAsync().catch(() => {});
+    setMealName(item.name);
+    setCalories(String(item.calories));
+    setProtein(String(item.protein));
+    setCarbs(String(item.carbs));
+    setFat(String(item.fat));
   };
 
-  const handleCustomSubmit = () => {
+  const handleSaveMeal = () => {
     if (!mealName.trim()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     addMeal({
       name: mealName.trim(),
@@ -164,268 +146,371 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
 
+    // Reset form
     setMealName('');
     setCalories('');
     setProtein('');
     setCarbs('');
     setFat('');
+    setSearchQuery('');
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} title="Log Food">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-end bg-black/50"
+        style={styles.keyboardContainer}
       >
-        <View className="bg-white rounded-t-3xl p-6 max-h-[85%] border-t border-slate-200">
-          {/* Header */}
-          <View className="flex-row items-center justify-between pb-4 border-b border-slate-100">
-            <View className="flex-row items-center gap-2">
-              <View className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center">
-                <Utensils size={18} color="#0066FF" />
-              </View>
-              <View>
-                <Text className="text-base font-black text-slate-900">Log Stature Nutrition</Text>
-                <Text className="text-xs text-slate-400 font-medium">Bone matrix & amino acids</Text>
-              </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Search Box */}
+          <View style={styles.searchBox}>
+            <Search size={16} color={colors.slate400} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search foods..."
+              placeholderTextColor={colors.slate400}
+              style={styles.searchInput}
+            />
+          </View>
+
+          {/* Quick List / Search Results */}
+          <Text style={styles.sectionLabel}>
+            {searchQuery.trim() ? 'Search results' : 'Suggested foods'}
+          </Text>
+
+          {isLoading ? (
+            <View style={styles.skeletonList}>
+              <SkeletonShimmer height={52} borderRadius={16} />
+              <SkeletonShimmer height={52} borderRadius={16} />
+              <SkeletonShimmer height={52} borderRadius={16} />
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.resultsList}>
+              {searchResults.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => handleSelectFood(item)}
+                  style={styles.foodRow}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.foodInfo}>
+                    <Text style={styles.foodName}>{item.name}</Text>
+                    <Text style={styles.foodServing}>{item.serving_size || '1 serving'}</Text>
+                  </View>
+
+                  <View style={styles.foodMacros}>
+                    <Text style={styles.foodCalories}>{item.calories} kcal</Text>
+                    <Text style={styles.foodProtein}>{item.protein}g protein</Text>
+                  </View>
+
+                  <View style={styles.plusIconWrap}>
+                    <Plus size={14} color={colors.blue600} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>No food found. Enter details below.</Text>
+          )}
+
+          {/* Custom Form Section */}
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Food details</Text>
+
+            {/* Food Name */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Name</Text>
+              <TextInput
+                value={mealName}
+                onChangeText={setMealName}
+                placeholder="e.g. Boiled eggs, Milk, Paneer"
+                placeholderTextColor={colors.slate400}
+                style={styles.input}
+              />
             </View>
 
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center"
-            >
-              <X size={16} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Tab Selector */}
-          <View className="flex-row p-1 bg-slate-100 rounded-2xl my-4">
-            <TouchableOpacity
-              onPress={() => setActiveTab('presets')}
-              className={`flex-1 py-2 rounded-xl items-center ${
-                activeTab === 'presets' ? 'bg-white' : ''
-              }`}
-              style={activeTab === 'presets' ? { elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2 } : undefined}
-            >
-              <Text
-                className={`text-xs font-bold ${
-                  activeTab === 'presets' ? 'text-blue-600' : 'text-slate-500'
-                }`}
-              >
-                Verified Clinical Foods
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveTab('custom')}
-              className={`flex-1 py-2 rounded-xl items-center ${
-                activeTab === 'custom' ? 'bg-white' : ''
-              }`}
-              style={activeTab === 'custom' ? { elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2 } : undefined}
-            >
-              <Text
-                className={`text-xs font-bold ${
-                  activeTab === 'custom' ? 'text-blue-600' : 'text-slate-500'
-                }`}
-              >
-                Custom Food Entry
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Content */}
-          <ScrollView showsVerticalScrollIndicator={false} className="mb-2">
-            {activeTab === 'presets' ? (
-              <View className="gap-2.5 pb-6">
-                <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  1-Tap Growth Foods:
-                </Text>
-
-                {VERIFIED_PRESETS.map((item, idx) => (
+            {/* Category Pills */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Meal time</Text>
+              <View style={styles.categoryRow}>
+                {MEAL_CATEGORIES.map((cat) => (
                   <TouchableOpacity
-                    key={idx}
-                    onPress={() => handleSelectPreset(item)}
-                    className="p-3.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-2xl flex-row items-center justify-between active:opacity-80"
+                    key={cat}
+                    onPress={() => setCategory(cat)}
+                    style={[
+                      styles.categoryPill,
+                      category === cat && styles.categoryPillActive,
+                    ]}
                   >
-                    <View className="flex-1 mr-3">
-                      <View className="flex-row items-center gap-2">
-                        <Text className="text-sm font-bold text-slate-900">{item.name}</Text>
-                        <Text className="text-[10px] font-semibold text-slate-400">
-                          {item.serving}
-                        </Text>
-                      </View>
-                      <Text className="text-[11px] font-semibold text-emerald-600 mt-0.5">
-                        {item.highlight}
-                      </Text>
-                    </View>
-
-                    <View className="items-end">
-                      <Text className="text-xs font-black text-slate-800">
-                        {item.calories} kcal
-                      </Text>
-                      <Text className="text-[11px] font-bold text-blue-600">
-                        {item.protein}g Protein
-                      </Text>
-                    </View>
-
-                    <View className="w-7 h-7 rounded-full bg-blue-100 items-center justify-center ml-2.5">
-                      <Plus size={14} color="#0066FF" />
-                    </View>
+                    <Text
+                      style={[
+                        styles.categoryPillText,
+                        category === cat && styles.categoryPillTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : (
-              <View className="gap-3.5 pb-6">
-                <View>
-                  <Text className="text-xs font-bold text-slate-700 mb-1">Food / Meal Name</Text>
-                  <TextInput
-                    value={mealName}
-                    onChangeText={(t) => {
-                      setMealName(t);
-                      if (estimateHighlight) setEstimateHighlight(null);
-                    }}
-                    placeholder="e.g. 2 Paneer Parathas, Salmon Bowl, or Chicken Salad"
-                    placeholderTextColor="#94A3B8"
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                  />
+            </View>
 
-                  {/* AI Macro Estimator Button */}
-                  {mealName.trim().length > 1 && (
-                    <TouchableOpacity
-                      onPress={handleAutoEstimateMacros}
-                      disabled={isEstimating}
-                      activeOpacity={0.8}
-                      className="flex-row items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 border border-blue-200 rounded-xl mt-2"
-                    >
-                      {isEstimating ? (
-                        <>
-                          <ActivityIndicator size="small" color="#2563EB" />
-                          <Text className="text-xs font-bold text-blue-700">Calculating macros with AI...</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={13} color="#2563EB" />
-                          <Text className="text-xs font-bold text-blue-700">✨ Auto-Estimate Macros with AI</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  )}
-
-                  {/* AI Estimation Result Banner */}
-                  {estimateHighlight ? (
-                    <View className="flex-row items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 mt-2">
-                      <Check size={12} color="#059669" />
-                      <Text className="text-[11px] font-bold text-emerald-800">
-                        AI Calculated: {estimateHighlight}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                {/* Category Picker */}
-                <View>
-                  <Text className="text-xs font-bold text-slate-700 mb-1.5">Meal Category</Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {(['Breakfast', 'Lunch', 'Dinner', 'Bedtime Anabolic', 'Snack'] as const).map(
-                      (cat) => (
-                        <TouchableOpacity
-                          key={cat}
-                          onPress={() => setCategory(cat)}
-                          className={`px-3 py-1.5 rounded-full border ${
-                            category === cat
-                              ? 'bg-blue-600 border-blue-600'
-                              : 'bg-slate-50 border-slate-200'
-                          }`}
-                        >
-                          <Text
-                            className={`text-[11px] font-bold ${
-                              category === cat ? 'text-white' : 'text-slate-600'
-                            }`}
-                          >
-                            {cat}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                </View>
-
-                {/* Macros Input */}
-                <View className="flex-row gap-2.5">
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-slate-700 mb-1">Calories</Text>
-                    <TextInput
-                      value={calories}
-                      onChangeText={setCalories}
-                      keyboardType="numeric"
-                      placeholder="kcal"
-                      placeholderTextColor="#94A3B8"
-                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 text-center font-bold"
-                    />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-blue-600 mb-1">Protein (g)</Text>
-                    <TextInput
-                      value={protein}
-                      onChangeText={setProtein}
-                      keyboardType="numeric"
-                      placeholder="g"
-                      placeholderTextColor="#94A3B8"
-                      className="p-2.5 bg-blue-50/50 border border-blue-200 rounded-xl text-xs text-blue-700 text-center font-bold"
-                    />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-slate-700 mb-1">Carbs (g)</Text>
-                    <TextInput
-                      value={carbs}
-                      onChangeText={setCarbs}
-                      keyboardType="numeric"
-                      placeholder="g"
-                      placeholderTextColor="#94A3B8"
-                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 text-center font-bold"
-                    />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-slate-700 mb-1">Fat (g)</Text>
-                    <TextInput
-                      value={fat}
-                      onChangeText={setFat}
-                      keyboardType="numeric"
-                      placeholder="g"
-                      placeholderTextColor="#94A3B8"
-                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 text-center font-bold"
-                    />
-                  </View>
-                </View>
-
-                {/* Submit button */}
-                <TouchableOpacity
-                  onPress={handleCustomSubmit}
-                  disabled={!mealName.trim()}
-                  className={`w-full py-3.5 rounded-2xl flex-row items-center justify-center gap-2 mt-2 ${
-                    mealName.trim() ? 'bg-blue-600' : 'bg-slate-200'
-                  }`}
-                  style={mealName.trim() ? { elevation: 2, shadowColor: '#2563EB', shadowOpacity: 0.25, shadowRadius: 6 } : undefined}
-                >
-                  <Plus size={16} color={mealName.trim() ? '#FFFFFF' : '#94A3B8'} />
-                  <Text
-                    className={`font-black text-xs ${
-                      mealName.trim() ? 'text-white' : 'text-slate-400'
-                    }`}
-                  >
-                    Add Meal to Stature Log
-                  </Text>
-                </TouchableOpacity>
+            {/* Nutrients Grid */}
+            <View style={styles.nutrientsGrid}>
+              <View style={styles.nutrientField}>
+                <Text style={styles.fieldLabel}>Calories</Text>
+                <TextInput
+                  value={calories}
+                  onChangeText={setCalories}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.slate400}
+                  style={styles.nutrientInput}
+                />
               </View>
-            )}
-          </ScrollView>
-        </View>
+
+              <View style={styles.nutrientField}>
+                <Text style={styles.fieldLabel}>Protein (g)</Text>
+                <TextInput
+                  value={protein}
+                  onChangeText={setProtein}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.slate400}
+                  style={styles.nutrientInput}
+                />
+              </View>
+
+              <View style={styles.nutrientField}>
+                <Text style={styles.fieldLabel}>Carbs (g)</Text>
+                <TextInput
+                  value={carbs}
+                  onChangeText={setCarbs}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.slate400}
+                  style={styles.nutrientInput}
+                />
+              </View>
+
+              <View style={styles.nutrientField}>
+                <Text style={styles.fieldLabel}>Fat (g)</Text>
+                <TextInput
+                  value={fat}
+                  onChangeText={setFat}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.slate400}
+                  style={styles.nutrientInput}
+                />
+              </View>
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              onPress={handleSaveMeal}
+              disabled={!mealName.trim()}
+              style={[
+                styles.saveButton,
+                !mealName.trim() && styles.saveButtonDisabled,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Check size={16} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Save food</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </Modal>
+    </BottomSheet>
   );
 }
 
+const styles = StyleSheet.create({
+  keyboardContainer: {
+    minHeight: 460,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.slate900,
+    padding: 0,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.slate400,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  skeletonList: {
+    gap: 8,
+  },
+  resultsList: {
+    gap: 8,
+  },
+  foodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  foodInfo: {
+    flex: 1,
+  },
+  foodName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.slate900,
+  },
+  foodServing: {
+    fontSize: 11,
+    color: colors.slate400,
+    marginTop: 2,
+  },
+  foodMacros: {
+    alignItems: 'flex-end',
+    marginRight: 10,
+  },
+  foodCalories: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  foodProtein: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.blue600,
+  },
+  plusIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: colors.slate400,
+    paddingVertical: 8,
+  },
+  formCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+    marginTop: 6,
+  },
+  formTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  fieldGroup: {
+    gap: 4,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate600,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.slate900,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  categoryPill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  categoryPillActive: {
+    backgroundColor: colors.blue600,
+  },
+  categoryPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate600,
+  },
+  categoryPillTextActive: {
+    color: '#FFFFFF',
+  },
+  nutrientsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nutrientField: {
+    flex: 1,
+    gap: 4,
+  },
+  nutrientInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.slate900,
+    textAlign: 'center',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.blue600,
+    borderRadius: 16,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  saveButtonDisabled: {
+    backgroundColor: colors.slate400,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

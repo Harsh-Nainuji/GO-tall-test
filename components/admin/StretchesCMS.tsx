@@ -629,10 +629,19 @@ export function StretchesCMS({
     setIsModalOpen(false)
   }
 
+  const sendDeleteSync = (entity: string, id: string) => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    fetch(`/api/admin/sync?entity=${entity}&id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': token },
+    }).catch((err) => console.warn(`Failed deleting ${entity} from Supabase:`, err))
+  }
+
   const handleDeleteWorkout = (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete "${title}"?`)) {
       onUpdateStretches(stretches.filter((s) => s.id !== id))
       showToast(`Deleted "${title}"`, 'info')
+      sendDeleteSync('stretches', id)
     }
   }
 
@@ -721,6 +730,7 @@ export function StretchesCMS({
         onUpdateCategories(categories.filter((c) => c.id !== catId))
       }
       showToast(`Deleted category "${name}"`, 'info')
+      sendDeleteSync('categories', catId)
     }
   }
 
@@ -793,6 +803,7 @@ export function StretchesCMS({
         onUpdateCategoryQuestions(categoryQuestions.filter((q) => q.id !== qId))
       }
       showToast('Question deleted', 'info')
+      sendDeleteSync('questions', qId)
     }
   }
 
@@ -846,41 +857,50 @@ export function StretchesCMS({
       </AnimatePresence>
 
       {/* Sub-Navigation Switcher */}
-      <div className="p-1.5 bg-slate-100/90 rounded-2xl flex items-center gap-1 max-w-xl border border-slate-200">
+      <div className="p-1.5 bg-slate-900/80 rounded-2xl flex items-center gap-1 max-w-xl border border-slate-800">
         <button
           onClick={() => setActiveTab('workouts')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeTab === 'workouts'
-              ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-xs'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <Activity className="w-4 h-4 stroke-[2.2]" />
-          <span>Workouts ({stretches.length})</span>
+          <div className="flex flex-col leading-tight">
+            <span>Workouts ({stretches.length})</span>
+            <span className="text-[10px] font-normal opacity-75">કસરતો</span>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('categories')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeTab === 'categories'
-              ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-xs'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <Layers className="w-4 h-4 stroke-[2.2]" />
-          <span>Categories ({categories.length})</span>
+          <div className="flex flex-col leading-tight">
+            <span>Categories ({categories.length})</span>
+            <span className="text-[10px] font-normal opacity-75">કેટેગરી</span>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('questions')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeTab === 'questions'
-              ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-xs'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <HelpCircle className="w-4 h-4 stroke-[2.2]" />
-          <span>Questions ({categoryQuestions.length})</span>
+          <div className="flex flex-col leading-tight">
+            <span>Questions ({categoryQuestions.length})</span>
+            <span className="text-[10px] font-normal opacity-75">પ્રશ્નો</span>
+          </div>
         </button>
       </div>
 
@@ -890,7 +910,7 @@ export function StretchesCMS({
       {activeTab === 'workouts' && (
         <div className="space-y-6">
           {/* Top Filter & Search Bar */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="p-5 rounded-2xl glass flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative w-64">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -899,7 +919,7 @@ export function StretchesCMS({
                   placeholder="Find exercise by name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/60 rounded-xl text-sm font-medium text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
                 />
               </div>
 
@@ -907,7 +927,7 @@ export function StretchesCMS({
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer focus:outline-none"
+                className="px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/60 rounded-xl text-xs font-bold text-slate-200 cursor-pointer focus:outline-none"
               >
                 <option value="all">All Categories</option>
                 {categories.map((c) => (
@@ -920,7 +940,7 @@ export function StretchesCMS({
               <select
                 value={selectedZone}
                 onChange={(e) => setSelectedZone(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer focus:outline-none"
+                className="px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/60 rounded-xl text-xs font-bold text-slate-200 cursor-pointer focus:outline-none"
               >
                 <option value="all">All Body Zones</option>
                 <option value="Lumbar Decompression">Lower Back (Lumbar)</option>
@@ -932,7 +952,7 @@ export function StretchesCMS({
               <select
                 value={selectedIntensity}
                 onChange={(e) => setSelectedIntensity(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer focus:outline-none"
+                className="px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/60 rounded-xl text-xs font-bold text-slate-200 cursor-pointer focus:outline-none"
               >
                 <option value="all">All Intensities</option>
                 <option value="Beginner">Beginner</option>
@@ -951,20 +971,26 @@ export function StretchesCMS({
                   setBulkFileName('')
                   setIsBulkModalOpen(true)
                 }}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer border border-slate-300 transition-all"
+                className="px-4 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer border border-slate-700/60 transition-all shadow-xs"
               >
-                <UploadCloud className="w-4 h-4 text-blue-600 stroke-[2.5]" />
-                <span>Bulk Upload Workouts</span>
+                <UploadCloud className="w-4 h-4 text-cyan-400 stroke-[2.2]" />
+                <div className="flex flex-col text-left leading-tight">
+                  <span>Add many exercises</span>
+                  <span className="text-[10px] text-slate-400 font-normal">ઘણી કસરતો ઉમેરો</span>
+                </div>
               </motion.button>
 
               {/* Add Exercise Button */}
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={openCreateModal}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-600/20 transition-all flex-none"
+                className="px-5 py-2.5 glow-button text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md flex-none"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Add Clinical Exercise</span>
+                <div className="flex flex-col text-left leading-tight">
+                  <span>+ Add Exercise</span>
+                  <span className="text-[10px] font-normal opacity-80">+ કસરત ઉમેરો</span>
+                </div>
               </motion.button>
             </div>
           </div>
@@ -972,16 +998,16 @@ export function StretchesCMS({
           {/* Grid of Exercises */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredStretches.length === 0 ? (
-              <div className="col-span-full py-16 text-center rounded-3xl bg-white border border-slate-200/80 p-8 shadow-xs">
-                <Activity className="w-10 h-10 mx-auto mb-3 opacity-30 text-blue-600" />
-                <h3 className="text-base font-bold text-slate-800">No exercises in database yet</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                  All dummy data has been removed. Click &quot;Add Clinical Exercise&quot; or &quot;Bulk Upload Workouts&quot; to populate your active stretching library.
+              <div className="col-span-full py-16 text-center rounded-3xl glass p-8 shadow-xs">
+                <Activity className="w-10 h-10 mx-auto mb-3 opacity-30 text-cyan-400" />
+                <h3 className="text-base font-bold text-slate-100">No exercises in database yet / કોઈ કસરત નથી</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  Click &quot;Add Exercise&quot; or &quot;Add many exercises&quot; to populate your active stretching library.
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-3">
                   <button
                     onClick={openCreateModal}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                    className="px-4 py-2 glow-button text-xs font-bold cursor-pointer"
                   >
                     + Add Exercise
                   </button>
@@ -992,9 +1018,9 @@ export function StretchesCMS({
                       setBulkFileName('')
                       setIsBulkModalOpen(true)
                     }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 cursor-pointer"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 cursor-pointer"
                   >
-                    Bulk Upload Excel / CSV
+                    Add many exercises (Excel / CSV)
                   </button>
                 </div>
               </div>
@@ -1003,16 +1029,16 @@ export function StretchesCMS({
               <motion.div
                 key={stretch.id}
                 layout
-                className={`p-5 rounded-2xl bg-white border transition-all duration-200 flex flex-col justify-between ${
+                className={`p-5 rounded-2xl glass transition-all duration-200 flex flex-col justify-between ${
                   stretch.active
-                    ? 'border-slate-200/90 shadow-sm hover:shadow-md'
-                    : 'border-slate-200/60 opacity-60 bg-slate-50/50'
+                    ? 'border-slate-700/60 shadow-sm'
+                    : 'border-slate-800 opacity-60 bg-slate-950/40'
                 }`}
               >
                 <div>
                   {/* Media Preview Thumbnail */}
                   {stretch.media_url ? (
-                    <div className="relative mb-3.5 rounded-xl overflow-hidden bg-slate-900 h-32 flex items-center justify-center border border-slate-200">
+                    <div className="relative mb-3.5 rounded-xl overflow-hidden bg-slate-950 h-32 flex items-center justify-center border border-slate-800">
                       {stretch.media_type === 'video' ? (
                         <video
                           src={stretch.media_url}
@@ -1032,7 +1058,7 @@ export function StretchesCMS({
                       <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[10px] font-black text-white uppercase flex items-center gap-1">
                         {stretch.media_type === 'video' ? (
                           <>
-                            <Film className="w-2.5 h-2.5 text-blue-400" /> MP4 Video
+                            <Film className="w-2.5 h-2.5 text-cyan-400" /> MP4 Video
                           </>
                         ) : stretch.media_type === 'gif' ? (
                           <>
@@ -1050,18 +1076,18 @@ export function StretchesCMS({
                   {/* Card Header & Status */}
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
-                      <h3 className="text-base font-black text-slate-900 leading-snug">
+                      <h3 className="text-base font-bold text-slate-100 leading-snug">
                         {stretch.title}
                       </h3>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-cyan-500/10 text-cyan-300 border-cyan-500/25 uppercase tracking-wider">
                           {stretch.category || 'Height Growth'}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
                           {stretch.targetZone}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5 text-slate-400" />
+                        <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5 text-slate-500" />
                           {stretch.durationSeconds}s
                         </span>
                       </div>
@@ -1070,10 +1096,10 @@ export function StretchesCMS({
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleToggleActiveWorkout(stretch.id)}
-                      className={`px-2.5 py-1 rounded-xl text-[10px] font-black flex items-center gap-1 cursor-pointer border flex-none ${
+                      className={`px-2 py-0.5 rounded-xl text-[10px] font-black flex items-center gap-1 cursor-pointer border flex-none ${
                         stretch.active
-                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                          : 'bg-slate-200 text-slate-600 border-slate-300'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 shadow-xs'
+                          : 'bg-slate-800 text-slate-500 border-slate-700'
                       }`}
                     >
                       {stretch.active ? (
@@ -1091,14 +1117,14 @@ export function StretchesCMS({
                   </div>
 
                   {/* Benefit Box */}
-                  <div className="mt-3 p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-xs">
-                    <span className="font-extrabold text-blue-900 block mb-0.5">Biomechanical Benefit:</span>
-                    <p className="text-blue-800 leading-relaxed font-medium">{stretch.clinicalBenefit}</p>
+                  <div className="mt-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                    <span className="font-bold text-cyan-300 block mb-0.5">Biomechanical Benefit / ફાયદો:</span>
+                    <p className="text-slate-300 leading-relaxed font-medium">{stretch.clinicalBenefit}</p>
                   </div>
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-medium">
                     {stretch.active ? 'Visible in daily routine' : 'Hidden from user schedule'}
                   </span>
@@ -1107,16 +1133,16 @@ export function StretchesCMS({
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => openEditModal(stretch)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
                     >
-                      <Edit2 className="w-3 h-3" />
+                      <Edit2 className="w-3 h-3 text-cyan-400" />
                       <span>Edit</span>
                     </motion.button>
 
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleDeleteWorkout(stretch.id, stretch.title)}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-xs shadow-rose-600/20"
+                      className="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/40 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <Trash2 className="w-3 h-3" />
                       <span>Delete</span>
@@ -1971,24 +1997,24 @@ export function StretchesCMS({
         {/* BULK UPLOAD MODAL (CSV & JSON WITH STRICT VALIDATION)          */}
         {/* ============================================================== */}
         {isBulkModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.97 }}
-              className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="bg-slate-900 rounded-3xl shadow-2xl border border-slate-700/80 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100"
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                    <UploadCloud className="w-5 h-5 stroke-[2.5]" />
+                  <div className="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+                    <UploadCloud className="w-5 h-5 stroke-[2.2]" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">
-                      Bulk Import Workouts &amp; Stretches
+                    <h3 className="text-base font-bold text-slate-100">
+                      Add many exercises / ઘણી કસરતો ઉમેરો
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-xs text-slate-400 font-medium">
                       Upload standard CSV/JSON with 100% strict clinical schema validation
                     </p>
                   </div>
@@ -1997,7 +2023,7 @@ export function StretchesCMS({
                 <button
                   type="button"
                   onClick={() => setIsBulkModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-200/60 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2006,14 +2032,14 @@ export function StretchesCMS({
               {/* Modal Body */}
               <div className="p-6 space-y-5 overflow-y-auto flex-1">
                 {/* 1-Click Standard Template Downloads */}
-                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-1.5 text-blue-800 text-xs font-black uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Standardized Clinical Templates</span>
+                    <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-bold uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Standard Templates / ટેમ્પલેટ</span>
                     </div>
-                    <p className="text-xs text-slate-600 font-medium mt-0.5">
-                      Download the template, fill in your workouts, and upload directly.
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">
+                      Download template, add your exercises, and upload directly.
                     </p>
                   </div>
 
@@ -2021,45 +2047,45 @@ export function StretchesCMS({
                     <button
                       type="button"
                       onClick={downloadCSVTemplate}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                     >
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Download CSV Template</span>
-                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                      <Download className="w-3 h-3 text-slate-500 ml-0.5" />
                     </button>
 
                     <button
                       type="button"
                       onClick={downloadJSONTemplate}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                     >
-                      <FileCode className="w-3.5 h-3.5 text-indigo-600" />
+                      <FileCode className="w-3.5 h-3.5 text-violet-400" />
                       <span>Download JSON Template</span>
-                      <Download className="w-3 h-3 text-slate-400 ml-0.5" />
+                      <Download className="w-3 h-3 text-slate-500 ml-0.5" />
                     </button>
                   </div>
                 </div>
 
                 {/* File Upload / Paste Area */}
-                <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-1">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-400 px-1">
                   <span>Supported: CSV (Excel export), JSON, TSV</span>
-                  <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-black">
+                  <span className="text-emerald-300 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30 text-[11px] font-bold">
                     ⚡ Max File Size: 50 MB (~500,000 rows)
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Option A: File Picker */}
-                  <div className="p-5 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-all">
-                    <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
-                    <p className="text-xs font-bold text-slate-700 mb-1">
+                  <div className="p-5 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-950/40 hover:bg-slate-950/60 transition-all">
+                    <UploadCloud className="w-8 h-8 text-cyan-400/60 mb-2" />
+                    <p className="text-xs font-bold text-slate-200 mb-1">
                       {bulkFileName ? `Selected: ${bulkFileName}` : 'Choose CSV or JSON File'}
                     </p>
-                    <p className="text-[11px] text-slate-500 mb-3">
+                    <p className="text-[11px] text-slate-400 mb-3">
                       Drag and drop or select file from device
                     </p>
-                    <label className="px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs transition-all">
-                      Browse File
+                    <label className="px-4 py-2 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-xs font-bold text-slate-200 cursor-pointer shadow-xs transition-all">
+                      Browse File / ફાઈલ પસંદ કરો
                       <input
                         type="file"
                         accept=".csv,.json,text/csv,application/json"
@@ -2071,13 +2097,13 @@ export function StretchesCMS({
 
                   {/* Option B: Direct Paste */}
                   <div className="flex flex-col">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                       <span>Or Paste CSV / JSON Data</span>
                       {bulkRawInput && (
                         <button
                           type="button"
                           onClick={() => validateAndParseBulkData('')}
-                          className="text-[10px] text-rose-600 hover:underline cursor-pointer"
+                          className="text-[10px] text-rose-400 hover:underline cursor-pointer"
                         >
                           Clear
                         </button>
@@ -2088,7 +2114,7 @@ export function StretchesCMS({
                       value={bulkRawInput}
                       onChange={(e) => validateAndParseBulkData(e.target.value)}
                       placeholder='Paste standard CSV with header or JSON array here...'
-                      className="w-full p-3 font-mono text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none flex-1"
+                      className="w-full p-3 font-mono text-xs text-slate-100 bg-slate-950 border border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none flex-1"
                     />
                   </div>
                 </div>
@@ -2098,15 +2124,15 @@ export function StretchesCMS({
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
                           Validation Analysis ({bulkValidatedRows.length} Rows Detected)
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                             {bulkValidatedRows.filter((r) => r.isValid).length} Valid
                           </span>
                           {bulkValidatedRows.filter((r) => !r.isValid).length > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
                               {bulkValidatedRows.filter((r) => !r.isValid).length} Invalid Rows
                             </span>
                           )}
@@ -2115,9 +2141,9 @@ export function StretchesCMS({
                     </div>
 
                     {/* Validation Table */}
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
+                    <div className="border border-slate-800 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
                       <table className="w-full text-left border-collapse text-xs">
-                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
+                        <thead className="bg-slate-950 text-slate-300 font-bold sticky top-0 border-b border-slate-800">
                           <tr>
                             <th className="py-2.5 px-3 w-20">Status</th>
                             <th className="py-2.5 px-3">Title</th>
@@ -2127,38 +2153,38 @@ export function StretchesCMS({
                             <th className="py-2.5 px-3">Clinical Benefit / Errors</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 font-medium">
+                        <tbody className="divide-y divide-slate-800 font-medium">
                           {bulkValidatedRows.map((row) => (
                             <tr
                               key={row.rowNum}
-                              className={row.isValid ? 'bg-white' : 'bg-rose-50/60'}
+                              className={row.isValid ? 'bg-slate-900/60' : 'bg-rose-950/30'}
                             >
                               <td className="py-2.5 px-3">
                                 {row.isValid ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-md">
                                     <Check className="w-3 h-3 stroke-[3]" /> Row {row.rowNum}
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded-md">
                                     <X className="w-3 h-3 stroke-[3]" /> Row {row.rowNum}
                                   </span>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3 font-bold text-slate-800">
-                                {row.title || <span className="text-rose-500 italic">Empty Title</span>}
+                              <td className="py-2.5 px-3 font-bold text-slate-100">
+                                {row.title || <span className="text-rose-400 italic">Empty Title</span>}
                               </td>
-                              <td className="py-2.5 px-3 text-slate-600">{row.category}</td>
-                              <td className="py-2.5 px-3 text-slate-600">{row.targetZone || '—'}</td>
-                              <td className="py-2.5 px-3 text-slate-600">{row.durationSeconds}s</td>
+                              <td className="py-2.5 px-3 text-slate-300">{row.category}</td>
+                              <td className="py-2.5 px-3 text-slate-300">{row.targetZone || '—'}</td>
+                              <td className="py-2.5 px-3 text-slate-300">{row.durationSeconds}s</td>
                               <td className="py-2.5 px-3">
                                 {row.isValid ? (
-                                  <span className="text-slate-500 line-clamp-1">{row.clinicalBenefit}</span>
+                                  <span className="text-slate-400 line-clamp-1">{row.clinicalBenefit}</span>
                                 ) : (
                                   <div className="flex flex-wrap gap-1">
                                     {row.errors.map((err, eIdx) => (
                                       <span
                                         key={eIdx}
-                                        className="text-[10px] bg-rose-200/80 text-rose-900 px-1.5 py-0.5 rounded font-bold"
+                                        className="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded font-bold"
                                       >
                                         {err}
                                       </span>
@@ -2176,8 +2202,8 @@ export function StretchesCMS({
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/80">
-                <p className="text-xs text-slate-500 font-semibold">
+              <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60">
+                <p className="text-xs text-slate-400 font-medium">
                   {bulkValidatedRows.filter((r) => r.isValid).length > 0
                     ? `${bulkValidatedRows.filter((r) => r.isValid).length} ready to import`
                     : 'Download template or upload file above'}
@@ -2187,20 +2213,20 @@ export function StretchesCMS({
                   <button
                     type="button"
                     onClick={() => setIsBulkModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                   >
-                    Cancel
+                    Cancel / રદ કરો
                   </button>
 
                   <button
                     type="button"
                     disabled={bulkValidatedRows.filter((r) => r.isValid).length === 0}
                     onClick={handleCommitBulkUpload}
-                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer"
+                    className="px-6 py-2.5 rounded-xl glow-button disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md"
                   >
                     <CheckCheck className="w-4 h-4 stroke-[2.5]" />
                     <span>
-                      Import {bulkValidatedRows.filter((r) => r.isValid).length} Workouts
+                      Save all / બધું સાચવો ({bulkValidatedRows.filter((r) => r.isValid).length})
                     </span>
                   </button>
                 </div>

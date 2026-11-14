@@ -98,7 +98,7 @@ const ALLOWED_EXTENSIONS = new Set([
 
 export async function uploadExerciseMedia(
   file: File,
-  folder: 'stretches' | 'foods' | 'avatars' | 'general' = 'stretches',
+  folder: 'stretches' | 'foods' | 'avatars' | 'general' | 'badges' = 'stretches',
   onProgress?: (progress: number) => void
 ): Promise<UploadMediaResult> {
   // 1. Strict extension and MIME type validation

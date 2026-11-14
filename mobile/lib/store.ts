@@ -55,6 +55,7 @@ export interface AchievementBadgeItem {
   title: string;
   description: string;
   icon: string;
+  icon_url?: string;
   category: 'streak' | 'stretches' | 'nutrition' | 'sleep' | 'biometrics';
   targetMetric: string;
   targetValue: number;
@@ -778,9 +779,10 @@ interface AppState {
   // App Walkthrough Guided Tour
   hasSeenAppTour: boolean;
 
-  // AI Advisor Quota State
+  // AI Advisor Quota State (24h rolling window from first question)
   aiQuestionsUsedToday: number;
   lastAiQuestionDate: string;
+  aiWindowStart: number | null;
   incrementAiQuestionsUsed: () => void;
   getAiQuota: () => {
     limit: number;
@@ -860,9 +862,10 @@ export const useAppStore = create<AppState>()(
       // Guided Tour state
       hasSeenAppTour: false,
 
-      // AI Advisor Quota state
+      // AI Advisor Quota state (24h rolling window from first use)
       aiQuestionsUsedToday: 0,
       lastAiQuestionDate: new Date().toISOString().split('T')[0],
+      aiWindowStart: null,
 
       // Initial clean meals log (ready for real user logging)
       meals: [],
@@ -1063,10 +1066,18 @@ export const useAppStore = create<AppState>()(
       },
 
       incrementAiQuestionsUsed: () => {
-        const today = new Date().toISOString().split('T')[0];
+        const now = Date.now();
         const s = get();
-        if (s.lastAiQuestionDate !== today) {
-          set({ lastAiQuestionDate: today, aiQuestionsUsedToday: 1 });
+        const windowDuration = 24 * 60 * 60 * 1000;
+        const windowExpired = !s.aiWindowStart || (now - s.aiWindowStart >= windowDuration);
+
+        if (windowExpired) {
+          // Rolling 24-hour window starts from the exact moment of first use
+          set({
+            aiWindowStart: now,
+            aiQuestionsUsedToday: 1,
+            lastAiQuestionDate: new Date(now).toISOString().split('T')[0],
+          });
         } else {
           set({ aiQuestionsUsedToday: s.aiQuestionsUsedToday + 1 });
         }
@@ -1074,20 +1085,23 @@ export const useAppStore = create<AppState>()(
 
       getAiQuota: () => {
         const s = get();
-        const today = new Date().toISOString().split('T')[0];
-        const isToday = s.lastAiQuestionDate === today;
-        const used = isToday ? s.aiQuestionsUsedToday : 0;
+        const now = Date.now();
+        const windowDuration = 24 * 60 * 60 * 1000;
+        const hasActiveWindow = s.aiWindowStart !== null && (now - s.aiWindowStart < windowDuration);
+
+        // If window has elapsed, count is 0 until next question
+        const used = hasActiveWindow ? s.aiQuestionsUsedToday : 0;
         const limit = s.isPremium ? 50 : 5;
         const remaining = Math.max(0, limit - used);
         const planName = s.isPremium ? 'Pro Clinical' : 'Free Plan';
 
-        const now = new Date();
-        const midnight = new Date(now);
-        midnight.setHours(24, 0, 0, 0);
-        const diffMs = Math.max(0, midnight.getTime() - now.getTime());
-        const hours = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const resetCountdown = `${hours}h ${minutes}m`;
+        let resetCountdown = 'Ready';
+        if (hasActiveWindow && s.aiWindowStart) {
+          const diffMs = Math.max(0, (s.aiWindowStart + windowDuration) - now);
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          resetCountdown = `${hours}h ${minutes}m`;
+        }
 
         return {
           limit,
@@ -1194,6 +1208,7 @@ export const useAppStore = create<AppState>()(
           activePlanDay: initialSchedule.activeDay,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
+          aiWindowStart: null,
         });
       },
 
@@ -1225,6 +1240,7 @@ export const useAppStore = create<AppState>()(
           activePlanDay: initialSchedule.activeDay,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
+          aiWindowStart: null,
         });
       },
 
@@ -1283,6 +1299,7 @@ export const useAppStore = create<AppState>()(
         hasSeenAppTour: state.hasSeenAppTour,
         aiQuestionsUsedToday: state.aiQuestionsUsedToday,
         lastAiQuestionDate: state.lastAiQuestionDate,
+        aiWindowStart: state.aiWindowStart,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

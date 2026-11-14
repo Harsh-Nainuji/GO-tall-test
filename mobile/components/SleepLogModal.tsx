@@ -1,19 +1,16 @@
+// ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
 import React, { useState } from 'react';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { X, Moon, Sun, Clock, Sparkles, Check, Flame } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import GlassCard from './GlassCard';
-import GlassButton from './GlassButton';
+import { Moon, Sparkles, Check } from 'lucide-react-native';
+import BottomSheet from './ui/BottomSheet';
 import { useAppStore } from '../lib/store';
+import { colors } from '../lib/theme';
+import { haptics } from '../lib/animations';
 
 interface SleepLogModalProps {
   visible: boolean;
@@ -21,13 +18,13 @@ interface SleepLogModalProps {
 }
 
 const BEDTIME_OPTIONS = [
-  '09:00 PM', '09:30 PM', '10:00 PM', '10:15 PM', '10:30 PM',
-  '11:00 PM', '11:30 PM', '12:00 AM', '12:30 AM', '01:00 AM',
+  '09:00 PM', '09:30 PM', '10:00 PM', '10:30 PM',
+  '11:00 PM', '11:30 PM', '12:00 AM', '12:30 AM',
 ];
 
 const WAKE_OPTIONS = [
-  '05:30 AM', '06:00 AM', '06:30 AM', '06:45 AM', '07:00 AM',
-  '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
+  '05:30 AM', '06:00 AM', '06:30 AM', '07:00 AM',
+  '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM',
 ];
 
 const DIRECT_HOURS_PRESETS = [6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
@@ -35,31 +32,24 @@ const DIRECT_HOURS_PRESETS = [6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
 const SLEEP_QUALITIES = [
   {
     id: 'Deep Restorative',
-    label: 'Deep Restorative',
-    desc: 'Peak slow-wave hGH pulse sync',
+    label: 'Deep sleep',
+    desc: 'Woke up feeling energized and fresh',
     icon: '✨',
-    badge: 'Optimal Chondrocyte Rehydration',
-    color: '#0284C7',
   },
   {
     id: 'Normal Rest',
-    label: 'Normal Rest',
-    desc: 'Standard nocturnal recovery',
+    label: 'Normal sleep',
+    desc: 'Standard rest through the night',
     icon: '🌙',
-    badge: 'Adequate Recovery',
-    color: '#3B82F6',
   },
   {
     id: 'Light / Interrupted',
-    label: 'Light / Fragmented',
-    desc: 'Frequent micro-arousals',
-    icon: '⚠️',
-    badge: 'Elevated Cortisol Risk',
-    color: '#F59E0B',
+    label: 'Light sleep',
+    desc: 'Woke up multiple times during night',
+    icon: '😴',
   },
 ];
 
-// Pure arithmetic helper to convert 12h clock string to decimal 24h number
 function parseTimeTo24hDecimal(timeStr: string): number {
   const [timePart, modifier] = timeStr.trim().split(' ');
   const [hourStr, minStr] = timePart.split(':');
@@ -72,37 +62,12 @@ function parseTimeTo24hDecimal(timeStr: string): number {
   return hours + minutes / 60;
 }
 
-// Pure arithmetic cross-midnight sleep calculator
 export function calculateSleepDuration(bedtimeStr: string, wakeStr: string): number {
   const bed = parseTimeTo24hDecimal(bedtimeStr);
   const wake = parseTimeTo24hDecimal(wakeStr);
 
   const duration = (wake - bed + 24) % 24;
   return Math.round(duration * 100) / 100;
-}
-
-// Pure arithmetic somatotropin slow-wave overlap (10:00 PM = 22.0, 2:00 AM = 26.0)
-export function calculateSomatotropinWindowOverlap(bedtimeStr: string, wakeStr: string): {
-  overlapHours: number;
-  percentage: number;
-} {
-  const bed = parseTimeTo24hDecimal(bedtimeStr);
-  const wake = parseTimeTo24hDecimal(wakeStr);
-
-  // Normalize bed time on timeline where 10 PM is 22:
-  const bedNormalized = bed < 12 ? bed + 24 : bed;
-  const wakeNormalized = wake <= 12 ? wake + 24 : wake;
-
-  const windowStart = 22.0; // 10:00 PM
-  const windowEnd = 26.0; // 02:00 AM
-
-  const overlapStart = Math.max(bedNormalized, windowStart);
-  const overlapEnd = Math.min(wakeNormalized, windowEnd);
-
-  const overlap = Math.max(0, overlapEnd - overlapStart);
-  const percentage = Math.min(100, Math.round((overlap / 4.0) * 100));
-
-  return { overlapHours: Math.round(overlap * 10) / 10, percentage };
 }
 
 export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) {
@@ -120,18 +85,8 @@ export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) 
       ? calculateSleepDuration(selectedBedtime, selectedWakeup)
       : directHours;
 
-  const hghOverlap =
-    inputMode === 'times'
-      ? calculateSomatotropinWindowOverlap(selectedBedtime, selectedWakeup)
-      : {
-          overlapHours: Math.min(4.0, Math.round((calculatedHours / 8.5) * 3.5 * 10) / 10),
-          percentage: Math.min(100, Math.round((calculatedHours / 8.5) * 88)),
-        };
-
-  const deltaFromTarget = Math.round((calculatedHours - sleepTargetHours) * 10) / 10;
-
   const handleSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    haptics.success();
 
     const now = new Date();
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -151,489 +106,278 @@ export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        {Platform.OS === 'ios' && (
-          <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-        )}
-        <View style={styles.sheetContainer}>
-          <GlassCard style={styles.glassModal}>
-            {/* Header */}
-            <View style={styles.headerRow}>
-              <View style={styles.headerBadge}>
-                <Moon size={16} color="#0284C7" />
-                <Text style={styles.headerBadgeText}>Circadian Biometrics</Text>
-              </View>
-              <TouchableOpacity
-                onPress={onClose}
-                activeOpacity={0.7}
-                style={styles.closeButton}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalTitle}>Log Sleep Cycle</Text>
-            <Text style={styles.modalSubtitle}>
-              Tracks slow-wave pituitary growth hormone (hGH) release and disc rehydration.
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Log your sleep"
+      subtitle="Track your sleep to support natural height growth"
+      footer={
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleSave}
+          style={styles.saveBtn}
+          accessibilityLabel="Save sleep entry"
+          accessibilityRole="button"
+        >
+          <Sparkles size={16} color="#FFFFFF" />
+          <Text style={styles.saveBtnText}>Save sleep log</Text>
+        </TouchableOpacity>
+      }
+    >
+      <View style={styles.container}>
+        {/* Mode Selector */}
+        <View style={styles.tabSwitcher}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              haptics.selection();
+              setInputMode('times');
+            }}
+            style={[styles.tabBtn, inputMode === 'times' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabText, inputMode === 'times' && styles.tabTextActive]}>
+              Bed & Wake time
             </Text>
+          </TouchableOpacity>
 
-            {/* Input Mode Toggle */}
-            <View style={styles.toggleRow}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, inputMode === 'times' && styles.toggleBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setInputMode('times');
-                }}
-              >
-                <Clock size={15} color={inputMode === 'times' ? '#FFFFFF' : '#475569'} />
-                <Text
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              haptics.selection();
+              setInputMode('direct');
+            }}
+            style={[styles.tabBtn, inputMode === 'direct' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabText, inputMode === 'direct' && styles.tabTextActive]}>
+              Total hours
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {inputMode === 'times' ? (
+          <View style={styles.sectionWrap}>
+            {/* Bedtime */}
+            <Text style={styles.sectionLabel}>Bedtime</Text>
+            <View style={styles.chipsRow}>
+              {BEDTIME_OPTIONS.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  onPress={() => {
+                    haptics.selection();
+                    setSelectedBedtime(time);
+                  }}
                   style={[
-                    styles.toggleBtnText,
-                    inputMode === 'times' && styles.toggleBtnTextActive,
+                    styles.chip,
+                    selectedBedtime === time && styles.chipActive,
                   ]}
                 >
-                  Bedtime & Wake-up
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.toggleBtn, inputMode === 'direct' && styles.toggleBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setInputMode('direct');
-                }}
-              >
-                <Sparkles size={15} color={inputMode === 'direct' ? '#FFFFFF' : '#475569'} />
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    inputMode === 'direct' && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  Direct Hours
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedBedtime === time && styles.chipTextActive,
+                    ]}
+                  >
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
-              {inputMode === 'times' ? (
-                <View style={styles.timeSection}>
-                  {/* Bedtime Selector */}
-                  <View style={styles.timeSelectorGroup}>
-                    <View style={styles.timeLabelRow}>
-                      <Moon size={14} color="#6366F1" />
-                      <Text style={styles.timeLabel}>Bedtime</Text>
-                      <Text style={styles.timeSelectedValue}>{selectedBedtime}</Text>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-                      {BEDTIME_OPTIONS.map((time) => {
-                        const isSelected = selectedBedtime === time;
-                        return (
-                          <TouchableOpacity
-                            key={time}
-                            onPress={() => {
-                              Haptics.selectionAsync().catch(() => {});
-                              setSelectedBedtime(time);
-                            }}
-                            style={[styles.chip, isSelected && styles.chipActive]}
-                          >
-                            <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                              {time}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
+            {/* Wake Time */}
+            <Text style={styles.sectionLabel}>Wake time</Text>
+            <View style={styles.chipsRow}>
+              {WAKE_OPTIONS.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  onPress={() => {
+                    haptics.selection();
+                    setSelectedWakeup(time);
+                  }}
+                  style={[
+                    styles.chip,
+                    selectedWakeup === time && styles.chipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedWakeup === time && styles.chipTextActive,
+                    ]}
+                  >
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionLabel}>Select hours</Text>
+            <View style={styles.chipsRow}>
+              {DIRECT_HOURS_PRESETS.map((hrs) => (
+                <TouchableOpacity
+                  key={hrs}
+                  onPress={() => {
+                    haptics.selection();
+                    setDirectHours(hrs);
+                  }}
+                  style={[
+                    styles.chip,
+                    directHours === hrs && styles.chipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      directHours === hrs && styles.chipTextActive,
+                    ]}
+                  >
+                    {hrs}h
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
-                  {/* Wakeup Selector */}
-                  <View style={[styles.timeSelectorGroup, { marginTop: 14 }]}>
-                    <View style={styles.timeLabelRow}>
-                      <Sun size={14} color="#F59E0B" />
-                      <Text style={styles.timeLabel}>Wake-up Time</Text>
-                      <Text style={styles.timeSelectedValue}>{selectedWakeup}</Text>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-                      {WAKE_OPTIONS.map((time) => {
-                        const isSelected = selectedWakeup === time;
-                        return (
-                          <TouchableOpacity
-                            key={time}
-                            onPress={() => {
-                              Haptics.selectionAsync().catch(() => {});
-                              setSelectedWakeup(time);
-                            }}
-                            style={[styles.chip, isSelected && styles.chipActive]}
-                          >
-                            <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                              {time}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.directSection}>
-                  <Text style={styles.sectionHeading}>Select Hours Slept</Text>
-                  <View style={styles.directChipsGrid}>
-                    {DIRECT_HOURS_PRESETS.map((hrs) => {
-                      const isSelected = directHours === hrs;
-                      return (
-                        <TouchableOpacity
-                          key={hrs}
-                          onPress={() => {
-                            Haptics.selectionAsync().catch(() => {});
-                            setDirectHours(hrs);
-                          }}
-                          style={[styles.directChip, isSelected && styles.directChipActive]}
-                        >
-                          <Text
-                            style={[
-                              styles.directChipText,
-                              isSelected && styles.directChipTextActive,
-                            ]}
-                          >
-                            {hrs} hrs
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+        {/* Calculated summary card */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryHours}>{calculatedHours} Hours</Text>
+          <Text style={styles.summaryGoal}>
+            {calculatedHours >= sleepTargetHours
+              ? 'Goal reached ✓'
+              : `${(sleepTargetHours - calculatedHours).toFixed(1)}h under goal`}
+          </Text>
+        </View>
+
+        {/* Sleep Quality */}
+        <Text style={styles.sectionLabel}>Sleep quality</Text>
+        <View style={styles.qualityList}>
+          {SLEEP_QUALITIES.map((q) => (
+            <TouchableOpacity
+              key={q.id}
+              activeOpacity={0.7}
+              onPress={() => {
+                haptics.selection();
+                setSelectedQuality(q.id);
+              }}
+              style={[
+                styles.qualityItem,
+                selectedQuality === q.id && styles.qualityItemActive,
+              ]}
+            >
+              <Text style={styles.qualityIcon}>{q.icon}</Text>
+              <View style={styles.qualityTextCol}>
+                <Text
+                  style={[
+                    styles.qualityTitle,
+                    selectedQuality === q.id && styles.qualityTitleActive,
+                  ]}
+                >
+                  {q.label}
+                </Text>
+                <Text style={styles.qualityDesc}>{q.desc}</Text>
+              </View>
+              {selectedQuality === q.id && (
+                <View style={styles.checkIcon}>
+                  <Check size={14} color="#FFFFFF" strokeWidth={3} />
                 </View>
               )}
-
-              {/* Dynamic Arithmetic Preview Card */}
-              <View style={styles.resultCard}>
-                <View style={styles.resultHeader}>
-                  <Text style={styles.resultTitle}>Arithmetic Summary</Text>
-                  <View style={styles.durationBadge}>
-                    <Text style={styles.durationBadgeText}>{calculatedHours} Hours Total</Text>
-                  </View>
-                </View>
-
-                <View style={styles.metricsGrid}>
-                  <View style={styles.metricItem}>
-                    <Text style={styles.metricVal}>
-                      {deltaFromTarget >= 0 ? `+${deltaFromTarget}h` : `${deltaFromTarget}h`}
-                    </Text>
-                    <Text style={styles.metricLbl}>vs {sleepTargetHours}h Target</Text>
-                  </View>
-
-                  <View style={styles.metricDivider} />
-
-                  <View style={styles.metricItem}>
-                    <View style={styles.metricValRow}>
-                      <Flame size={14} color="#0284C7" />
-                      <Text style={styles.metricVal}>{hghOverlap.percentage}%</Text>
-                    </View>
-                    <Text style={styles.metricLbl}>hGH Window Sync</Text>
-                  </View>
-
-                  <View style={styles.metricDivider} />
-
-                  <View style={styles.metricItem}>
-                    <Text style={styles.metricVal}>{hghOverlap.overlapHours}h / 4h</Text>
-                    <Text style={styles.metricLbl}>10 PM – 2 AM Wave</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Sleep Quality Selector */}
-              <View style={styles.qualitySection}>
-                <Text style={styles.sectionHeading}>Sleep Quality & Architecture</Text>
-                <View style={styles.qualityList}>
-                  {SLEEP_QUALITIES.map((q) => {
-                    const isSelected = selectedQuality === q.id;
-                    return (
-                      <TouchableOpacity
-                        key={q.id}
-                        onPress={() => {
-                          Haptics.selectionAsync().catch(() => {});
-                          setSelectedQuality(q.id);
-                        }}
-                        style={[styles.qualityItem, isSelected && styles.qualityItemActive]}
-                      >
-                        <Text style={styles.qualityIcon}>{q.icon}</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.qualityName, isSelected && styles.qualityNameActive]}>
-                            {q.label}
-                          </Text>
-                          <Text style={styles.qualityDesc}>{q.desc}</Text>
-                        </View>
-                        {isSelected && (
-                          <View style={styles.checkCircle}>
-                            <Check size={14} color="#FFFFFF" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Save Button */}
-            <View style={styles.footerRow}>
-              <GlassButton onPress={handleSave}>
-                <View style={styles.primaryBtnInner}>
-                  <Sparkles size={16} color="#FFFFFF" />
-                  <Text style={styles.primaryBtnText}>Log {calculatedHours}h Sleep</Text>
-                </View>
-              </GlassButton>
-            </View>
-          </GlassCard>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
+    gap: 16,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: colors.slate100,
+    borderRadius: 16,
+    padding: 4,
+    gap: 4,
+  },
+  tabBtn: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    width: '100%',
-    maxHeight: '90%',
-  },
-  glassModal: {
-    padding: 20,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-  },
-  headerRow: {
-    flexDirection: 'row',
+    paddingVertical: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
   },
-  headerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+  tabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  headerBadgeText: {
+  tabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate400,
+  },
+  tabTextActive: {
+    color: colors.blue600,
+    fontWeight: '700',
+  },
+  sectionWrap: {
+    gap: 8,
+  },
+  sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0284C7',
+    color: colors.slate900,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 16,
-    gap: 6,
-  },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#0284C7',
-  },
-  toggleBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  toggleBtnTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  scrollArea: {
-    maxHeight: 380,
-  },
-  timeSection: {
-    marginBottom: 16,
-  },
-  timeSelectorGroup: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  timeLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  timeLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    flex: 1,
-  },
-  timeSelectedValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  chipsScroll: {
-    flexDirection: 'row',
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  directSection: {
-    marginBottom: 16,
-  },
-  sectionHeading: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 10,
-  },
-  directChipsGrid: {
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  directChip: {
-    flexBasis: '22%',
-    flexGrow: 1,
-    paddingVertical: 12,
-    backgroundColor: '#F8FAFC',
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.slate200,
   },
-  directChipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+  chipActive: {
+    backgroundColor: colors.blue50,
+    borderColor: colors.blue600,
   },
-  directChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  directChipTextActive: {
-    color: '#FFFFFF',
-  },
-  resultCard: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    marginBottom: 16,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  resultTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0369A1',
-  },
-  durationBadge: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  durationBadgeText: {
+  chipText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: '600',
+    color: colors.slate600,
   },
-  metricsGrid: {
-    flexDirection: 'row',
+  chipTextActive: {
+    color: colors.blue600,
+    fontWeight: '700',
+  },
+  summaryCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: colors.blue50,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 2,
   },
-  metricItem: {
-    flex: 1,
-    alignItems: 'center',
+  summaryHours: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.blue600,
   },
-  metricValRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metricVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  metricLbl: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  metricDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#BAE6FD',
-  },
-  qualitySection: {
-    marginBottom: 12,
+  summaryGoal: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate600,
   },
   qualityList: {
     gap: 8,
@@ -642,61 +386,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
     padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderWidth: 1,
+    borderColor: colors.slate200,
   },
   qualityItemActive: {
-    backgroundColor: '#F0F9FF',
-    borderColor: '#0284C7',
+    backgroundColor: colors.blue50,
+    borderColor: colors.blue600,
   },
   qualityIcon: {
-    fontSize: 22,
+    fontSize: 20,
   },
-  qualityName: {
+  qualityTextCol: {
+    flex: 1,
+  },
+  qualityTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.slate900,
   },
-  qualityNameActive: {
-    color: '#0284C7',
+  qualityTitleActive: {
+    color: colors.blue600,
   },
   qualityDesc: {
     fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    color: colors.slate400,
+    marginTop: 2,
   },
-  checkCircle: {
+  checkIcon: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#0284C7',
+    backgroundColor: colors.blue600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  footerRow: {
-    marginTop: 8,
-  },
-  primaryBtnInner: {
+  saveBtn: {
+    height: 48,
+    backgroundColor: colors.purple600,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0284C7',
-    paddingVertical: 14,
-    borderRadius: 16,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
   },
-  primaryBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+  saveBtnText: {
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

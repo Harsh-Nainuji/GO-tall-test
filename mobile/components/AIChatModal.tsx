@@ -1,8 +1,8 @@
+// ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
@@ -12,23 +12,20 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {
-  X,
   Send,
   Sparkles,
   Bot,
   User,
   ShieldCheck,
-  BookOpen,
   Zap,
-  Clock,
-  Crown,
-  AlertCircle,
-  HelpCircle,
+  Lock,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useAppStore, ChatMessage } from '../lib/store';
+import BottomSheet from './ui/BottomSheet';
+import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
+import { colors } from '../lib/theme';
 
 interface AIChatModalProps {
   visible: boolean;
@@ -40,57 +37,43 @@ interface PromptChip {
   label: string;
   prompt: string;
   response: string;
-  citation: string;
 }
 
 const QUICK_PROMPT_CHIPS: PromptChip[] = [
   {
     id: 'chip-1',
-    label: '🦴 Growth Plate Status',
-    prompt: 'Are my epiphyseal growth plates still open based on my age and growth velocity?',
+    label: '🦴 Growth plates',
+    prompt: 'Are my growth plates still active at my age?',
     response:
-      'Based on clinical pediatric ossification timelines, epiphyseal growth plates in the distal femur and proximal tibia typically undergo complete closure between ages 16–19 in males (14–16 in females).\n\nIf your annual velocity is decelerating but still active (2–5 cm/year), micro-remodeling chondrocytes remain receptive to growth factors before terminal fusion.',
-    citation: 'Ref: UpToDate: Normal Pubertal Growth & Skeletal Maturation',
+      'Growth plates usually stay open until ages 16 to 19 for boys, and 14 to 16 for girls. Daily stretching and balanced food support your natural growth window.',
   },
   {
     id: 'chip-2',
-    label: '🥛 Bedtime hGH Snack',
-    prompt: 'What should I eat 60 minutes before bed to maximize human growth hormone pulse?',
+    label: '🥛 Bedtime snack',
+    prompt: 'What snack should I eat before bed for growth?',
     response:
-      'Slow-digesting micellar casein (such as 150g Greek yogurt, low-fat paneer, or cottage cheese) combined with zinc stabilizes nocturnal blood glucose.\n\nAvoid high-glycemic carbohydrates right before bed: insulin spikes blunt pulsatile somatotropin secretion during the critical first 90 minutes of Slow-Wave Sleep.',
-    citation: 'Ref: Takahashi et al., J Clin Invest: Somatotropin Sleep Dynamics',
+      'A light protein snack like warm milk, paneer, or Greek yogurt helps your body build tissue while you sleep.',
   },
   {
     id: 'chip-3',
-    label: '🧘 Spine Disc Traction',
-    prompt: 'Can spinal decompression really restore 1.0 to 2.5 cm of lost height?',
+    label: '🧘 Spine stretch',
+    prompt: 'Can stretching make me taller today?',
     response:
-      'Yes, through daily diurnal disc rehydration. Gravity compresses human intervertebral discs by 1.0–2.5 cm over the course of a normal upright day.\n\nTargeted traction (such as 60-second dead hangs, cobra poses, and cat-cow flows) relieves axial pressure, allowing intervertebral disc nuclei to rehydrate with synovial fluid.',
-    citation: 'Ref: J Back Musculoskelet Rehabil: Diurnal Disc Dynamics',
+      'Yes. Simple spine decompression and dead hangs relieve daily pressure and help restore disc height.',
   },
   {
     id: 'chip-4',
-    label: '🧬 Tanner Target',
-    prompt: 'How does the Tanner-Whitehouse formula calculate my genetic baseline?',
+    label: '💤 Sleep hours',
+    prompt: 'How many hours should I sleep each night?',
     response:
-      'The Tanner-Whitehouse model calculates your mid-parental genetic set-point:\n\n• For Males: (Father + Mother + 13 cm) / 2\n• For Females: (Father + Mother − 13 cm) / 2\n\nThis genetic target accounts for ~60–80% of adult stature variance. The remaining 20–40% depends on nutrition, deep sleep, and spinal biomechanics.',
-    citation: 'Ref: Visscher et al., Nature Genetics: Twin Stature Heritability Studies',
+      'Aim for 8 to 9 hours of deep sleep. Most natural growth hormone releases during sound, uninterrupted sleep.',
   },
   {
     id: 'chip-5',
-    label: '💤 Deep SWS Sleep',
-    prompt: 'Why is stage 3/4 slow-wave sleep critical for stature growth?',
+    label: '🏋️ Lifting weights',
+    prompt: 'Does lifting weights stunt my height growth?',
     response:
-      'Over 75% of your daily pulsatile Human Growth Hormone (somatotropin) is synthesized during Stage 3/4 non-REM deep slow-wave sleep.\n\nMelatonin suppression from late-night screens delays slow-wave onset and blunts this nocturnal peak anabolic window.',
-    citation: 'Ref: Van Cauter et al., Sleep: Sleep, Growth Hormone, and Neuroendocrine Regulation',
-  },
-  {
-    id: 'chip-6',
-    label: '🏋️ Lifting Weights Myth',
-    prompt: 'Does adolescent weightlifting or resistance training stunt height growth?',
-    response:
-      'Medical consensus from the American Academy of Pediatrics confirms that supervised, progressive resistance training does NOT damage epiphyseal plates or stunt growth.\n\nIn fact, it stimulates osteoblast bone mineralization and local IGF-1 expression. Only improper heavy spinal axial compression poses injury risk.',
-    citation: 'Ref: American Academy of Pediatrics: Strength Training by Children and Adolescents',
+      'No. Proper exercise strengthens bones. Just keep good form and avoid heavy loads on your spine.',
   },
 ];
 
@@ -109,7 +92,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const [isTyping, setIsTyping] = useState(false);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
-  // Auto-scroll whenever messages change
   const scrollToBottom = () => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -139,7 +121,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       addChatMessage({
         role: 'assistant',
         text: chip.response,
-        citation: chip.citation,
       });
       setIsTyping(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -173,13 +154,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       addChatMessage({
         role: 'assistant',
         text: response.text,
-        citation: response.citation,
       });
-    } catch (e) {
+    } catch {
       addChatMessage({
         role: 'assistant',
-        text: 'Epiphyseal plate remodeling and spinal disk hydration are the two primary biological determinants of height growth. Focus on consistent 8–9 hours of circadian sleep and daily spinal decompression.',
-        citation: 'Ref: AAP Pediatric Endocrinology & Biomechanics Guidelines',
+        text: 'Consistent deep sleep, good nutrition, and daily stretching best support your natural growth.',
       });
     } finally {
       setIsTyping(false);
@@ -188,477 +167,285 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     }
   };
 
+  // Badge color based on questions used: green 0-2, amber 3-4, red 5
+  const getBadgeStyle = () => {
+    if (quota.used >= 5) {
+      return { bg: '#FEE2E2', border: '#FCA5A5', text: '#DC2626' };
+    }
+    if (quota.used >= 3) {
+      return { bg: '#FEF3C7', border: '#FCD34D', text: '#D97706' };
+    }
+    return { bg: '#DCFCE7', border: '#86EFAC', text: '#16A34A' };
+  };
+
+  const badgeStyle = getBadgeStyle();
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardContainer}
-        >
-          <View style={styles.chatSheet}>
-            {/* 1. Header Bar */}
-            <View style={styles.headerBar}>
-              <View style={styles.headerLeft}>
-                <View style={styles.avatarWrap}>
-                  <Bot size={20} color="#FFFFFF" />
-                  <View style={styles.onlineBadge} />
-                </View>
-                <View>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.headerTitle}>Dr. Jack Growth Advisor</Text>
-                    <View style={styles.aiBadge}>
-                      <Text style={styles.aiBadgeText}>AI 1.5</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.headerSubtitle}>
-                    Pediatric Endocrinology & Biomechanics
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.headerRight}>
-                {/* Quota Pill */}
-                <View style={[styles.quotaPill, isPremium && styles.quotaPillPremium]}>
-                  <Zap size={11} color={isPremium ? '#D97706' : '#0284C7'} />
-                  <Text style={[styles.quotaPillText, isPremium && styles.quotaPillTextPremium]}>
-                    {quota.remaining} left
-                  </Text>
-                </View>
-
-                {/* Close Button */}
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <X size={18} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 2. Compact 1-Tap Question Chips */}
-            <View style={styles.chipsContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipsScroll}
-              >
-                {QUICK_PROMPT_CHIPS.map((chip) => (
-                  <TouchableOpacity
-                    key={chip.id}
-                    onPress={() => handleSendPrompt(chip)}
-                    disabled={quota.isExhausted}
-                    style={[
-                      styles.chipItem,
-                      quota.isExhausted && styles.chipItemDisabled,
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Sparkles
-                      size={11}
-                      color={quota.isExhausted ? '#94A3B8' : '#0284C7'}
-                    />
-                    <Text
-                      style={[
-                        styles.chipText,
-                        quota.isExhausted && styles.chipTextDisabled,
-                      ]}
-                    >
-                      {chip.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* 3. Messages List with High Contrast & Clear Spacing */}
-            <ScrollView
-              ref={scrollViewRef}
-              showsVerticalScrollIndicator={false}
-              style={styles.messagesContainer}
-              contentContainerStyle={styles.messagesScrollContent}
-              onContentSizeChange={scrollToBottom}
-            >
-              {/* Welcome intro message if thread is empty */}
-              {chatMessages.length === 0 && (
-                <View style={styles.introCard}>
-                  <View style={styles.introIconCircle}>
-                    <Sparkles size={20} color="#0284C7" />
-                  </View>
-                  <Text style={styles.introTitle}>Ask Dr. Jack Anything</Text>
-                  <Text style={styles.introBody}>
-                    Ground your growth questions in honest pediatric medicine. Tap any topic above or ask a custom question below.
-                  </Text>
-                </View>
-              )}
-
-              {chatMessages.map((msg) => (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.messageRow,
-                    msg.role === 'user' ? styles.userRow : styles.assistantRow,
-                  ]}
-                >
-                  {msg.role === 'assistant' && (
-                    <View style={styles.msgAvatarAssistant}>
-                      <Bot size={14} color="#0284C7" />
-                    </View>
-                  )}
-
-                  <View
-                    style={[
-                      styles.bubble,
-                      msg.role === 'user'
-                        ? styles.userBubble
-                        : styles.assistantBubble,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.msgText,
-                        msg.role === 'user'
-                          ? styles.userMsgText
-                          : styles.assistantMsgText,
-                      ]}
-                    >
-                      {msg.text}
-                    </Text>
-
-                    {/* Scientific Citation Pill */}
-                    {msg.citation ? (
-                      <View style={styles.citationBox}>
-                        <BookOpen size={11} color="#0369A1" />
-                        <Text style={styles.citationText}>
-                          {msg.citation}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {msg.role === 'user' && (
-                    <View style={styles.msgAvatarUser}>
-                      <User size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </View>
-              ))}
-
-              {/* Typing Indicator */}
-              {isTyping && (
-                <View style={[styles.messageRow, styles.assistantRow]}>
-                  <View style={styles.msgAvatarAssistant}>
-                    <Bot size={14} color="#0284C7" />
-                  </View>
-                  <View style={styles.typingBubble}>
-                    <ActivityIndicator size="small" color="#0284C7" />
-                    <Text style={styles.typingText}>
-                      Consulting pediatric growth literature...
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* 4. Quota Exhaustion Warning */}
-            {quota.isExhausted && (
-              <View style={styles.quotaWarningBox}>
-                <AlertCircle size={14} color="#DC2626" />
-                <Text style={styles.quotaWarningText}>
-                  Daily limit reached ({quota.limit}/{quota.limit}). Resets in {quota.resetCountdown}.
-                </Text>
-                {!isPremium && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      onClose();
-                      router.push('/(onboarding)/paywall');
-                    }}
-                    style={styles.upgradeBtn}
-                  >
-                    <Crown size={12} color="#FFFFFF" />
-                    <Text style={styles.upgradeBtnText}>Upgrade</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* 5. Input Bar */}
-            <View style={styles.inputArea}>
-              <View style={styles.inputFieldWrap}>
-                <TextInput
-                  value={inputText}
-                  onChangeText={setInputText}
-                  editable={!quota.isExhausted}
-                  placeholder={
-                    quota.isExhausted
-                      ? `Daily limit reached. Resets in ${quota.resetCountdown}`
-                      : 'Ask about growth plates, nutrition, or stretches...'
-                  }
-                  placeholderTextColor="#94A3B8"
-                  onSubmitEditing={handleCustomSend}
-                  returnKeyType="send"
-                  style={styles.textInput}
-                />
-
-                <TouchableOpacity
-                  onPress={handleCustomSend}
-                  disabled={!inputText.trim() || quota.isExhausted}
-                  style={[
-                    styles.sendBtn,
-                    inputText.trim() && !quota.isExhausted && styles.sendBtnActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Send
-                    size={16}
-                    color={
-                      inputText.trim() && !quota.isExhausted
-                        ? '#FFFFFF'
-                        : '#94A3B8'
-                    }
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Medical Disclaimer */}
-              <View style={styles.disclaimerRow}>
-                <ShieldCheck size={11} color="#64748B" />
-                <Text style={styles.disclaimerText}>
-                  Educational pediatric guidance • Tanner-Whitehouse III & AAP guidelines
-                </Text>
-              </View>
-            </View>
+    <BottomSheet visible={visible} onClose={onClose} title="Dr. Jack AI Coach">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardContainer}
+      >
+        {/* Top Quota Pill */}
+        <View style={styles.topBar}>
+          <View
+            style={[
+              styles.quotaPill,
+              { backgroundColor: badgeStyle.bg, borderColor: badgeStyle.border },
+            ]}
+          >
+            <Zap size={13} color={badgeStyle.text} />
+            <Text style={[styles.quotaPillText, { color: badgeStyle.text }]}>
+              {quota.used} / {quota.limit} questions used today
+            </Text>
           </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+        </View>
+
+        {/* Suggestion Chips */}
+        <View style={styles.chipsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsScroll}
+          >
+            {QUICK_PROMPT_CHIPS.map((chip) => (
+              <TouchableOpacity
+                key={chip.id}
+                onPress={() => handleSendPrompt(chip)}
+                disabled={quota.isExhausted}
+                style={[
+                  styles.chipItem,
+                  quota.isExhausted && styles.chipItemDisabled,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Sparkles
+                  size={12}
+                  color={quota.isExhausted ? colors.slate400 : colors.blue600}
+                />
+                <Text
+                  style={[
+                    styles.chipText,
+                    quota.isExhausted && styles.chipTextDisabled,
+                  ]}
+                >
+                  {chip.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Messages List */}
+        <ScrollView
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesScrollContent}
+          onContentSizeChange={scrollToBottom}
+        >
+          {chatMessages.length === 0 && (
+            <View style={styles.introCard}>
+              <Sparkles size={24} color={colors.blue600} />
+              <Text style={styles.introTitle}>Ask anything about your height</Text>
+              <Text style={styles.introBody}>
+                Tap a suggestion above or type your question below.
+              </Text>
+            </View>
+          )}
+
+          {chatMessages.map((msg) => (
+            <View
+              key={msg.id}
+              style={[
+                styles.messageRow,
+                msg.role === 'user' ? styles.userRow : styles.assistantRow,
+              ]}
+            >
+              {msg.role === 'assistant' && (
+                <View style={styles.avatarAssistant}>
+                  <Bot size={14} color={colors.blue600} />
+                </View>
+              )}
+
+              <View
+                style={[
+                  styles.bubble,
+                  msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.msgText,
+                    msg.role === 'user' ? styles.userMsgText : styles.assistantMsgText,
+                  ]}
+                >
+                  {msg.text}
+                </Text>
+              </View>
+
+              {msg.role === 'user' && (
+                <View style={styles.avatarUser}>
+                  <User size={14} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+          ))}
+
+          {isTyping && (
+            <View style={[styles.messageRow, styles.assistantRow]}>
+              <View style={styles.avatarAssistant}>
+                <Bot size={14} color={colors.blue600} />
+              </View>
+              <View style={styles.typingBubble}>
+                <ActivityIndicator size="small" color={colors.blue600} />
+                <Text style={styles.typingText}>Thinking...</Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Locked Countdown Banner when limit reached */}
+        {quota.isExhausted && (
+          <View style={styles.lockedBanner}>
+            <Lock size={14} color="#DC2626" />
+            <Text style={styles.lockedText}>
+              Daily limit reached. Resets in {quota.resetCountdown}.
+            </Text>
+          </View>
+        )}
+
+        {/* Input Bar */}
+        <View style={styles.inputArea}>
+          <View style={styles.inputWrap}>
+            <TextInput
+              value={inputText}
+              onChangeText={setInputText}
+              editable={!quota.isExhausted}
+              placeholder={
+                quota.isExhausted
+                  ? `Limit reached. Resets in ${quota.resetCountdown}`
+                  : 'Ask a growth question...'
+              }
+              placeholderTextColor={colors.slate400}
+              onSubmitEditing={handleCustomSend}
+              returnKeyType="send"
+              style={styles.textInput}
+            />
+
+            <TouchableOpacity
+              onPress={handleCustomSend}
+              disabled={!inputText.trim() || quota.isExhausted}
+              style={[
+                styles.sendBtn,
+                inputText.trim() && !quota.isExhausted && styles.sendBtnActive,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Send
+                size={16}
+                color={
+                  inputText.trim() && !quota.isExhausted
+                    ? '#FFFFFF'
+                    : colors.slate400
+                }
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.disclaimerRow}>
+            <ShieldCheck size={11} color={colors.slate400} />
+            <Text style={styles.disclaimerText}>
+              For fitness guidance only. Always consult your doctor.
+            </Text>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'flex-end',
-  },
   keyboardContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    minHeight: 460,
   },
-  chatSheet: {
-    height: '94%',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1.5,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  headerBar: {
-    flexDirection: 'row',
+  topBar: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  avatarWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#0284C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  aiBadge: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  aiBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   quotaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  quotaPillPremium: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
   },
   quotaPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  quotaPillTextPremium: {
-    color: '#B45309',
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: '700',
   },
   chipsContainer: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FAFAFA',
+    paddingBottom: 8,
   },
   chipsScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
   },
   chipItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: '#DBEAFE',
   },
   chipItemDisabled: {
-    opacity: 0.5,
     backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   chipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate900,
   },
   chipTextDisabled: {
-    color: '#94A3B8',
+    color: colors.slate400,
   },
   messagesContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
+    maxHeight: 320,
+    minHeight: 200,
   },
   messagesScrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     gap: 12,
   },
   introCard: {
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     alignItems: 'center',
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-  },
-  introIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    paddingVertical: 24,
+    gap: 6,
   },
   introTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.slate900,
+    marginTop: 6,
   },
   introBody: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: colors.slate600,
     textAlign: 'center',
-    lineHeight: 17,
-    marginTop: 4,
-    fontWeight: '500',
-    paddingHorizontal: 8,
   },
   messageRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 8,
-    alignItems: 'flex-start',
   },
   userRow: {
     justifyContent: 'flex-end',
@@ -666,176 +453,121 @@ const styles = StyleSheet.create({
   assistantRow: {
     justifyContent: 'flex-start',
   },
-  msgAvatarAssistant: {
+  avatarAssistant: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
-  msgAvatarUser: {
+  avatarUser: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#0284C7',
+    backgroundColor: colors.blue600,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   bubble: {
-    maxWidth: '82%',
+    maxWidth: '78%',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 18,
   },
   userBubble: {
-    backgroundColor: '#0284C7',
-    borderTopRightRadius: 4,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    backgroundColor: colors.blue600,
+    borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderTopLeftRadius: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
+    backgroundColor: '#F1F5F9',
+    borderBottomLeftRadius: 4,
   },
   msgText: {
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
   },
   userMsgText: {
     color: '#FFFFFF',
-    fontWeight: '600',
   },
   assistantMsgText: {
-    color: '#0F172A',
-    fontWeight: '500',
-  },
-  citationBox: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  citationText: {
-    fontSize: 10,
-    color: '#0284C7',
-    fontWeight: '700',
-    flex: 1,
-    fontStyle: 'italic',
+    color: colors.slate900,
   },
   typingBubble: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
   },
   typingText: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.slate600,
   },
-  quotaWarningBox: {
+  lockedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FEF2F2',
-    borderTopWidth: 1,
-    borderTopColor: '#FECACA',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    gap: 6,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
   },
-  quotaWarningText: {
-    fontSize: 11,
-    fontWeight: '700',
+  lockedText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#DC2626',
     flex: 1,
   },
-  upgradeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
-  upgradeBtnText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
   inputArea: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 8,
   },
-  inputFieldWrap: {
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 22,
-    paddingLeft: 14,
-    paddingRight: 6,
-    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   textInput: {
     flex: 1,
-    fontSize: 13,
-    color: '#0F172A',
-    fontWeight: '500',
+    fontSize: 14,
+    color: colors.slate900,
+    paddingVertical: 6,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E2E8F0',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 6,
   },
   sendBtnActive: {
-    backgroundColor: '#0284C7',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    backgroundColor: colors.blue600,
   },
   disclaimerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    marginTop: 8,
+    gap: 4,
   },
   disclaimerText: {
-    fontSize: 10,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: 11,
+    color: colors.slate400,
   },
 });

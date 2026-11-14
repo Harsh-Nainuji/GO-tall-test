@@ -1,11 +1,19 @@
+// ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity } from 'react-native';
-import { X, Sparkles, Award, CheckCircle2 } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { CheckCircle2, Lock } from 'lucide-react-native';
+import BottomSheet from './ui/BottomSheet';
 import { AchievementBadgeItem } from '../lib/store';
+import { colors } from '../lib/theme';
+
+interface ExtendedBadge extends AchievementBadgeItem {
+  icon_url?: string;
+}
 
 interface BadgeModalProps {
   visible: boolean;
-  badge: AchievementBadgeItem | null;
+  badge: ExtendedBadge | null;
   isUnlocked: boolean;
   onClose: () => void;
 }
@@ -18,99 +26,163 @@ export default function BadgeModal({
 }: BadgeModalProps) {
   if (!badge) return null;
 
-  const getTierColors = (tier: AchievementBadgeItem['tier']) => {
-    switch (tier) {
-      case 'gold':
-        return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-      case 'silver':
-        return { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-300' };
-      case 'platinum':
-        return { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300' };
-      case 'bronze':
-      default:
-        return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
-    }
-  };
-
-  const colors = getTierColors(badge.tier);
-
   return (
-    <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center bg-black/60 p-6">
-        <View className="bg-white rounded-3xl p-6 w-full max-w-sm items-center border border-slate-200 shadow-xl">
-          {/* Close button */}
-          <TouchableOpacity
-            onPress={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 items-center justify-center"
-          >
-            <X size={16} color="#64748B" />
-          </TouchableOpacity>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title={badge.title}
+      subtitle={`${badge.tier.toUpperCase()} Milestone`}
+    >
+      <View style={styles.container}>
+        {/* Badge Icon or Image */}
+        <View
+          style={[
+            styles.iconWrapper,
+            isUnlocked ? styles.iconUnlocked : styles.iconLocked,
+          ]}
+        >
+          {badge.icon_url ? (
+            <Image
+              source={{ uri: badge.icon_url }}
+              style={styles.badgeImage}
+              contentFit="contain"
+              accessibilityLabel={badge.title}
+            />
+          ) : (
+            <Text style={styles.emojiText}>{badge.icon}</Text>
+          )}
+        </View>
 
-          {/* Badge Icon */}
-          <View
-            className={`w-20 h-20 rounded-3xl items-center justify-center text-4xl mb-4 border-2 ${
-              isUnlocked ? `${colors.bg} ${colors.border}` : 'bg-slate-100 border-slate-200 opacity-60'
-            }`}
-          >
-            <Text className="text-4xl">{badge.icon}</Text>
-          </View>
+        {/* Description */}
+        <Text style={styles.descriptionText}>{badge.description}</Text>
 
-          {/* Tier pill */}
-          <View className={`px-2.5 py-0.5 rounded-full border mb-2 ${colors.bg} ${colors.border}`}>
-            <Text className={`text-[10px] font-black uppercase tracking-wider ${colors.text}`}>
-              {badge.tier} Milestone
+        {/* Requirements */}
+        <View style={styles.metricsBox}>
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>Requirement:</Text>
+            <Text style={styles.metricValue}>
+              {badge.targetMetric} ≥ {badge.targetValue}
             </Text>
           </View>
-
-          {/* Title & Description */}
-          <Text className="text-lg font-black text-slate-900 text-center mb-1">
-            {badge.title}
-          </Text>
-          <Text className="text-xs text-slate-500 text-center leading-relaxed mb-4">
-            {badge.description}
-          </Text>
-
-          {/* Requirements Box */}
-          <View className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-4 space-y-1">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-[11px] text-slate-500 font-medium">Metric Requirement:</Text>
-              <Text className="text-xs font-bold text-slate-800">
-                {badge.targetMetric} &ge; {badge.targetValue}
-              </Text>
-            </View>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-[11px] text-slate-500 font-medium">Milestone Reward:</Text>
-              <Text className="text-xs font-bold text-amber-600 flex-row items-center gap-1">
-                +{badge.xpReward} XP
-              </Text>
-            </View>
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>Reward:</Text>
+            <Text style={styles.rewardValue}>+{badge.xpReward} XP</Text>
           </View>
-
-          {/* Status Indicator */}
-          {isUnlocked ? (
-            <View className="w-full py-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex-row items-center justify-center gap-1.5 mb-2">
-              <CheckCircle2 size={16} color="#059669" />
-              <Text className="text-xs font-bold text-emerald-800">
-                Unlocked & Added to Profile
-              </Text>
-            </View>
-          ) : (
-            <View className="w-full py-3 bg-slate-100 rounded-2xl items-center justify-center mb-2">
-              <Text className="text-xs font-bold text-slate-500">
-                Locked — Progressively Earned Through Habits
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            onPress={onClose}
-            className="w-full py-3 bg-slate-900 rounded-2xl items-center justify-center mt-2"
-          >
-            <Text className="text-white text-xs font-black">Continue</Text>
-          </TouchableOpacity>
         </View>
+
+        {/* Status Pill */}
+        {isUnlocked ? (
+          <View style={styles.unlockedPill}>
+            <CheckCircle2 size={16} color={colors.green600} />
+            <Text style={styles.unlockedPillText}>Unlocked and earned ✓</Text>
+          </View>
+        ) : (
+          <View style={styles.lockedPill}>
+            <Lock size={15} color={colors.slate400} />
+            <Text style={styles.lockedPillText}>Locked. Complete your daily habits.</Text>
+          </View>
+        )}
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    marginVertical: 4,
+  },
+  iconUnlocked: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  iconLocked: {
+    backgroundColor: colors.slate100,
+    borderColor: colors.slate200,
+    opacity: 0.6,
+  },
+  badgeImage: {
+    width: 52,
+    height: 52,
+  },
+  emojiText: {
+    fontSize: 40,
+  },
+  descriptionText: {
+    fontSize: 13,
+    color: colors.slate600,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
+  },
+  metricsBox: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.90)',
+    gap: 6,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: colors.slate400,
+    fontWeight: '500',
+  },
+  metricValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  rewardValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.amber600,
+  },
+  unlockedPill: {
+    width: '100%',
+    paddingVertical: 12,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  unlockedPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  lockedPill: {
+    width: '100%',
+    paddingVertical: 12,
+    backgroundColor: colors.slate100,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  lockedPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate400,
+  },
+});

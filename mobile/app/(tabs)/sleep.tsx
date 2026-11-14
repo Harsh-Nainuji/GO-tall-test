@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Activity,
   Moon,
   Sparkles,
   Sunrise,
@@ -18,183 +17,352 @@ import {
   Plus,
   Flame,
   CheckCircle2,
-  Trash2,
   Clock,
-  ShieldCheck,
+  Play,
+  Square,
+  RefreshCw,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import GlassCard from '../../components/GlassCard';
-import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
+import GlassCard from '../../components/ui/GlassCard';
 import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
 import SleepLogModal from '../../components/SleepLogModal';
 import { useAppStore, SleepLog } from '../../lib/store';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { SLEEP_GOAL_HOURS, SLEEP_STREAK_MIN_HOURS } from '../../lib/constants';
+import { colors, gradients } from '../../lib/theme';
+import { logError } from '../../lib/logger';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
+const ASYNC_SLEEP_KEY = 'gotall_active_sleep_session';
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+type SleepStateMachine = 'IDLE' | 'SLEEPING' | 'WOKEN_UP';
 
 export default function SleepScreen() {
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedDayIdx, setSelectedDayIdx] = useState<number>(3); // Default Thu or today
+  const [selectedDayIdx, setSelectedDayIdx] = useState<number>(6); // Default today (last index)
+
+  // Sleep State Machine
+  const [sleepState, setSleepState] = useState<SleepStateMachine>('IDLE');
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [wokenSummary, setWokenSummary] = useState<{ hours: number; bedtime: string; wakeup: string } | null>(null);
 
   const sleepLogs = useAppStore((state) => state.sleepLogs);
-  const sleepTargetHours = useAppStore((state) => state.sleepTargetHours);
-  const deleteSleepLog = useAppStore((state) => state.deleteSleepLog);
+  const addSleepLog = useAppStore((state) => state.addSleepLog);
 
-  // Group and map logs into 7 days of the week (Mon -> Sun)
+  // Restore active sleep session from AsyncStorage on mount
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const raw = await AsyncStorage.getItem(ASYNC_SLEEP_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.state === 'SLEEPING' && parsed.startTime) {
+            setStartTime(parsed.startTime);
+            setSleepState('SLEEPING');
+            setElapsedSeconds(Math.floor((Date.now() - parsed.startTime) / 1000));
+          }
+        }
+      } catch (e) {
+        logError('Failed to restore sleep session', e);
+      }
+    }
+    restoreSession();
+  }, []);
+
+  // Ticking live digital clock during SLEEPING
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (sleepState === 'SLEEPING' && startTime) {
+      timer = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [sleepState, startTime]);
+
+  // Handle Start Sleep
+  const handleStartSleep = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const now = Date.now();
+    setStartTime(now);
+    setElapsedSeconds(0);
+    setSleepState('SLEEPING');
+    try {
+      await AsyncStorage.setItem(
+        ASYNC_SLEEP_KEY,
+        JSON.stringify({ state: 'SLEEPING', startTime: now })
+      );
+    } catch (e) {
+      logError('Failed to persist sleep session', e);
+    }
+  };
+
+  // Handle Wake Up
+  const handleWakeUp = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const now = Date.now();
+    const start = startTime || (now - elapsedSeconds * 1000);
+    const totalHours = Math.round(((now - start) / 3600000) * 10) / 10;
+
+    const bedtimeStr = new Date(start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const wakeupStr = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setWokenSummary({
+      hours: Math.max(0.1, totalHours),
+      bedtime: bedtimeStr,
+      wakeup: wakeupStr,
+    });
+    setSleepState('WOKEN_UP');
+
+    try {
+      await AsyncStorage.removeItem(ASYNC_SLEEP_KEY);
+    } catch (e) {
+      logError('Failed to remove sleep session', e);
+    }
+  };
+
+  // Handle Save Woken Sleep Log
+  const handleSaveWokenSleep = async () => {
+    if (!wokenSummary) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'short' });
+    const dateStr = today.toISOString().split('T')[0];
+
+    // Add to local store
+    addSleepLog({
+      date: dateStr,
+      dayOfWeek: dayName,
+      bedtime: wokenSummary.bedtime,
+      wakeupTime: wokenSummary.wakeup,
+      hours: wokenSummary.hours,
+      quality: wokenSummary.hours >= SLEEP_STREAK_MIN_HOURS ? 'Optimal' : 'Fair',
+    });
+
+    // Save to Supabase
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('sleep_logs').insert({
+          user_id: user?.id,
+          logged_date: dateStr,
+          bedtime: wokenSummary.bedtime,
+          wakeup_time: wokenSummary.wakeup,
+          hours: wokenSummary.hours,
+          quality: wokenSummary.hours >= SLEEP_STREAK_MIN_HOURS ? 'Optimal' : 'Fair',
+        });
+      } catch (err) {
+        logError('Failed to save sleep log to Supabase', err);
+      }
+    }
+
+    setSleepState('IDLE');
+    setStartTime(null);
+    setWokenSummary(null);
+  };
+
+  // Format digital clock ticking
+  const formatTickingClock = (sec: number) => {
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const secs = sec % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // 7-day data mapping (last 7 days)
   const weekData = useMemo(() => {
-    return DAYS_OF_WEEK.map((day) => {
-      const match = sleepLogs.find((l) => l.dayOfWeek.toLowerCase() === day.toLowerCase());
-      return {
-        day,
-        log: match,
+    const result = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const dateStr = d.toISOString().split('T')[0];
+      const match = sleepLogs.find((l) => l.date === dateStr || l.dayOfWeek === dayName);
+      result.push({
+        day: dayName,
+        date: dateStr,
         hours: match ? match.hours : 0,
         quality: match ? match.quality : 'Unrecorded',
-      };
-    });
+        log: match,
+      });
+    }
+    return result;
   }, [sleepLogs]);
 
-  const selectedDayData = weekData[selectedDayIdx] || weekData[0];
+  const selectedDayData = weekData[selectedDayIdx] || weekData[weekData.length - 1];
 
-  // Pure arithmetic calculations for the week
-  const loggedEntries = weekData.filter((d) => d.hours > 0);
-  const totalLoggedHours = loggedEntries.reduce((sum, d) => sum + d.hours, 0);
-  const avgHours = loggedEntries.length > 0
-    ? Math.round((totalLoggedHours / loggedEntries.length) * 10) / 10
-    : 0;
+  // Sleep streak: consecutive days with >= 7.5h
+  const streakDays = useMemo(() => {
+    let count = 0;
+    for (let i = weekData.length - 1; i >= 0; i--) {
+      if (weekData[i].hours >= SLEEP_STREAK_MIN_HOURS) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [weekData]);
 
-  // Sleep debt calculation
-  const weeklyTargetHours = sleepTargetHours * (loggedEntries.length || 7);
-  const sleepDebt = Math.max(0, Math.round((weeklyTargetHours - totalLoggedHours) * 10) / 10);
-
-  // Target achievement percentage
-  const currentLogged = selectedDayData.hours > 0 ? selectedDayData.hours : avgHours;
-  const sleepPct = Math.min(100, Math.round((currentLogged / sleepTargetHours) * 100));
-
-  // Max hours for chart normalization
-  const maxHoursInWeek = Math.max(10, ...weekData.map((d) => d.hours));
+  // Daily target ring percentage (target: 9.0h)
+  const currentHours = selectedDayData.hours;
+  const sleepPct = Math.min(100, Math.round((currentHours / SLEEP_GOAL_HOURS) * 100));
 
   return (
-    <GlassBackgroundCanvas>
+    <LinearGradient colors={gradients.canvas} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Navigation Bar */}
-        <Animated.View
-          entering={FadeInDown.delay(50).springify()}
-          style={styles.headerContainer}
-        >
-          <View style={styles.brandPill}>
-            <Activity size={14} color="#0284C7" />
-            <Text style={styles.brandText}>GoTall</Text>
-            <View style={styles.onlineDot} />
+        {/* Top Header */}
+        <Animated.View entering={FadeInDown.delay(50).springify()} style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Sleep Tracker</Text>
+            <Text style={styles.headerSubtitle}>Rest for natural growth hormone</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.addLogButton}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              setModalVisible(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Plus size={15} color="#FFFFFF" />
-            <Text style={styles.addLogButtonText}>Log Sleep</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {streakDays > 0 && (
+              <View style={styles.streakBadge}>
+                <Flame size={13} color={colors.amber600} />
+                <Text style={styles.streakText}>{streakDays}d streak</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setModalVisible(true);
+              }}
+              style={styles.manualLogBtn}
+              activeOpacity={0.8}
+            >
+              <Plus size={15} color="#FFFFFF" />
+              <Text style={styles.manualLogText}>Log</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Title Header */}
-          <Animated.View
-            entering={FadeInDown.delay(100).springify()}
-            style={styles.titleSection}
-          >
-            <Text style={styles.subheadingText}>Circadian Somatotropin Recovery</Text>
-            <Text style={styles.headingText}>Slow-Wave Sleep HGH</Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* LIVE SLEEP TRACKER CARD (State Machine) */}
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <GlassCard style={styles.liveCard}>
+              {sleepState === 'IDLE' && (
+                <View style={styles.stateCenter}>
+                  <View style={styles.moonIconWrap}>
+                    <Moon size={32} color={colors.purple600} />
+                  </View>
+                  <Text style={styles.stateTitle}>Ready for sleep</Text>
+                  <Text style={styles.stateDesc}>Tap below when you get into bed.</Text>
+
+                  <TouchableOpacity
+                    onPress={handleStartSleep}
+                    style={styles.startSleepBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+                    <Text style={styles.startSleepBtnText}>Start Sleep</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {sleepState === 'SLEEPING' && (
+                <View style={styles.stateCenter}>
+                  <View style={[styles.moonIconWrap, styles.moonIconWrapActive]}>
+                    <Moon size={32} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.sleepingLabel}>Resting now...</Text>
+                  <Text style={styles.digitalClock}>{formatTickingClock(elapsedSeconds)}</Text>
+                  <Text style={styles.stateDesc}>Natural growth hormone releases during deep rest.</Text>
+
+                  <TouchableOpacity
+                    onPress={handleWakeUp}
+                    style={styles.wakeUpBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Square size={16} color="#FFFFFF" fill="#FFFFFF" />
+                    <Text style={styles.wakeUpBtnText}>I am Awake</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {sleepState === 'WOKEN_UP' && wokenSummary && (
+                <View style={styles.stateCenter}>
+                  <View style={[styles.moonIconWrap, { backgroundColor: '#DCFCE7' }]}>
+                    <CheckCircle2 size={32} color={colors.green600} />
+                  </View>
+                  <Text style={styles.stateTitle}>Good morning</Text>
+                  <Text style={styles.wokenHoursText}>{wokenSummary.hours} hours slept</Text>
+                  <Text style={styles.stateDesc}>
+                    {wokenSummary.bedtime} to {wokenSummary.wakeup}
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={handleSaveWokenSleep}
+                    style={styles.saveWokenBtn}
+                    activeOpacity={0.8}
+                  >
+                    <CheckCircle2 size={18} color="#FFFFFF" />
+                    <Text style={styles.saveWokenBtnText}>Save to Log</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </GlassCard>
           </Animated.View>
 
-          {/* Central Circular Gauge Card matching 3D Glass aesthetic */}
+          {/* 9-HOUR SLEEP RING CARD */}
           <Animated.View entering={FadeInDown.delay(180).springify()}>
-            <GlassCard style={styles.cardSpacing}>
-              <View style={styles.meterCenterWrap}>
+            <GlassCard style={styles.ringCard}>
+              <View style={styles.ringCenterWrap}>
                 <CircularProgressRingGlass
                   size={150}
                   strokeWidth={12}
                   percentage={sleepPct}
-                  color="#0284C7"
-                  valueText={`${currentLogged}h`}
-                  unitText={`of ${sleepTargetHours}h goal`}
-                  label={`${selectedDayData.day} Somatotropin Sync`}
-                  sublabel={`${sleepPct}% Peak Anabolic Quota`}
+                  color={colors.purple600}
+                  valueText={`${currentHours}h`}
+                  unitText={`of ${SLEEP_GOAL_HOURS}h goal`}
+                  label={`${selectedDayData.day} Rest`}
+                  sublabel={`${sleepPct}% of daily goal`}
                 />
               </View>
 
-              {/* Bedtime / Wakeup row for selected day */}
               <View style={styles.scheduleRow}>
                 <View style={styles.scheduleBox}>
-                  <View style={styles.scheduleIconWrap}>
-                    <Sunset size={14} color="#0284C7" />
-                  </View>
+                  <Sunset size={16} color={colors.purple600} />
                   <Text style={styles.scheduleLabel}>Bedtime</Text>
                   <Text style={styles.scheduleValue}>
                     {selectedDayData.log?.bedtime || '10:30 PM'}
                   </Text>
-                  <Text style={styles.scheduleSub}>Slow-Wave Sync</Text>
                 </View>
 
                 <View style={styles.scheduleBox}>
-                  <View style={styles.scheduleIconWrap}>
-                    <Sunrise size={14} color="#F59E0B" />
-                  </View>
+                  <Sunrise size={16} color={colors.amber600} />
                   <Text style={styles.scheduleLabel}>Wake Up</Text>
                   <Text style={styles.scheduleValue}>
-                    {selectedDayData.log?.wakeupTime || '07:00 AM'}
+                    {selectedDayData.log?.wakeupTime || '07:30 AM'}
                   </Text>
-                  <Text style={styles.scheduleSub}>Natural REM End</Text>
                 </View>
-              </View>
-
-              {/* SWS Somatotropin Banner */}
-              <View style={styles.swsBanner}>
-                <Sparkles size={14} color="#0284C7" />
-                <Text style={styles.swsBannerText}>
-                  {currentLogged >= 8.0
-                    ? 'Peak 10 PM – 2 AM Somatotropin Wave Synchronized'
-                    : 'Partial Somatotropin Release: Sleep 8.5h+ for Maxima'}
-                </Text>
               </View>
             </GlassCard>
           </Animated.View>
 
-          {/* 7-Day Dynamic Bar Chart Section */}
-          <Animated.View
-            entering={FadeInDown.delay(260).springify()}
-            style={styles.sectionHeaderRow}
-          >
-            <View>
-              <Text style={styles.sectionTitle}>7-Day Sleep Architecture</Text>
-              <Text style={styles.sectionSubtitle}>
-                Weekly Average: <Text style={styles.boldBlueText}>{avgHours}h / night</Text>
-              </Text>
-            </View>
-            <View style={styles.goalLineTag}>
-              <Text style={styles.goalLineText}>{sleepTargetHours}h Target</Text>
-            </View>
-          </Animated.View>
-
-          {/* Real Dynamic Bar Chart */}
-          <Animated.View entering={FadeInDown.delay(320).springify()}>
+          {/* 7-DAY BAR CHART */}
+          <Animated.View entering={FadeInDown.delay(260).springify()}>
             <GlassCard style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>Past 7 Days</Text>
+                <Text style={styles.chartTargetText}>{SLEEP_GOAL_HOURS}h goal</Text>
+              </View>
+
               <View style={styles.barsContainer}>
                 {weekData.map((bar, idx) => {
                   const isSelected = selectedDayIdx === idx;
-                  const barHeight = bar.hours > 0
-                    ? Math.max(22, (bar.hours / maxHoursInWeek) * 115)
-                    : 12;
-                  const isOptimal = bar.hours >= 8.0;
+                  const barHeight = bar.hours > 0 ? Math.min(110, (bar.hours / 10) * 110) : 10;
+                  const reachedTarget = bar.hours >= SLEEP_STREAK_MIN_HOURS;
 
                   return (
                     <TouchableOpacity
@@ -203,27 +371,26 @@ export default function SleepScreen() {
                         Haptics.selectionAsync().catch(() => {});
                         setSelectedDayIdx(idx);
                       }}
-                      activeOpacity={0.7}
                       style={styles.barColumn}
+                      activeOpacity={0.7}
                     >
-                      <Text style={[styles.barHoursText, isSelected && styles.barHoursTextSelected]}>
+                      <Text style={[styles.barHoursText, isSelected && styles.barHoursSelected]}>
                         {bar.hours > 0 ? `${bar.hours}h` : '—'}
                       </Text>
 
                       <View style={styles.barTrack}>
-                        <LinearGradient
-                          colors={
-                            isSelected
-                              ? ['#0284C7', '#38BDF8']
-                              : isOptimal
-                              ? ['#2563EB', '#60A5FA']
-                              : bar.hours > 0
-                              ? ['#93C5FD', '#BFDBFE']
-                              : ['#E2E8F0', '#F1F5F9']
-                          }
-                          start={{ x: 0.5, y: 0.0 }}
-                          end={{ x: 0.5, y: 1.0 }}
-                          style={[styles.barFill, { height: barHeight }]}
+                        <View
+                          style={[
+                            styles.barFill,
+                            {
+                              height: barHeight,
+                              backgroundColor: isSelected
+                                ? colors.purple600
+                                : reachedTarget
+                                ? '#A855F7'
+                                : '#CBD5E1',
+                            },
+                          ]}
                         />
                       </View>
 
@@ -236,339 +403,251 @@ export default function SleepScreen() {
                   );
                 })}
               </View>
-
-              {/* Dynamic Arithmetic Stat Badges */}
-              <View style={styles.statBadgesRow}>
-                <View style={styles.statBadgeItem}>
-                  <Text style={styles.statBadgeLabel}>Weekly Sleep Debt</Text>
-                  <Text style={[styles.statBadgeValue, sleepDebt > 0 && { color: '#EF4444' }]}>
-                    {sleepDebt > 0 ? `${sleepDebt}h deficit` : '0h (Optimal)'}
-                  </Text>
-                </View>
-
-                <View style={styles.statBadgeDivider} />
-
-                <View style={styles.statBadgeItem}>
-                  <Text style={styles.statBadgeLabel}>hGH Pulse Days</Text>
-                  <Text style={styles.statBadgeValue}>
-                    {weekData.filter((d) => d.hours >= 8.0).length} / 7 days
-                  </Text>
-                </View>
-
-                <View style={styles.statBadgeDivider} />
-
-                <View style={styles.statBadgeItem}>
-                  <Text style={styles.statBadgeLabel}>Optimal Rate</Text>
-                  <Text style={styles.statBadgeValue}>
-                    {Math.round((weekData.filter((d) => d.hours >= 8.0).length / 7) * 100)}%
-                  </Text>
-                </View>
-              </View>
             </GlassCard>
-          </Animated.View>
-
-          {/* Clinical Insights Section */}
-          <Animated.View
-            entering={FadeInDown.delay(380).springify()}
-            style={{ marginTop: 14 }}
-          >
-            <GlassCard style={styles.insightCard}>
-              <View style={styles.insightHeader}>
-                <View style={styles.insightIconBadge}>
-                  <Clock size={16} color="#0284C7" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.insightTitle}>Intradiscal Rehydration Cycle</Text>
-                  <Text style={styles.insightSubtitle}>
-                    Spinal discs expand 1.2 – 2.0 cm overnight through diurnal osmotic swelling.
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.insightBody}>
-                During prolonged standing, gravity compresses the 23 fibrocartilage intervertebral
-                discs, losing fluid. Non-weightbearing slow-wave horizontal sleep draws synovial fluid
-                and nutrients back into the nucleus pulposus, stimulating growth factor IGF-1.
-              </Text>
-            </GlassCard>
-          </Animated.View>
-
-          {/* Recent Logs List with Delete Action */}
-          <Animated.View
-            entering={FadeInDown.delay(440).springify()}
-            style={styles.recentLogsSection}
-          >
-            <Text style={styles.recentLogsTitle}>Recent Nocturnal Cycles</Text>
-            <View style={styles.logsList}>
-              {sleepLogs.length === 0 ? (
-                <GlassCard style={{ padding: 16, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>
-                    No sleep records logged yet
-                  </Text>
-                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, textAlign: 'center' }}>
-                    Tap &ldquo;+ Log Sleep&rdquo; above to track nocturnal somatotropin release windows.
-                  </Text>
-                </GlassCard>
-              ) : (
-                sleepLogs.slice(0, 5).map((item) => (
-                  <GlassCard key={item.id} style={styles.logCard}>
-                    <View style={styles.logLeft}>
-                      <View style={styles.logIcon}>
-                        <Moon size={16} color="#0284C7" />
-                      </View>
-                      <View>
-                        <View style={styles.logRow}>
-                          <Text style={styles.logDay}>{item.dayOfWeek}</Text>
-                          <Text style={styles.logDate}>{item.date}</Text>
-                        </View>
-                        <Text style={styles.logTimes}>
-                          {item.bedtime && item.wakeupTime
-                            ? `${item.bedtime} – ${item.wakeupTime}`
-                            : `${item.hours} hours logged`}
-                        </Text>
-                        <Text style={styles.logQuality}>{item.quality}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.logRight}>
-                      <View style={styles.logHoursBadge}>
-                        <Text style={styles.logHoursText}>{item.hours}h</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => {
-                          Haptics.selectionAsync().catch(() => {});
-                          deleteSleepLog(item.id);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={styles.deleteBtn}
-                      >
-                        <Trash2 size={14} color="#94A3B8" />
-                      </TouchableOpacity>
-                    </View>
-                  </GlassCard>
-                ))
-              )}
-            </View>
           </Animated.View>
         </ScrollView>
 
-        {/* Sleep Logging Modal */}
-        <SleepLogModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-        />
+        <SleepLogModal visible={modalVisible} onClose={() => setModalVisible(false)} />
       </SafeAreaView>
-    </GlassBackgroundCanvas>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },
-  headerContainer: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingVertical: 12,
   },
-  brandPill: {
+  headerLeft: {
+    gap: 2,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: colors.slate600,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(2, 132, 199, 0.15)',
   },
-  brandText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
-  },
-  addLogButton: {
+  streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  addLogButtonText: {
+  streakText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.amber600,
+  },
+  manualLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.purple600,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  manualLogText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
+    gap: 14,
   },
-  titleSection: {
-    marginBottom: 16,
-    marginTop: 4,
+  liveCard: {
+    padding: 24,
+    alignItems: 'center',
   },
-  subheadingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0284C7',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 2,
+  stateCenter: {
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
   },
-  headingText: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.5,
-  },
-  cardSpacing: {
-    padding: 20,
-    marginBottom: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-  },
-  meterCenterWrap: {
+  moonIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 4,
+  },
+  moonIconWrapActive: {
+    backgroundColor: colors.purple600,
+  },
+  stateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  sleepingLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.purple600,
+  },
+  digitalClock: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.slate900,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 2,
     marginVertical: 4,
+  },
+  wokenHoursText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.purple600,
+  },
+  stateDesc: {
+    fontSize: 13,
+    color: colors.slate600,
+    textAlign: 'center',
+  },
+  startSleepBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.purple600,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  startSleepBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  wakeUpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  wakeUpBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  saveWokenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.green600,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  saveWokenBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  ringCard: {
+    padding: 20,
+    gap: 16,
+  },
+  ringCenterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scheduleRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 18,
   },
   scheduleBox: {
     flex: 1,
-    backgroundColor: 'rgba(240, 249, 255, 0.65)',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(186, 230, 253, 0.8)',
-    alignItems: 'center',
-  },
-  scheduleIconWrap: {
-    width: 28,
-    height: 28,
+    borderColor: '#E2E8F0',
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
+    gap: 4,
   },
   scheduleLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
+    color: colors.slate600,
   },
   scheduleValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  scheduleSub: {
-    fontSize: 10,
-    color: '#0284C7',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  swsBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F0F9FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    marginTop: 14,
-  },
-  swsBannerText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0369A1',
-    flex: 1,
+    color: colors.slate900,
   },
-  sectionHeaderRow: {
+  chartCard: {
+    padding: 20,
+    gap: 14,
+  },
+  chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  boldBlueText: {
-    color: '#0284C7',
-    fontWeight: '800',
-  },
-  goalLineTag: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  goalLineText: {
-    fontSize: 11,
+  chartTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#0284C7',
+    color: colors.slate900,
   },
-  chartCard: {
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+  chartTargetText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.purple600,
   },
   barsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    height: 165,
+    height: 140,
     paddingTop: 10,
-    paddingBottom: 4,
   },
   barColumn: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    gap: 6,
+    flex: 1,
   },
   barHoursText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 6,
+    fontWeight: '600',
+    color: colors.slate400,
   },
-  barHoursTextSelected: {
-    color: '#0284C7',
-    fontWeight: '800',
+  barHoursSelected: {
+    color: colors.purple600,
+    fontWeight: '700',
   },
   barTrack: {
     width: 22,
-    height: 115,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(226, 232, 240, 0.45)',
+    height: 100,
+    backgroundColor: '#F1F5F9',
     borderRadius: 11,
+    justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   barFill: {
@@ -576,162 +655,19 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   dayPill: {
-    marginTop: 8,
     paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 6,
   },
   dayPillSelected: {
-    backgroundColor: '#0284C7',
+    backgroundColor: colors.purple600,
   },
   dayText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '600',
+    color: colors.slate600,
   },
   dayTextSelected: {
     color: '#FFFFFF',
-  },
-  statBadgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  statBadgeItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statBadgeLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  statBadgeValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  statBadgeDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#CBD5E1',
-  },
-  insightCard: {
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  insightIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  insightTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  insightSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  insightBody: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  recentLogsSection: {
-    marginTop: 20,
-  },
-  recentLogsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 10,
-  },
-  logsList: {
-    gap: 8,
-  },
-  logCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-  },
-  logLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  logIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F9FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  logDay: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  logDate: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  logTimes: {
-    fontSize: 12,
-    color: '#334155',
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  logQuality: {
-    fontSize: 10,
-    color: '#0284C7',
-    fontWeight: '700',
-    marginTop: 1,
-  },
-  logRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logHoursBadge: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  logHoursText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  deleteBtn: {
-    padding: 4,
   },
 });

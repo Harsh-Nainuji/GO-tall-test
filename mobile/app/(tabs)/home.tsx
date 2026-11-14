@@ -39,6 +39,7 @@ import FoodLogModal from '../../components/FoodLogModal';
 import StretchTimerModal from '../../components/StretchTimerModal';
 import BadgeModal from '../../components/BadgeModal';
 import AppSpotlightTour from '../../components/AppSpotlightTour';
+import WaterCard from '../../components/water/WaterCard';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -339,6 +340,11 @@ export default function HomeScreen() {
                 />
               </View>
             </GlassCard>
+          </Animated.View>
+
+          {/* CARD 3B: Spine Hydration Water Tracker */}
+          <Animated.View entering={FadeInDown.delay(450).springify()}>
+            <WaterCard />
           </Animated.View>
 
           {/* CARD 4: Targeted Spinal Decompression Routine */}

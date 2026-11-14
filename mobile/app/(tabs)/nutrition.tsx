@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,6 +34,15 @@ export default function NutritionScreen() {
   const deleteMeal = useAppStore((state) => state.deleteMeal);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Simulates checking live sync
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
+  };
 
   // Compute live nutritional totals from store
   const totalCalories = meals.reduce((sum, m) => sum + m.calories, 0);
@@ -77,6 +87,13 @@ export default function NutritionScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#2563EB']}
+            />
+          }
         >
           {/* Title Section */}
           <Animated.View

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Users,
   Activity,
@@ -9,16 +9,11 @@ import {
   Award,
   HardDrive,
   RefreshCw,
-  Plus,
   ExternalLink,
-  CheckCircle2,
   ChevronRight,
-  ShieldCheck,
   FileSpreadsheet,
   UploadCloud,
-  Sparkles,
   ArrowRight,
-  Check,
 } from 'lucide-react'
 import {
   AchievementBadge,
@@ -30,6 +25,8 @@ import {
   getLiveStorageTelemetry,
   LiveStorageTelemetry,
 } from '@/lib/supabase'
+import { StorageHealthCard } from './StorageHealthCard'
+import { ADMIN_COPY } from '@/lib/admin-copy'
 
 interface OverviewDashboardProps {
   badges: AchievementBadge[]
@@ -80,68 +77,89 @@ export function OverviewDashboard({
   }, [])
 
   return (
-    <div className="space-y-7 pb-16 max-w-6xl mx-auto">
-      {/* 1. Header: Clean, Simple, Welcome Banner */}
-      <div className="p-6 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-16 max-w-6xl mx-auto">
+      {/* 1. Storage Health Card Placed Prominently at the Very Top */}
+      <StorageHealthCard />
+
+      {/* 2. Welcome Banner with Shortcuts */}
+      <div className="glass p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              GoTall Studio Dashboard
+          <div className="flex items-center gap-2.5 mb-1">
+            <h2 className="text-lg font-black text-slate-100 tracking-tight">
+              {ADMIN_COPY.brand.title.en} Studio Dashboard
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Live &bull; 0 Dummy Data
             </span>
           </div>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs text-slate-400 font-medium">
             Manage exercises, clinical nutrition, app members, and cloud media in one place.
+          </p>
+          <p className="text-[11px] text-slate-500">
+            કસરતો, ખોરાક, સભ્યો અને ક્લાઉડ મીડિયાનું સંચાલન એક જ જગ્યાએ કરો.
           </p>
         </div>
 
-        {/* Quick Excel / CSV Bulk Upload Shortcut */}
+        {/* Quick Bulk Action Shortcuts */}
         <div className="flex items-center gap-2.5">
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.03 }}
             onClick={() => onNavigateTab('stretches')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
           >
-            <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
-            <span>Upload Workouts</span>
-          </button>
+            <UploadCloud className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="flex flex-col text-left leading-tight">
+              <span>{ADMIN_COPY.pages.stretches.bulkBtn.en}</span>
+              <span className="text-[10px] text-cyan-400/80 font-normal">{ADMIN_COPY.pages.stretches.bulkBtn.gu}</span>
+            </div>
+          </motion.button>
 
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.03 }}
             onClick={() => onNavigateTab('nutrition')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Upload Foods</span>
-          </button>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="flex flex-col text-left leading-tight">
+              <span>{ADMIN_COPY.pages.nutrition.bulkBtn.en}</span>
+              <span className="text-[10px] text-emerald-400/80 font-normal">{ADMIN_COPY.pages.nutrition.bulkBtn.gu}</span>
+            </div>
+          </motion.button>
         </div>
       </div>
 
-      {/* 2. Top 4 Live Metric Cards (100% Real Live Database Numbers) */}
+      {/* 3. Top 4 Live Metric Cards (100% Real Live Database Numbers) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Registered Members */}
         <div
           onClick={() => onNavigateTab('users')}
-          className="p-5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 hover:border-blue-400 hover:shadow-lg transition-all duration-300 cursor-pointer group flex flex-col justify-between"
+          className="glass p-5 cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              App Members
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            <div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                {ADMIN_COPY.nav.users.label.en}
+              </span>
+              <span className="text-[10px] text-slate-500 font-normal">
+                {ADMIN_COPY.nav.users.label.gu}
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
+            <div className="text-3xl font-black text-slate-100 tracking-tight">
               {users.length}
             </div>
             <p className="text-xs text-slate-400 font-medium mt-1">
-              {users.length === 0 ? 'No users registered yet' : `${users.length} real user profiles`}
+              {users.length === 0 ? 'No members registered yet' : `${users.length} real user profiles`}
             </p>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-cyan-400">
             <span>View Members</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
@@ -150,25 +168,30 @@ export function OverviewDashboard({
         {/* Card 2: Active Exercises */}
         <div
           onClick={() => onNavigateTab('stretches')}
-          className="p-5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 hover:border-purple-400 hover:shadow-lg transition-all duration-300 cursor-pointer group flex flex-col justify-between"
+          className="glass p-5 cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Exercises
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                {ADMIN_COPY.nav.stretches.label.en}
+              </span>
+              <span className="text-[10px] text-slate-500 font-normal">
+                {ADMIN_COPY.nav.stretches.label.gu}
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-violet-500/15 text-violet-400 flex items-center justify-center border border-violet-500/30 group-hover:bg-violet-500 group-hover:text-slate-950 transition-colors">
               <Activity className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
+            <div className="text-3xl font-black text-slate-100 tracking-tight">
               {stretches.length}
             </div>
             <p className="text-xs text-slate-400 font-medium mt-1">
-              {stretches.length === 0 ? 'Database empty (ready to add)' : `${stretches.length} routines live`}
+              {stretches.length === 0 ? 'Catalog empty (ready to add)' : `${stretches.length} routines live`}
             </p>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-600">
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-violet-400">
             <span>Manage Exercises</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
@@ -177,72 +200,82 @@ export function OverviewDashboard({
         {/* Card 3: Clinical Foods */}
         <div
           onClick={() => onNavigateTab('nutrition')}
-          className="p-5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 cursor-pointer group flex flex-col justify-between"
+          className="glass p-5 cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Foods &amp; Nutrition
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                {ADMIN_COPY.nav.nutrition.label.en}
+              </span>
+              <span className="text-[10px] text-slate-500 font-normal">
+                {ADMIN_COPY.nav.nutrition.label.gu}
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
               <Utensils className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
+            <div className="text-3xl font-black text-slate-100 tracking-tight">
               {foods.length}
             </div>
             <p className="text-xs text-slate-400 font-medium mt-1">
-              {foods.length === 0 ? 'Database empty (ready to add)' : `${foods.length} verified foods`}
+              {foods.length === 0 ? 'Catalog empty (ready to add)' : `${foods.length} verified foods`}
             </p>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-600">
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-400">
             <span>Manage Foods</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
 
         {/* Card 4: Supabase Live Storage */}
-        <div className="p-5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 hover:border-cyan-400 hover:shadow-lg transition-all duration-300 flex flex-col justify-between">
+        <div className="glass p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Cloud Media Storage
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+            <div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Media Storage
+              </span>
+              <span className="text-[10px] text-slate-500 font-normal">
+                મીડિયા સ્ટોરેજ
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-sky-500/15 text-sky-400 flex items-center justify-center border border-sky-500/30">
               <HardDrive className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
+            <div className="text-3xl font-black text-slate-100 tracking-tight">
               {storageData.usedMB.toFixed(1)} <span className="text-sm font-bold text-slate-400">MB</span>
             </div>
             <p className="text-xs text-slate-400 font-medium mt-1">
-              {storageData.totalFiles} files in Supabase ({storageData.percentUsed}% of 1 GB)
+              {storageData.totalFiles} files ({storageData.percentUsed}% of 1 GB)
             </p>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-cyan-700">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Free 1 GB Tier Active
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-sky-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              1 GB Free Tier
             </span>
             <button
               onClick={refreshStorage}
               disabled={isLoadingStorage}
-              className="text-slate-400 hover:text-slate-700"
+              className="text-slate-400 hover:text-white transition-colors"
               title="Refresh Storage"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStorage ? 'animate-spin text-blue-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStorage ? 'animate-spin text-cyan-400' : ''}`} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Primary Simple Actions: Giant, Easy-to-Use 1-Click Cards */}
+      {/* 4. Primary Simple Actions: Giant 1-Click Cards */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-base font-black text-slate-900 tracking-tight">
-            What would you like to manage?
+          <h3 className="text-base font-black text-slate-100 tracking-tight">
+            What would you like to manage? / તમે શું મેનેજ કરવા માંગો છો?
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             Select any section below to add, edit, or bulk upload content.
           </p>
         </div>
@@ -251,22 +284,25 @@ export function OverviewDashboard({
           {/* Action 1: Exercises */}
           <div
             onClick={() => onNavigateTab('stretches')}
-            className="p-6 rounded-3xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-xl transition-all duration-300 cursor-pointer group flex items-start gap-4"
+            className="glass p-6 cursor-pointer group flex items-start gap-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all">
+            <div className="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-all shadow-sm">
               <Activity className="w-7 h-7 stroke-[2.2]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                  Daily Exercises &amp; Stretches
-                </h4>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                <div>
+                  <h4 className="text-base font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
+                    Daily Exercises &amp; Stretches
+                  </h4>
+                  <span className="text-[11px] text-slate-400">દૈનિક કસરતો અને સ્ટ્રેચિંગ</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Add stretching routines with video/image guides, or bulk upload hundreds of exercises at once using an Excel or CSV template.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Add stretching routines with video guides, or upload many routines at once using Excel or CSV.
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-extrabold text-blue-600">
+              <div className="mt-3 text-xs font-bold text-cyan-400">
                 <span>Open Exercises Catalog ({stretches.length} items) &rarr;</span>
               </div>
             </div>
@@ -275,22 +311,25 @@ export function OverviewDashboard({
           {/* Action 2: Foods */}
           <div
             onClick={() => onNavigateTab('nutrition')}
-            className="p-6 rounded-3xl bg-white border border-slate-200/90 hover:border-emerald-500 hover:shadow-xl transition-all duration-300 cursor-pointer group flex items-start gap-4"
+            className="glass p-6 cursor-pointer group flex items-start gap-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+            <div className="w-13 h-13 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all shadow-sm">
               <Utensils className="w-7 h-7 stroke-[2.2]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="text-base font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
-                  Food &amp; Nutrition Catalog
-                </h4>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+                <div>
+                  <h4 className="text-base font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
+                    Food &amp; Nutrition Catalog
+                  </h4>
+                  <span className="text-[11px] text-slate-400">ખોરાક અને ભોજન યાદી</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Add verified foods with calories, protein, and bone minerals (Calcium, Zinc, Vitamin D3). Supports 50 MB bulk Excel/CSV file upload.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Add verified foods with calories, protein, and bone minerals. Supports 50 MB bulk Excel/CSV upload.
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-extrabold text-emerald-700">
+              <div className="mt-3 text-xs font-bold text-emerald-400">
                 <span>Open Nutrition Catalog ({foods.length} items) &rarr;</span>
               </div>
             </div>
@@ -299,46 +338,52 @@ export function OverviewDashboard({
           {/* Action 3: App Members */}
           <div
             onClick={() => onNavigateTab('users')}
-            className="p-6 rounded-3xl bg-white border border-slate-200/90 hover:border-purple-500 hover:shadow-xl transition-all duration-300 cursor-pointer group flex items-start gap-4"
+            className="glass p-6 cursor-pointer group flex items-start gap-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-purple-600 group-hover:text-white transition-all">
+            <div className="w-13 h-13 rounded-2xl bg-violet-500/15 border border-violet-500/30 text-violet-400 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-violet-500 group-hover:text-slate-950 transition-all shadow-sm">
               <Users className="w-7 h-7 stroke-[2.2]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="text-base font-black text-slate-900 group-hover:text-purple-600 transition-colors">
-                  App Members &amp; Accounts
-                </h4>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+                <div>
+                  <h4 className="text-base font-bold text-slate-100 group-hover:text-violet-300 transition-colors">
+                    App Members &amp; Accounts
+                  </h4>
+                  <span className="text-[11px] text-slate-400">એપ સભ્યો અને ખાતાઓ</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Inspect real registered users, review Tanner-Whitehouse height targets, grant VIP Pro access, or export user data.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Inspect real registered users, review height targets, grant VIP Pro access, or export data.
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-extrabold text-purple-600">
+              <div className="mt-3 text-xs font-bold text-violet-400">
                 <span>Open Member CRM ({users.length} registered) &rarr;</span>
               </div>
             </div>
           </div>
 
-          {/* Action 4: Milestones & Badges */}
+          {/* Action 4: Badges */}
           <div
             onClick={() => onNavigateTab('badges')}
-            className="p-6 rounded-3xl bg-white border border-slate-200/90 hover:border-amber-500 hover:shadow-xl transition-all duration-300 cursor-pointer group flex items-start gap-4"
+            className="glass p-6 cursor-pointer group flex items-start gap-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-amber-600 group-hover:text-white transition-all">
+            <div className="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center flex-none group-hover:scale-105 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all shadow-sm">
               <Award className="w-7 h-7 stroke-[2.2]" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="text-base font-black text-slate-900 group-hover:text-amber-700 transition-colors">
-                  Milestones &amp; Achievement Badges
-                </h4>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+                <div>
+                  <h4 className="text-base font-bold text-slate-100 group-hover:text-amber-300 transition-colors">
+                    Rewards &amp; Badges
+                  </h4>
+                  <span className="text-[11px] text-slate-400">ઇનામ અને સિદ્ધિ બેજ</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Configure motivation trophies, discipline streak medals, and XP point rewards teenagers earn in the mobile app.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Configure trophies, streak medals, and XP points teenagers earn in the mobile app.
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-extrabold text-amber-700">
+              <div className="mt-3 text-xs font-bold text-amber-400">
                 <span>Manage Badges ({badges.length} items) &rarr;</span>
               </div>
             </div>
@@ -346,19 +391,19 @@ export function OverviewDashboard({
         </div>
       </div>
 
-      {/* 4. Live Supabase Storage Card (Clean, Simple, Clear) */}
-      <div className="p-6 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 shadow-xs space-y-4">
+      {/* 5. Direct Supabase Storage Link Box */}
+      <div className="glass p-6 space-y-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-600 flex items-center justify-center">
-              <HardDrive className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
+              <HardDrive className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-black text-slate-900">
-                Live Supabase Storage Capacity
+              <h4 className="text-sm font-bold text-slate-100">
+                Live Supabase Storage Bucket / સુપાબેસ સ્ટોરેજ
               </h4>
-              <p className="text-xs text-slate-500">
-                Storage bucket <code className="text-cyan-700 font-bold bg-cyan-50 px-1 py-0.5 rounded">exercise-media</code> for workout videos &amp; food pictures.
+              <p className="text-xs text-slate-400">
+                Bucket <code className="text-cyan-300 font-bold bg-cyan-950/60 px-1 py-0.5 rounded border border-cyan-800/40">exercise-media</code> holds workout demonstration videos and food photography.
               </p>
             </div>
           </div>
@@ -367,43 +412,11 @@ export function OverviewDashboard({
             href="https://supabase.com/dashboard/project/xoxhmugmtzscmjlbpfuj/storage/buckets/exercise-media"
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
           >
             <span>Open in Supabase</span>
-            <ExternalLink className="w-3.5 h-3.5" />
+            <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
           </a>
-        </div>
-
-        {/* Storage Bar */}
-        <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-slate-800">
-              {storageData.usedMB.toFixed(2)} MB Used of {storageData.limitMB} MB
-            </span>
-            <span className="text-emerald-700 font-black">
-              {(storageData.limitMB - storageData.usedMB).toFixed(1)} MB Free
-            </span>
-          </div>
-
-          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-            <div
-              className="h-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500"
-              style={{ width: `${Math.max(1, storageData.percentUsed)}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-1">
-            <div className="flex items-center gap-3">
-              <span>{storageData.breakdown.images} Photos</span>
-              <span>&bull;</span>
-              <span>{storageData.breakdown.videos} Videos</span>
-              <span>&bull;</span>
-              <span>{storageData.totalFiles} Total Files</span>
-            </div>
-            <span className="text-slate-400">
-              Max Bulk Upload Size: <strong>50 MB</strong> per file
-            </span>
-          </div>
         </div>
       </div>
     </div>

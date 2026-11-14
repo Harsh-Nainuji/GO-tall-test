@@ -4,11 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Lock, ShieldCheck, KeyRound, AlertTriangle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 
+// TODO before launch: move passcode to server auth + Supabase RLS.
+
 interface AdminAuthGateProps {
   children: React.ReactNode
 }
 
 const AUTH_STORAGE_KEY = 'gotall_admin_session_auth'
+const ADMIN_TOKEN_KEY = 'gotall_admin_token'
 const FAILED_ATTEMPTS_KEY = 'gotall_admin_fail_attempts'
 const LOCKOUT_TIMESTAMP_KEY = 'gotall_admin_lockout_until'
 const MAX_ATTEMPTS = 5
@@ -77,8 +80,9 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
     }
 
     if (trimmed === validKey) {
-      // Success: clear fails, set session
+      // Success: clear fails, set session token and admin API token
       sessionStorage.setItem(AUTH_STORAGE_KEY, 'authenticated_admin_active')
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, trimmed)
       localStorage.removeItem(FAILED_ATTEMPTS_KEY)
       localStorage.removeItem(LOCKOUT_TIMESTAMP_KEY)
       setIsAuthenticated(true)
@@ -105,8 +109,8 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
   // Prevent flash while checking session
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -116,31 +120,31 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
     return <>{children}</>
   }
 
-  // Render Admin Lockscreen
+  // Render Admin Lockscreen in dark glassmorphism
   return (
-    <div className="min-h-screen bg-[#0B1120] flex items-center justify-center px-4 relative overflow-hidden font-sans">
-      {/* Subtle Radial Glow Backdrop */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4 relative overflow-hidden font-sans">
+      {/* Soft Cyan & Violet Radial Glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-violet-600/15 rounded-full blur-[120px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-8 shadow-2xl relative z-10 text-white"
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-md glass p-8 shadow-2xl relative z-10 text-slate-100"
       >
         {/* Header Icon */}
-        <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center mb-4 shadow-inner">
-            <Lock className="w-8 h-8 text-blue-400" />
+        <div className="flex flex-col items-center text-center mb-7">
+          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center mb-4 shadow-sm shadow-cyan-500/20">
+            <Lock className="w-8 h-8 text-cyan-400" />
           </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-400/20 rounded-full text-blue-300 text-xs font-semibold uppercase tracking-wider mb-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-500/10 border border-cyan-400/25 rounded-full text-cyan-300 text-xs font-semibold uppercase tracking-wider mb-2">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Restricted Admin Area
+            Restricted Admin Area / સુરક્ષિત વિભાગ
           </span>
-          <h2 className="text-2xl font-bold text-white tracking-tight">GoTall Studio Authentication</h2>
-          <p className="text-sm text-slate-400 mt-1 max-w-xs">
-            Enter your authorized operator credentials to access the exercises, nutrition CMS, and member data.
+          <h1 className="text-2xl font-black text-slate-100 tracking-tight">GoTall Studio</h1>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs">
+            Enter your passcode to manage exercises, nutrition, and members.
           </p>
         </div>
 
@@ -151,7 +155,7 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-red-300">Security Lockout Active</p>
               <p className="text-xs mt-1">
-                Access is temporarily disabled due to consecutive failed attempts. Retry in{' '}
+                Access is temporarily disabled. Retry in{' '}
                 <span className="font-mono font-bold text-white">
                   {Math.floor(remainingLockSeconds / 60)}m {remainingLockSeconds % 60}s
                 </span>
@@ -174,7 +178,7 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
                   onChange={(e) => setPasscode(e.target.value)}
                   disabled={isLockedOut}
                   autoFocus
-                  className="w-full pl-11 pr-11 py-3 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all font-mono"
+                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700/60 rounded-2xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400 transition-all font-mono"
                 />
                 <button
                   type="button"
@@ -200,18 +204,18 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
             <button
               type="submit"
               disabled={isLockedOut}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3.5 glow-button text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
-              <span>Unlock Studio Dashboard</span>
+              <span>Unlock Studio / અનલૉક કરો</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
         )}
 
         {/* Footer Security Badge */}
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+        <div className="mt-8 pt-5 border-t border-slate-700/40 text-center">
           <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Protected by Session Isolation & Rate-Limit Shield
           </p>
         </div>
@@ -226,7 +230,7 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
 export function logoutAdminSession() {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY)
     window.location.reload()
   }
 }
-
