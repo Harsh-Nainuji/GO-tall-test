@@ -121,7 +121,18 @@ export function UsersCRM({ users, onUpdateUsers }: UsersCRMProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredUsers.map((user) => (
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    <Users className="w-10 h-10 mx-auto mb-2 opacity-30 text-blue-600" />
+                    <p className="font-bold text-slate-700 text-sm">No registered app members yet</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                      All dummy data has been removed. When users sign up or complete their diagnostic evaluation on the mobile app, their real biometrics and growth plans will appear here live.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
                 <tr
                   key={user.id}
                   onClick={() => setSelectedUser(user)}
@@ -197,7 +208,7 @@ export function UsersCRM({ users, onUpdateUsers }: UsersCRMProps) {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

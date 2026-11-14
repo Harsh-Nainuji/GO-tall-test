@@ -424,6 +424,13 @@ export function StretchesCMS({
   const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const MAX_EXCEL_BYTES = 50 * 1024 * 1024 // 50MB limit (~500,000 rows)
+    if (file.size > MAX_EXCEL_BYTES) {
+      showToast('File exceeds the 50 MB maximum size limit. Please upload a smaller file or split into batches.', 'error')
+      return
+    }
+
     setBulkFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -964,7 +971,35 @@ export function StretchesCMS({
 
           {/* Grid of Exercises */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredStretches.map((stretch) => (
+            {filteredStretches.length === 0 ? (
+              <div className="col-span-full py-16 text-center rounded-3xl bg-white border border-slate-200/80 p-8 shadow-xs">
+                <Activity className="w-10 h-10 mx-auto mb-3 opacity-30 text-blue-600" />
+                <h3 className="text-base font-bold text-slate-800">No exercises in database yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                  All dummy data has been removed. Click &quot;Add Clinical Exercise&quot; or &quot;Bulk Upload Workouts&quot; to populate your active stretching library.
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <button
+                    onClick={openCreateModal}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    + Add Exercise
+                  </button>
+                  <button
+                    onClick={() => {
+                      setBulkRawInput('')
+                      setBulkValidatedRows([])
+                      setBulkFileName('')
+                      setIsBulkModalOpen(true)
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 cursor-pointer"
+                  >
+                    Bulk Upload Excel / CSV
+                  </button>
+                </div>
+              </div>
+            ) : (
+              filteredStretches.map((stretch) => (
               <motion.div
                 key={stretch.id}
                 layout
@@ -1089,7 +1124,7 @@ export function StretchesCMS({
                   </div>
                 </div>
               </motion.div>
-            ))}
+            )))}
           </div>
         </div>
       )}
@@ -2006,6 +2041,13 @@ export function StretchesCMS({
                 </div>
 
                 {/* File Upload / Paste Area */}
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-1">
+                  <span>Supported: CSV (Excel export), JSON, TSV</span>
+                  <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-black">
+                    ⚡ Max File Size: 50 MB (~500,000 rows)
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Option A: File Picker */}
                   <div className="p-5 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-all">

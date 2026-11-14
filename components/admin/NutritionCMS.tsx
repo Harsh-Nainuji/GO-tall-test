@@ -417,6 +417,13 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const MAX_EXCEL_BYTES = 50 * 1024 * 1024 // 50MB limit (~500,000 rows)
+    if (file.size > MAX_EXCEL_BYTES) {
+      showToast('File exceeds 50 MB limit. Please upload in smaller batches.', 'error')
+      return
+    }
+
     setBulkFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -836,6 +843,13 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                 </div>
 
                 {/* File Upload / Paste Area */}
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-1">
+                  <span>Supported: CSV (Excel export), JSON, TSV</span>
+                  <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-black">
+                    ⚡ Max File Size: 50 MB (~500,000 rows)
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Option A: File Picker */}
                   <div className="p-5 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-all">

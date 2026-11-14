@@ -1090,20 +1090,21 @@ export const INITIAL_AI_CHIPS: AiPromptChip[] = [
   },
 ]
 
-// React hook for synchronized persistent state
+// React hook for synchronized persistent state (Defaulting to CLEAN EMPTY STATE, no dummy data)
 export function useAdminData() {
-  const [badges, setBadges] = useState<AchievementBadge[]>(INITIAL_BADGES)
-  const [stretches, setStretches] = useState<SpinalStretch[]>(INITIAL_STRETCHES)
-  const [categories, setCategories] = useState<WorkoutCategory[]>(INITIAL_CATEGORIES)
-  const [categoryQuestions, setCategoryQuestions] = useState<CategoryQuestion[]>(INITIAL_CATEGORY_QUESTIONS)
-  const [foods, setFoods] = useState<FoodItem[]>(INITIAL_FOODS)
-  const [users, setUsers] = useState<UserBiometricProfile[]>(INITIAL_USERS)
-  const [aiChips, setAiChips] = useState<AiPromptChip[]>(INITIAL_AI_CHIPS)
+  const [badges, setBadges] = useState<AchievementBadge[]>([])
+  const [stretches, setStretches] = useState<SpinalStretch[]>([])
+  const [categories, setCategories] = useState<WorkoutCategory[]>([])
+  const [categoryQuestions, setCategoryQuestions] = useState<CategoryQuestion[]>([])
+  const [foods, setFoods] = useState<FoodItem[]>([])
+  const [users, setUsers] = useState<UserBiometricProfile[]>([])
+  const [aiChips, setAiChips] = useState<AiPromptChip[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load from localStorage on client mount
+  // Load from localStorage on client mount, filtering out legacy mock data
   useEffect(() => {
     try {
+      // Check if user has explicitly cleared mock data or if legacy mock data exists
       const savedBadges = localStorage.getItem('gotall_admin_badges')
       const savedStretches = localStorage.getItem('gotall_admin_stretches')
       const savedCategories = localStorage.getItem('gotall_admin_categories')
@@ -1112,13 +1113,26 @@ export function useAdminData() {
       const savedUsers = localStorage.getItem('gotall_admin_users')
       const savedAiChips = localStorage.getItem('gotall_admin_aichips')
 
-      if (savedBadges) setBadges(JSON.parse(savedBadges))
-      if (savedStretches) setStretches(JSON.parse(savedStretches))
-      if (savedCategories) setCategories(JSON.parse(savedCategories))
-      if (savedCategoryQuestions) setCategoryQuestions(JSON.parse(savedCategoryQuestions))
-      if (savedFoods) setFoods(JSON.parse(savedFoods))
-      if (savedUsers) setUsers(JSON.parse(savedUsers))
-      if (savedAiChips) setAiChips(JSON.parse(savedAiChips))
+      const isDummyUserPresent = savedUsers && savedUsers.includes('Marcus Vance')
+      const isDummyFoodPresent = savedFoods && savedFoods.includes('food-1')
+
+      if (isDummyUserPresent || isDummyFoodPresent) {
+        // Automatic one-time cleanup of legacy mock dummy records
+        localStorage.removeItem('gotall_admin_users')
+        localStorage.removeItem('gotall_admin_foods')
+        localStorage.removeItem('gotall_admin_stretches')
+        setUsers([])
+        setFoods([])
+        setStretches([])
+      } else {
+        if (savedBadges) setBadges(JSON.parse(savedBadges))
+        if (savedStretches) setStretches(JSON.parse(savedStretches))
+        if (savedCategories) setCategories(JSON.parse(savedCategories))
+        if (savedCategoryQuestions) setCategoryQuestions(JSON.parse(savedCategoryQuestions))
+        if (savedFoods) setFoods(JSON.parse(savedFoods))
+        if (savedUsers) setUsers(JSON.parse(savedUsers))
+        if (savedAiChips) setAiChips(JSON.parse(savedAiChips))
+      }
     } catch (e) {
       console.warn('Failed reading from localStorage', e)
     } finally {

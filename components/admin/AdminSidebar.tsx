@@ -194,14 +194,25 @@ export function AdminSidebar({
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
         </div>
 
-        {/* Emergency Reset to Default button */}
+        {/* Wipe to 0 clean data button */}
         <motion.button
           whileTap={{ scale: 0.97 }}
-          onClick={onResetSeeds}
-          className="w-full py-2.5 px-3 rounded-xl bg-slate-200/70 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          onClick={() => {
+            if (confirm('Wipe all local data and start completely fresh with 0 items?')) {
+              localStorage.removeItem('gotall_admin_badges')
+              localStorage.removeItem('gotall_admin_stretches')
+              localStorage.removeItem('gotall_admin_categories')
+              localStorage.removeItem('gotall_admin_category_questions')
+              localStorage.removeItem('gotall_admin_foods')
+              localStorage.removeItem('gotall_admin_users')
+              localStorage.removeItem('gotall_admin_aichips')
+              window.location.reload()
+            }
+          }}
+          className="w-full py-2.5 px-3 rounded-xl bg-slate-200/70 hover:bg-rose-100 hover:text-rose-700 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Sample Data</span>
+          <span>Wipe Clean (0 Items)</span>
         </motion.button>
       </div>
     </aside>
