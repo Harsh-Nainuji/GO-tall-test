@@ -315,7 +315,7 @@ export default function RevealScreen() {
           {/* Primary Action Button */}
           <Animated.View entering={FadeInDown.delay(500).springify()}>
             <GlassButton
-              onPress={() => router.push('/(onboarding)/details')}
+              onPress={() => router.push('/(onboarding)/details' as any)}
               style={styles.ctaButton}
             >
               <LinearGradient
