@@ -134,7 +134,7 @@ export default function ChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const quota = getAiQuota();
 

@@ -1164,6 +1164,21 @@ export function useAdminData() {
             try {
               localStorage.setItem('gotall_admin_foods', JSON.stringify(data.foods))
             } catch (e) {}
+          } else if (savedFoods) {
+            try {
+              const parsed = JSON.parse(savedFoods)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                // Auto-sync local CSV foods into Supabase now that the table exists!
+                fetch('/api/admin/meals', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': token,
+                  },
+                  body: JSON.stringify({ foods: parsed }),
+                }).catch((err) => console.warn('Could not auto-sync local foods to Supabase:', err))
+              }
+            } catch (e) {}
           }
         })
         .catch((err) => console.warn('Could not sync live meals from Supabase:', err))

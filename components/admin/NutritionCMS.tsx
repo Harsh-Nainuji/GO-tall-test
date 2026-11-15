@@ -639,6 +639,23 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Direct Supabase Database Sync Button */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              onUpdateFoods([...foods])
+              showToast(`Syncing ${foods.length} foods to live Supabase database...`, 'success')
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-600/50 rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            title="Push current food catalog directly to live mobile application"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="flex flex-col text-left leading-tight">
+              <span>Sync to Live App</span>
+              <span className="text-[10px] text-emerald-400/80 font-normal">લાઇવ સાચવો ({foods.length})</span>
+            </div>
+          </motion.button>
+
           {/* Bulk Upload Foods Button */}
           <motion.button
             whileTap={{ scale: 0.97 }}

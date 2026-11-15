@@ -74,8 +74,8 @@ export default function ProfileScreen() {
   const loadLiveBadges = async () => {
     if (!isSupabaseConfigured()) return;
     try {
-      const { data, error } = await supabase.from('achievements').select('*');
-      if (!error && data && data.length > 0) {
+      const { data, error } = await supabase.from('achievements').select('*').order('created_at', { ascending: true });
+      if (!error && Array.isArray(data)) {
         const mapped: AchievementBadgeItem[] = data.map((a: any) => ({
           id: a.id,
           title: a.title,
@@ -120,8 +120,15 @@ export default function ProfileScreen() {
   };
   const result = calculateTarget(safeData);
 
-  // Use admin live data if available, else local fetch, else static
-  const displayBadges = liveCatalogBadges.length > 0 ? liveCatalogBadges : (liveBadges ?? storeStaticBadges);
+  // Use admin live data from Supabase if available; if connected but empty, respect empty list
+  const displayBadges =
+    liveCatalogBadges && liveCatalogBadges.length > 0
+      ? liveCatalogBadges
+      : liveBadges !== null
+      ? liveBadges
+      : isSupabaseConfigured()
+      ? []
+      : storeStaticBadges;
 
   const unlockedCount = unlockedBadgeIds.length;
   const totalBadges = displayBadges.length;
@@ -415,102 +422,118 @@ export default function ProfileScreen() {
               <Award size={18} color="#D97706" />
               <Text style={styles.sectionTitle}>Achievement Badges</Text>
             </View>
-            <View style={styles.badgeCountPill}>
-              <Text style={styles.badgeCountPillText}>
-                {unlockedCount} of {totalBadges} Unlocked
-              </Text>
-            </View>
+            {totalBadges > 0 && (
+              <View style={styles.badgeCountPill}>
+                <Text style={styles.badgeCountPillText}>
+                  {unlockedCount} of {totalBadges} Unlocked
+                </Text>
+              </View>
+            )}
           </Animated.View>
 
-          {/* Badges Grid (2-column) */}
-          <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.badgesGrid}>
-            {displayBadges.map((badge) => {
-              const isUnlocked = unlockedBadgeIds.includes(badge.id);
+          {/* Badges Grid (or Clean Empty State) */}
+          {displayBadges.length === 0 ? (
+            <Animated.View entering={FadeInDown.delay(280).springify()} style={{ marginBottom: 20 }}>
+              <GlassCard style={styles.emptyBadgesCard}>
+                <View style={styles.emptyBadgesIconWrapper}>
+                  <Award size={26} color="#0284C7" />
+                </View>
+                <Text style={styles.emptyBadgesTitle}>No Badges Configured</Text>
+                <Text style={styles.emptyBadgesSub}>
+                  Milestone achievement badges published from the clinical admin dashboard will appear here automatically.
+                </Text>
+              </GlassCard>
+            </Animated.View>
+          ) : (
+            <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.badgesGrid}>
+              {displayBadges.map((badge) => {
+                const isUnlocked = unlockedBadgeIds.includes(badge.id);
 
-              return (
-                <GlassButton
-                  key={badge.id}
-                  onPress={() => setSelectedBadge(badge)}
-                  style={styles.badgeItemWrapper}
-                >
-                  <GlassCard
-                    style={[
-                      styles.badgeCard,
-                      isUnlocked ? styles.badgeCardUnlocked : styles.badgeCardLocked,
-                      isUnlocked
-                        ? { elevation: 2, shadowColor: '#F59E0B', shadowOpacity: 0.15, shadowRadius: 6 }
-                        : undefined,
-                    ]}
+                return (
+                  <GlassButton
+                    key={badge.id}
+                    onPress={() => setSelectedBadge(badge)}
+                    style={styles.badgeItemWrapper}
                   >
-                    <View style={styles.badgeTopRow}>
-                      <View
-                        style={[
-                          styles.badgeIconBox,
-                          isUnlocked ? styles.badgeIconBoxUnlocked : styles.badgeIconBoxLocked,
-                        ]}
-                      >
-                        {badge.icon_url ? (
-                          <Image
-                            source={{ uri: badge.icon_url }}
-                            style={{ width: 26, height: 26 }}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <Text style={styles.badgeIconEmoji}>{badge.icon}</Text>
-                        )}
-                      </View>
-
-                      <View
-                        style={[
-                          styles.tierTag,
-                          isUnlocked ? styles.tierTagUnlocked : styles.tierTagLocked,
-                        ]}
-                      >
-                        <Text
+                    <GlassCard
+                      style={[
+                        styles.badgeCard,
+                        isUnlocked ? styles.badgeCardUnlocked : styles.badgeCardLocked,
+                        isUnlocked
+                          ? { elevation: 2, shadowColor: '#F59E0B', shadowOpacity: 0.15, shadowRadius: 6 }
+                          : undefined,
+                      ]}
+                    >
+                      <View style={styles.badgeTopRow}>
+                        <View
                           style={[
-                            styles.tierTagText,
-                            isUnlocked ? styles.tierTagTextUnlocked : styles.tierTagTextLocked,
+                            styles.badgeIconBox,
+                            isUnlocked ? styles.badgeIconBoxUnlocked : styles.badgeIconBoxLocked,
                           ]}
                         >
-                          {badge.tier}
+                          {badge.icon_url ? (
+                            <Image
+                              source={{ uri: badge.icon_url }}
+                              style={{ width: 26, height: 26 }}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <Text style={styles.badgeIconEmoji}>{badge.icon}</Text>
+                          )}
+                        </View>
+
+                        <View
+                          style={[
+                            styles.tierTag,
+                            isUnlocked ? styles.tierTagUnlocked : styles.tierTagLocked,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.tierTagText,
+                              isUnlocked ? styles.tierTagTextUnlocked : styles.tierTagTextLocked,
+                            ]}
+                          >
+                            {badge.tier}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.badgeTextWrap}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.badgeTitle,
+                            isUnlocked ? styles.badgeTitleUnlocked : styles.badgeTitleLocked,
+                          ]}
+                        >
+                          {badge.title}
+                        </Text>
+                        <Text
+                          numberOfLines={2}
+                          style={styles.badgeDescription}
+                        >
+                          {badge.description}
                         </Text>
                       </View>
-                    </View>
 
-                    <View style={styles.badgeTextWrap}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.badgeTitle,
-                          isUnlocked ? styles.badgeTitleUnlocked : styles.badgeTitleLocked,
-                        ]}
-                      >
-                        {badge.title}
-                      </Text>
-                      <Text
-                        numberOfLines={2}
-                        style={styles.badgeDescription}
-                      >
-                        {badge.description}
-                      </Text>
-                    </View>
-
-                    <View style={styles.badgeFooter}>
-                      <Text style={styles.badgeXpText}>+{badge.xpReward} XP</Text>
-                      <Text
-                        style={[
-                          styles.badgeStatusText,
-                          isUnlocked ? styles.badgeStatusUnlocked : styles.badgeStatusLocked,
-                        ]}
-                      >
-                        {isUnlocked ? 'Unlocked ✓' : 'Locked'}
-                      </Text>
-                    </View>
-                  </GlassCard>
-                </GlassButton>
-              );
-            })}
-          </Animated.View>
+                      <View style={styles.badgeFooter}>
+                        <Text style={styles.badgeXpText}>+{badge.xpReward} XP</Text>
+                        <Text
+                          style={[
+                            styles.badgeStatusText,
+                            isUnlocked ? styles.badgeStatusUnlocked : styles.badgeStatusLocked,
+                          ]}
+                        >
+                          {isUnlocked ? 'Unlocked ✓' : 'Locked'}
+                        </Text>
+                      </View>
+                    </GlassCard>
+                  </GlassButton>
+                );
+              })}
+            </Animated.View>
+          )}
 
           {/* Goals / Roadmap Section */}
           <Animated.View
@@ -1022,6 +1045,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#92400E',
+  },
+  emptyBadgesCard: {
+    padding: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.8)',
+  },
+  emptyBadgesIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyBadgesTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  emptyBadgesSub: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
   badgesGrid: {
     flexDirection: 'row',

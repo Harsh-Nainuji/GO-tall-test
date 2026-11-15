@@ -1224,7 +1224,7 @@ export const useAppStore = create<AppState>()(
             supabase.from('stretches').select('*').eq('active', true).order('sort_order', { ascending: true }),
             supabase.from('workout_categories').select('*').order('sort_order', { ascending: true }),
             supabase.from('category_questions').select('*').eq('active', true),
-            supabase.from('achievements').select('*').order('sort_order', { ascending: true }),
+            supabase.from('achievements').select('*').order('created_at', { ascending: true }),
             supabase.from('meals').select('*').order('name', { ascending: true }),
           ]);
 
@@ -1291,7 +1291,7 @@ export const useAppStore = create<AppState>()(
 
           // 4. Badges / Achievements
           let mappedBadges: AchievementBadgeItem[] = [];
-          if (badgeRes.status === 'fulfilled' && badgeRes.value.data && badgeRes.value.data.length > 0) {
+          if (badgeRes.status === 'fulfilled' && Array.isArray(badgeRes.value.data)) {
             mappedBadges = badgeRes.value.data.map((b: any) => ({
               id: b.id,
               title: b.title,
@@ -1331,7 +1331,9 @@ export const useAppStore = create<AppState>()(
           //    Falls back to CLINICAL_STRETCHES when Supabase returns nothing.
           get().setLiveCatalog(
             mappedStretches.length > 0 ? mappedStretches : CLINICAL_STRETCHES,
-            mappedBadges.length > 0 ? mappedBadges : INITIAL_BADGES,
+            badgeRes.status === 'fulfilled' && Array.isArray(badgeRes.value.data)
+              ? mappedBadges
+              : INITIAL_BADGES,
             mappedCats.length > 0 ? mappedCats : INITIAL_CATEGORIES,
           );
           // Rebuild the weekly plan from admin-managed live stretches

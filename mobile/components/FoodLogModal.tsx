@@ -62,13 +62,15 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 300ms debounced search against Supabase meals table
+  // Instant in-memory search + debounced Supabase query
   useEffect(() => {
     if (!visible) return;
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    if (!searchQuery.trim()) {
+    const queryTrimmed = searchQuery.trim();
+
+    if (!queryTrimmed) {
       const liveStoreMeals = useAppStore.getState().livePresetMeals;
       if (liveStoreMeals && liveStoreMeals.length > 0) {
         setSearchResults(
@@ -119,20 +121,53 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
       return;
     }
 
-    setIsLoading(true);
+    // 1. INSTANT 0ms filter from in-memory store meals (fires on the very first letter)
+    const qLower = queryTrimmed.toLowerCase();
+    const storeMeals = useAppStore.getState().livePresetMeals;
+    const instantMatches = (storeMeals || []).filter(
+      (m: any) =>
+        m.name.toLowerCase().includes(qLower) ||
+        (m.category && m.category.toLowerCase().includes(qLower))
+    );
+
+    if (instantMatches.length > 0) {
+      setSearchResults(
+        instantMatches.map((m: any) => ({
+          id: String(m.id),
+          name: m.name,
+          serving_size: m.serving_size || '1 serving',
+          category: m.category || 'High Protein',
+          calories: Number(m.calories) || 0,
+          protein: Number(m.protein) || 0,
+          carbs: Number(m.carbs) || 0,
+          fat: Number(m.fat) || 0,
+        }))
+      );
+      setIsLoading(false);
+    } else {
+      const fallbackMatches = DEFAULT_PRESETS.filter((p) =>
+        p.name.toLowerCase().includes(qLower)
+      );
+      if (fallbackMatches.length > 0) {
+        setSearchResults(fallbackMatches);
+      }
+      setIsLoading(true);
+    }
+
+    // 2. Parallel debounced (150ms) search against Supabase meals table
     debounceTimer.current = setTimeout(async () => {
       try {
         if (isSupabaseConfigured()) {
           const { data, error } = await supabase
             .from('meals')
             .select('*')
-            .ilike('name', `%${searchQuery.trim()}%`)
-            .limit(10);
+            .ilike('name', `%${queryTrimmed}%`)
+            .limit(20);
 
           if (!error && data && data.length > 0) {
             setSearchResults(
               data.map((m: any) => ({
-                id: m.id,
+                id: String(m.id),
                 name: m.name,
                 serving_size: m.serving_size || '1 serving',
                 category: m.category || 'High Protein',
@@ -142,25 +177,14 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
                 fat: Number(m.fat) || 0,
               }))
             );
-          } else {
-            // Local fallback filter
-            const filtered = DEFAULT_PRESETS.filter((p) =>
-              p.name.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setSearchResults(filtered);
           }
-        } else {
-          const filtered = DEFAULT_PRESETS.filter((p) =>
-            p.name.toLowerCase().includes(searchQuery.toLowerCase())
-          );
-          setSearchResults(filtered);
         }
       } catch {
-        setSearchResults(DEFAULT_PRESETS);
+        // Keep current in-memory matches
       } finally {
         setIsLoading(false);
       }
-    }, 300);
+    }, 150);
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
