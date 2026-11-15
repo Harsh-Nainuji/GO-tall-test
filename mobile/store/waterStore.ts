@@ -69,9 +69,12 @@ export const useWaterStore = create<WaterState>()(
             .eq('logged_date', dateStr)
             .order('logged_at', { ascending: true });
 
-          if (!error && data) {
-            set({ todayLogs: data as WaterLog[] });
+          if (error) {
+            if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('water_logs')) return;
+            logError('Failed to load today water logs', error);
+            return;
           }
+          if (data) set({ todayLogs: data as WaterLog[] });
         } catch (err) {
           logError('Failed to load today water logs', err);
         }
@@ -114,7 +117,7 @@ export const useWaterStore = create<WaterState>()(
           logged_at: new Date().toISOString(),
         };
 
-        // 1. Optimistic update
+        // Optimistic update — always works locally
         const prevToday = get().todayLogs;
         const prevMonth = get().monthLogs;
         set({
@@ -122,12 +125,14 @@ export const useWaterStore = create<WaterState>()(
           monthLogs: [...prevMonth, newLog],
         });
 
-        // 2. Supabase insert
+        // Supabase insert — skipped gracefully if table doesn't exist yet
         if (isSupabaseConfigured()) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.id) return true; // not signed in — keep local log
+
             const row = {
-              user_id: user?.id,
+              user_id: user.id,
               logged_date: todayStr,
               amount_ml,
               size_label: newLog.size_label,
@@ -141,23 +146,31 @@ export const useWaterStore = create<WaterState>()(
               .single();
 
             if (error) {
-              // Rollback on failure
+              // If table doesn't exist yet, keep the local log — don't roll back
+              if (
+                error.message?.includes('water_logs') ||
+                error.code === 'PGRST205' ||
+                error.code === '42P01'
+              ) {
+                // Table missing — silently keep local entry, it will sync later
+                logError('water_logs table not found — run supabase/migrations/20261115_mobile_features_schema.sql in Supabase SQL Editor', error);
+                return true;
+              }
+              // Other DB error — roll back
               set({ todayLogs: prevToday, monthLogs: prevMonth });
               logError('Failed to save water log, rolled back', error);
               return false;
             }
 
             if (data?.id) {
-              // Replace tempId with real DB id
               set((state) => ({
                 todayLogs: state.todayLogs.map((l) => (l.id === tempId ? { ...l, id: data.id } : l)),
                 monthLogs: state.monthLogs.map((l) => (l.id === tempId ? { ...l, id: data.id } : l)),
               }));
             }
           } catch (err) {
-            set({ todayLogs: prevToday, monthLogs: prevMonth });
-            logError('Network error on water log insert', err);
-            return false;
+            // Network error — keep local log, don't roll back
+            logError('Network error on water log — keeping local entry', err);
           }
         }
 
@@ -172,7 +185,7 @@ export const useWaterStore = create<WaterState>()(
         const nextToday = todayLogs.slice(0, -1);
         const nextMonth = monthLogs.filter((l) => l.id !== lastLog.id);
 
-        // Optimistic delete
+        // Always remove locally first
         set({ todayLogs: nextToday, monthLogs: nextMonth });
 
         if (isSupabaseConfigured() && !lastLog.id.startsWith('temp-')) {
@@ -183,15 +196,14 @@ export const useWaterStore = create<WaterState>()(
               .eq('id', lastLog.id);
 
             if (error) {
-              // Rollback
+              if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('water_logs')) return true;
+              // Real error — roll back local state
               set({ todayLogs, monthLogs });
               logError('Failed to undo water log', error);
               return false;
             }
           } catch (err) {
-            set({ todayLogs, monthLogs });
-            logError('Network error during water log undo', err);
-            return false;
+            logError('Network error during water log undo — local state kept', err);
           }
         }
 
