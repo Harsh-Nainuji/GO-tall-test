@@ -129,7 +129,7 @@ export default function AdminPortalPage() {
             onOpenTour={() => setIsTourOpen(true)}
           />
 
-          <main className="flex-1 p-8 overflow-y-auto">
+          <main className="flex-1 p-8 overflow-y-auto smooth-scroll-container">
             {!isLoaded ? (
               <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
                 <div className="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
@@ -145,6 +145,7 @@ export default function AdminPortalPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="scroll-anchor-new"
                 >
                   {currentTab === 'overview' && (
                     <OverviewDashboard

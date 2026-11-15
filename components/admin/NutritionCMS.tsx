@@ -510,6 +510,10 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formName.trim()) return
+    if (!formRationale.trim()) {
+      showToast('Please enter a clinical rationale (required)', 'error')
+      return
+    }
 
     if (editingFood) {
       const updated = foods.map((f) =>
@@ -1056,211 +1060,213 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                 </button>
               </div>
 
-              <form onSubmit={handleSave} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Food Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Greek Yogurt 0%"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
-                    />
+              <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden text-xs">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Food Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Greek Yogurt 0%"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Serving Size *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 1 cup (200g)"
+                        value={formServing}
+                        onChange={(e) => setFormServing(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Serving Size *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 1 cup (200g)"
-                      value={formServing}
-                      onChange={(e) => setFormServing(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
-                    />
+                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Nutritional Category</label>
+                    <select
+                      value={formCategory}
+                      onChange={(e) => setFormCategory(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    >
+                      <option value="High Protein">High Protein</option>
+                      <option value="Bone Mineralization">Bone Mineralization</option>
+                      <option value="Bedtime Anabolic">Bedtime Anabolic</option>
+                      <option value="Growth Micronutrients">Growth Micronutrients</option>
+                    </select>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Nutritional Category</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                  >
-                    <option value="High Protein">High Protein</option>
-                    <option value="Bone Mineralization">Bone Mineralization</option>
-                    <option value="Bedtime Anabolic">Bedtime Anabolic</option>
-                    <option value="Growth Micronutrients">Growth Micronutrients</option>
-                  </select>
-                </div>
-
-                {/* Direct Supabase Storage Photo Upload */}
-                <div>
-                  <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    Food Image (Direct Supabase Storage Upload)
-                  </label>
-                  <div
-                    {...getMediaRootProps()}
-                    className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isMediaDragActive
-                      ? 'border-cyan-400 bg-cyan-950/40'
-                      : 'border-slate-700 bg-slate-950/40 hover:bg-slate-950/70'
-                      }`}
-                  >
-                    <input {...getMediaInputProps()} />
-                    {isUploadingMedia ? (
-                      <div className="flex items-center gap-2 text-cyan-400 font-bold">
-                        <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                        <span>Uploading directly to Supabase...</span>
-                      </div>
-                    ) : mediaPreviewUrl ? (
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={mediaPreviewUrl}
-                          alt="Uploaded Food"
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-700"
-                        />
-                        <div className="text-left">
-                          <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Uploaded to Supabase
-                          </p>
-                          <p className="text-[10px] text-slate-400">Click or drag another to replace</p>
+                  {/* Direct Supabase Storage Photo Upload */}
+                  <div>
+                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">
+                      Food Image (Direct Supabase Storage Upload)
+                    </label>
+                    <div
+                      {...getMediaRootProps()}
+                      className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isMediaDragActive
+                        ? 'border-cyan-400 bg-cyan-950/40'
+                        : 'border-slate-700 bg-slate-950/40 hover:bg-slate-950/70'
+                        }`}
+                    >
+                      <input {...getMediaInputProps()} />
+                      {isUploadingMedia ? (
+                        <div className="flex items-center gap-2 text-cyan-400 font-bold">
+                          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                          <span>Uploading directly to Supabase...</span>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
-                        <p className="text-xs font-bold text-slate-300">Drop image here or click to browse</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Stored in Supabase 'exercise-media/foods' bucket</p>
-                      </>
-                    )}
+                      ) : mediaPreviewUrl ? (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={mediaPreviewUrl}
+                            alt="Uploaded Food"
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-700"
+                          />
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" /> Uploaded to Supabase
+                            </p>
+                            <p className="text-[10px] text-slate-400">Click or drag another to replace</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
+                          <p className="text-xs font-bold text-slate-300">Drop image here or click to browse</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Stored in Supabase 'exercise-media/foods' bucket</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Macros Row */}
+                  <div className="grid grid-cols-4 gap-2.5">
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Calories (kcal)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={formCalories}
+                        onChange={(e) => setFormCalories(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Protein (g)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        required
+                        value={formProtein}
+                        onChange={(e) => setFormProtein(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-cyan-400 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Carbs (g)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        required
+                        value={formCarbs}
+                        onChange={(e) => setFormCarbs(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Fat (g)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        required
+                        value={formFat}
+                        onChange={(e) => setFormFat(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bone Micronutrients */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Calcium (mg)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={formCalcium}
+                        onChange={(e) => setFormCalcium(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Zinc (mg)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        required
+                        value={formZinc}
+                        onChange={(e) => setFormZinc(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Vitamin D3 (IU)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={formVitaminD3}
+                        onChange={(e) => setFormVitaminD3(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">
+                      Clinical Rationale for Skeletal Growth
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Explain why this food supports epiphyseal cartilage, osteoblasts, or slow-wave sleep..."
+                      value={formRationale}
+                      onChange={(e) => setFormRationale(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="foodActive"
+                      checked={formActive}
+                      onChange={(e) => setFormActive(e.target.checked)}
+                      className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-400 cursor-pointer"
+                    />
+                    <label htmlFor="foodActive" className="font-bold text-slate-300 cursor-pointer">
+                      Active (visible in mobile nutrition log food catalog)
+                    </label>
                   </div>
                 </div>
 
-                {/* Macros Row */}
-                <div className="grid grid-cols-4 gap-2.5">
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Calories (kcal)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      value={formCalories}
-                      onChange={(e) => setFormCalories(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Protein (g)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      required
-                      value={formProtein}
-                      onChange={(e) => setFormProtein(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-cyan-400 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Carbs (g)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      required
-                      value={formCarbs}
-                      onChange={(e) => setFormCarbs(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Fat (g)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      required
-                      value={formFat}
-                      onChange={(e) => setFormFat(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
-                    />
-                  </div>
-                </div>
-
-                {/* Bone Micronutrients */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Calcium (mg)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      value={formCalcium}
-                      onChange={(e) => setFormCalcium(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Zinc (mg)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      required
-                      value={formZinc}
-                      onChange={(e) => setFormZinc(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Vitamin D3 (IU)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      value={formVitaminD3}
-                      onChange={(e) => setFormVitaminD3(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    Clinical Rationale for Skeletal Growth
-                  </label>
-                  <textarea
-                    rows={2}
-                    required
-                    placeholder="Explain why this food supports epiphyseal cartilage, osteoblasts, or slow-wave sleep..."
-                    value={formRationale}
-                    onChange={(e) => setFormRationale(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="foodActive"
-                    checked={formActive}
-                    onChange={(e) => setFormActive(e.target.checked)}
-                    className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-400 cursor-pointer"
-                  />
-                  <label htmlFor="foodActive" className="font-bold text-slate-300 cursor-pointer">
-                    Active (visible in mobile nutrition log food catalog)
-                  </label>
-                </div>
-
-                <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+                {/* Sticky footer — always visible, never clipped */}
+                <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}

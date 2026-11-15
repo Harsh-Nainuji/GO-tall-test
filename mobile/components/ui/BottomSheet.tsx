@@ -64,11 +64,13 @@ export default function BottomSheet({
       statusBarTranslucent
       testID={testID}
     >
+      {/* KeyboardAvoidingView wraps everything so the sheet lifts with the keyboard */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         style={styles.keyboardContainer}
       >
-        {/* Fullscreen Dim Overlay */}
+        {/* Dim overlay — tapping it dismisses the sheet */}
         <TouchableWithoutFeedback onPress={handleClose}>
           <Animated.View
             entering={FadeIn.duration(250)}
@@ -77,7 +79,7 @@ export default function BottomSheet({
           />
         </TouchableWithoutFeedback>
 
-        {/* Animated Sheet Container */}
+        {/* Animated sheet — pinned to the bottom */}
         <Animated.View
           entering={SlideInDown.duration(350)}
           exiting={SlideOutDown.duration(280)}
@@ -112,7 +114,9 @@ export default function BottomSheet({
                 style={styles.scrollArea}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
+                // iOS 15+: automatically insets content above software keyboard
+                automaticallyAdjustKeyboardInsets={true}
               >
                 {children}
               </ScrollView>
@@ -120,7 +124,7 @@ export default function BottomSheet({
               <View style={styles.staticContent}>{children}</View>
             )}
 
-            {/* Optional Persistent Footer */}
+            {/* Optional persistent footer */}
             {footer && <View style={styles.footer}>{footer}</View>}
           </GlassCard>
         </Animated.View>
@@ -145,6 +149,8 @@ const styles = StyleSheet.create({
   sheetWrapper: {
     width: '100%',
     maxHeight: MAX_SHEET_HEIGHT,
+    // Anchors the sheet to the very bottom of the available space
+    bottom: 0,
     paddingHorizontal: 12,
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },

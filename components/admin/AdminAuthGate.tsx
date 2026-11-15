@@ -126,26 +126,23 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
       {/* Soft Cyan & Violet Radial Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-violet-600/15 rounded-full blur-[120px] pointer-events-none" />
+      {/* Subtle grid overlay */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px'}} />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="w-full max-w-md glass p-8 shadow-2xl relative z-10 text-slate-100"
+        className="w-full max-w-md bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-700/60 rounded-3xl shadow-2xl shadow-slate-950/80 p-8 relative z-10 text-slate-100"
       >
-        {/* Header Icon */}
+        {/* Header */}
         <div className="flex flex-col items-center text-center mb-7">
-          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center mb-4 shadow-sm shadow-cyan-500/20">
-            <Lock className="w-8 h-8 text-cyan-400" />
-          </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-500/10 border border-cyan-400/25 rounded-full text-cyan-300 text-xs font-semibold uppercase tracking-wider mb-2">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Restricted Admin Area / સુરક્ષિત વિભાગ
+          <img src="/Logo.jpeg" alt="Tollgram" className="w-16 h-16 rounded-2xl object-cover shadow-lg shadow-cyan-500/20 mb-4" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-semibold mb-3">
+            Secure Access
           </span>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">GoTall Studio</h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs">
-            Enter your passcode to manage exercises, nutrition, and members.
-          </p>
+          <h1 className="text-3xl font-black text-white tracking-tight">Tollgram Studio</h1>
+          <p className="text-xs text-slate-400 mt-1.5">Admin access only</p>
         </div>
 
         {/* Lockout Warning */}
@@ -178,7 +175,7 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
                   onChange={(e) => setPasscode(e.target.value)}
                   disabled={isLockedOut}
                   autoFocus
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700/60 rounded-2xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400 transition-all font-mono"
+                  className="w-full pl-11 pr-11 py-3.5 bg-slate-900/80 border border-slate-700/60 rounded-2xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-400 transition-all font-mono"
                 />
                 <button
                   type="button"
@@ -206,18 +203,14 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
               disabled={isLockedOut}
               className="w-full py-3.5 glow-button text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
-              <span>Unlock Studio / અનલૉક કરો</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>Enter Studio →</span>
             </button>
           </form>
         )}
 
-        {/* Footer Security Badge */}
+        {/* Footer */}
         <div className="mt-8 pt-5 border-t border-slate-700/40 text-center">
-          <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Protected by Session Isolation & Rate-Limit Shield
-          </p>
+          <p className="text-[11px] text-slate-500">Protected by rate-limit lockout • Session isolation</p>
         </div>
       </motion.div>
     </div>

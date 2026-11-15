@@ -34,7 +34,7 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { useAppStore, CLINICAL_STRETCHES, StretchExercise } from '../../lib/store';
+import { useAppStore, CLINICAL_STRETCHES, StretchExercise, WorkoutCategory, CategoryQuestion } from '../../lib/store';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -108,13 +108,18 @@ export default function StretchesScreen() {
     useAppStore.getState().fetchLiveContent().catch(() => {});
   }, []);
 
+  const liveCatalogStretches = useAppStore((state) => state.liveCatalogStretches);
+
   const scheduleDays = Object.keys(weeklyPlan);
   const currentDayKey = scheduleDays.includes(activePlanDay)
     ? activePlanDay
     : scheduleDays[0] || 'Monday';
 
+  // Priority: admin-panel live catalog > direct Supabase fetch > weekly plan > static fallback
   const baseExercises: StretchExercise[] =
-    liveExercises && liveExercises.length > 0
+    (liveCatalogStretches && liveCatalogStretches.length > 0)
+      ? liveCatalogStretches
+      : (liveExercises && liveExercises.length > 0)
       ? liveExercises
       : weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0
       ? weeklyPlan[currentDayKey]

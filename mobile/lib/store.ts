@@ -831,6 +831,16 @@ interface AppState {
   generateWeeklyPlan: (daysPerWeek?: number) => Promise<void>;
   livePresetMeals: any[];
   fetchLiveContent: () => Promise<void>;
+
+  // Live catalog from Supabase (admin-managed)
+  liveCatalogStretches: StretchExercise[];
+  liveCatalogBadges: AchievementBadgeItem[];
+  liveCatalogCategories: WorkoutCategory[];
+  setLiveCatalog: (
+    stretches: StretchExercise[],
+    badges: AchievementBadgeItem[],
+    categories: WorkoutCategory[]
+  ) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -853,6 +863,11 @@ export const useAppStore = create<AppState>()(
       categories: INITIAL_CATEGORIES,
       categoryQuestions: INITIAL_CATEGORY_QUESTIONS,
       livePresetMeals: [],
+
+      // Live catalog (admin-managed, populated by fetchLiveContent)
+      liveCatalogStretches: [],
+      liveCatalogBadges: [],
+      liveCatalogCategories: [],
 
       // Sleep tracking state (fresh starter state)
       sleepLogs: [],
@@ -881,7 +896,7 @@ export const useAppStore = create<AppState>()(
         {
           id: 'msg-welcome',
           role: 'assistant',
-          text: 'Hello! I am your GoTall Clinical Growth Advisor. All guidance is calibrated to peer-reviewed pediatric growth curves and spinal biomechanics. Tap any quick topic below or type your question.',
+          text: 'Hello! I am your Tollgram Clinical Growth Advisor. All guidance is calibrated to peer-reviewed pediatric growth curves and spinal biomechanics. Tap any quick topic below or type your question.',
           citation: 'Ref: Tanner-Whitehouse III & AAP Pediatric Endocrine Guidelines',
           timestamp: 'Just now',
         },
@@ -1046,6 +1061,14 @@ export const useAppStore = create<AppState>()(
         set({ categoryQuestions });
       },
 
+      setLiveCatalog: (stretches, badges, categories) => {
+        set({
+          liveCatalogStretches: stretches,
+          liveCatalogBadges: badges,
+          liveCatalogCategories: categories,
+        });
+      },
+
       unlockBadge: (badgeId) => {
         const { unlockedBadgeIds, badges } = get();
         if (!unlockedBadgeIds.includes(badgeId)) {
@@ -1153,7 +1176,8 @@ export const useAppStore = create<AppState>()(
 
       generateWeeklyPlan: async (daysPerWeek) => {
         const currentDays = daysPerWeek ?? get().workoutDaysPerWeek ?? 4;
-        let pool = [...CLINICAL_STRETCHES];
+        const { liveCatalogStretches } = get();
+        let pool = liveCatalogStretches.length > 0 ? liveCatalogStretches : [...CLINICAL_STRETCHES];
 
         if (isSupabaseConfigured()) {
           try {
@@ -1205,8 +1229,9 @@ export const useAppStore = create<AppState>()(
           ]);
 
           // 1. Stretches / Exercises
+          let mappedStretches: StretchExercise[] = [];
           if (stretchesRes.status === 'fulfilled' && stretchesRes.value.data && stretchesRes.value.data.length > 0) {
-            const mappedStretches: StretchExercise[] = stretchesRes.value.data.map((d: any, idx: number) => ({
+            mappedStretches = stretchesRes.value.data.map((d: any, idx: number) => ({
               id: Number(d.id) || idx + 1,
               title: d.title,
               category: (d.category as any) || 'Height Growth',
@@ -1214,8 +1239,12 @@ export const useAppStore = create<AppState>()(
               targetZone: d.target_area || d.target_zone || 'Thoracic Spine',
               durationSeconds: Number(d.duration_seconds) || 60,
               intensity: d.intensity || 'Beginner',
-              clinicalBenefit: Array.isArray(d.benefits) ? d.benefits[0] : (d.clinical_benefit || d.benefits || 'Promotes spinal decompression and fluid rehydration.'),
-              instructions: Array.isArray(d.instructions) ? d.instructions : [d.instructions || 'Follow posture guide'],
+              clinicalBenefit: Array.isArray(d.benefits)
+                ? d.benefits[0]
+                : (d.clinical_benefit || d.benefits || 'Promotes spinal decompression and fluid rehydration.'),
+              instructions: Array.isArray(d.instructions)
+                ? d.instructions
+                : [d.instructions || 'Follow posture guide'],
               contraindications: d.contraindications || undefined,
               media_url: d.media_url,
               media_type: d.media_type || 'image',
@@ -1230,8 +1259,9 @@ export const useAppStore = create<AppState>()(
           }
 
           // 2. Workout Categories
+          let mappedCats: WorkoutCategory[] = [];
           if (catRes.status === 'fulfilled' && catRes.value.data && catRes.value.data.length > 0) {
-            const mappedCats: WorkoutCategory[] = catRes.value.data.map((c: any, idx: number) => ({
+            mappedCats = catRes.value.data.map((c: any, idx: number) => ({
               id: String(c.id),
               name: c.name || 'Category',
               slug: c.slug || `category-${idx + 1}`,
@@ -1260,8 +1290,9 @@ export const useAppStore = create<AppState>()(
           }
 
           // 4. Badges / Achievements
+          let mappedBadges: AchievementBadgeItem[] = [];
           if (badgeRes.status === 'fulfilled' && badgeRes.value.data && badgeRes.value.data.length > 0) {
-            const mappedBadges: AchievementBadgeItem[] = badgeRes.value.data.map((b: any) => ({
+            mappedBadges = badgeRes.value.data.map((b: any) => ({
               id: b.id,
               title: b.title,
               description: b.description,
@@ -1280,8 +1311,23 @@ export const useAppStore = create<AppState>()(
           if (mealsRes.status === 'fulfilled' && mealsRes.value.data && mealsRes.value.data.length > 0) {
             set({ livePresetMeals: mealsRes.value.data });
           }
+
+          // 6. Populate live catalog — used by stretches tab instead of CLINICAL_STRETCHES.
+          //    Falls back to CLINICAL_STRETCHES when Supabase returns nothing.
+          get().setLiveCatalog(
+            mappedStretches.length > 0 ? mappedStretches : CLINICAL_STRETCHES,
+            mappedBadges.length > 0 ? mappedBadges : INITIAL_BADGES,
+            mappedCats.length > 0 ? mappedCats : INITIAL_CATEGORIES,
+          );
+          // Rebuild the weekly plan from admin-managed live stretches
+          await get().generateWeeklyPlan();
         } catch (err) {
           console.warn('[Supabase live content fetch warning]:', err);
+          // On total failure, make sure the catalog is still populated with defaults
+          const s = get();
+          if (s.liveCatalogStretches.length === 0) {
+            get().setLiveCatalog(CLINICAL_STRETCHES, INITIAL_BADGES, INITIAL_CATEGORIES);
+          }
         }
       },
 

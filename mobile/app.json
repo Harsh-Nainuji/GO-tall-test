@@ -1,13 +1,16 @@
 {
   "expo": {
-    "name": "GoTall",
-    "slug": "gotall",
+    "name": "Tollgram",
+    "slug": "tollgram",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "gotall",
+    "scheme": "tollgram",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "privacy": "unlisted",
+    "platforms": ["ios", "android", "web"],
+    "githubUrl": "",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -15,17 +18,29 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gotall.app",
-      "buildNumber": "1",
+      "bundleIdentifier": "com.tollgram.app",
+      "buildNumber": "2",
+      "associatedDomains": ["applinks:tollgram.app"],
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "GoTall uses speech features to read personalized clinical stature guidance aloud.",
-        "NSMicrophoneUsageDescription": "GoTall uses microphone access for stature inquiry interactions.",
-        "NSCameraUsageDescription": "GoTall may use your camera to track posture alignment and spinal decompression.",
-        "NSPhotoLibraryUsageDescription": "GoTall accesses your photo library to save and track growth milestone progress."
+        "NSSpeechRecognitionUsageDescription": "Tollgram uses speech features to read personalized clinical stature guidance aloud.",
+        "NSMicrophoneUsageDescription": "Tollgram uses microphone access for stature inquiry interactions.",
+        "NSCameraUsageDescription": "Tollgram may use your camera to track posture alignment and spinal decompression.",
+        "NSPhotoLibraryUsageDescription": "Tollgram accesses your photo library to save and track growth milestone progress.",
+        "NSUserNotificationUsageDescription": "Tollgram sends reminders for your sleep and stretch routines.",
+        "NSHealthShareUsageDescription": "Tollgram reads health data to personalize your growth plan.",
+        "NSHealthUpdateUsageDescription": "Tollgram writes workout and sleep data to Apple Health.",
+        "NSFaceIDUsageDescription": "Tollgram uses Face ID for secure sign-in.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
       }
     },
     "android": {
-      "package": "com.gotall.app",
+      "package": "com.tollgram.app",
       "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -35,7 +50,34 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.VIBRATE",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "tollgram"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "tollgram.app"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {
@@ -61,7 +103,8 @@
       },
       "eas": {
         "projectId": "aa82005f-4831-45b5-88c7-517fec06993d"
-      }
+      },
+      "androidGoogleServicesNote": "Add google-services.json from Firebase before production build"
     },
     "owner": "harsh-n"
   }

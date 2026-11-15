@@ -6,9 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Droplet, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -59,81 +56,78 @@ export default function WaterSizePicker({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Add Water" scrollable={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={[styles.container, { flexGrow: 1, paddingBottom: 80 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Add Water"
+      scrollable={true}
+      footer={
+        <TouchableOpacity
+          onPress={handleConfirm}
+          disabled={!customMl && !selectedPreset}
+          style={[
+            styles.confirmBtn,
+            (!customMl && !selectedPreset) && styles.confirmBtnDisabled,
+          ]}
+          activeOpacity={0.8}
         >
-          <Text style={styles.subtitle}>Hydrate your spine discs to support growth.</Text>
+          <Plus size={18} color="#FFFFFF" />
+          <Text style={styles.confirmBtnText}>
+            Add {customMl ? `${customMl} ml` : `${selectedPreset} ml`}
+          </Text>
+        </TouchableOpacity>
+      }
+    >
+      <View style={styles.container}>
+        <Text style={styles.subtitle}>Hydrate your spine discs to support growth.</Text>
 
-          {/* Quick Chips */}
-          <View style={styles.quickGrid}>
-            {QUICK_OPTIONS.map((opt) => {
-              const isSelected = selectedPreset === opt.amount && !customMl;
-              return (
-                <TouchableOpacity
-                  key={opt.amount}
-                  onPress={() => handleSelectQuick(opt)}
-                  style={[
-                    styles.optionCard,
-                    isSelected && styles.optionCardActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.optionEmoji}>{opt.iconText}</Text>
-                  <Text style={[styles.optionAmount, isSelected && styles.optionTextActive]}>
-                    {opt.amount} ml
-                  </Text>
-                  <Text style={[styles.optionLabel, isSelected && styles.optionTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* Quick Chips */}
+        <View style={styles.quickGrid}>
+          {QUICK_OPTIONS.map((opt) => {
+            const isSelected = selectedPreset === opt.amount && !customMl;
+            return (
+              <TouchableOpacity
+                key={opt.amount}
+                onPress={() => handleSelectQuick(opt)}
+                style={[
+                  styles.optionCard,
+                  isSelected && styles.optionCardActive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.optionEmoji}>{opt.iconText}</Text>
+                <Text style={[styles.optionAmount, isSelected && styles.optionTextActive]}>
+                  {opt.amount} ml
+                </Text>
+                <Text style={[styles.optionLabel, isSelected && styles.optionTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Custom Input */}
+        <View style={styles.customSection}>
+          <Text style={styles.customLabel}>Or enter custom amount</Text>
+          <View style={styles.inputWrap}>
+            <Droplet size={18} color={colors.blue600} />
+            <TextInput
+              value={customMl}
+              onChangeText={(val) => {
+                setCustomMl(val);
+                if (val) setSelectedPreset(0);
+              }}
+              placeholder="e.g. 350"
+              placeholderTextColor={colors.slate400}
+              keyboardType="numeric"
+              style={styles.input}
+              autoFocus={false}
+            />
+            <Text style={styles.unitText}>ml</Text>
           </View>
-
-          {/* Custom Input */}
-          <View style={styles.customSection}>
-            <Text style={styles.customLabel}>Or enter custom amount</Text>
-            <View style={styles.inputWrap}>
-              <Droplet size={18} color={colors.blue600} />
-              <TextInput
-                value={customMl}
-                onChangeText={(val) => {
-                  setCustomMl(val);
-                  if (val) setSelectedPreset(0);
-                }}
-                placeholder="e.g. 350"
-                placeholderTextColor={colors.slate400}
-                keyboardType="numeric"
-                style={styles.input}
-              />
-              <Text style={styles.unitText}>ml</Text>
-            </View>
-          </View>
-
-          {/* Confirm Button */}
-          <TouchableOpacity
-            onPress={handleConfirm}
-            disabled={!customMl && !selectedPreset}
-            style={[
-              styles.confirmBtn,
-              (!customMl && !selectedPreset) && styles.confirmBtnDisabled,
-            ]}
-            activeOpacity={0.8}
-          >
-            <Plus size={18} color="#FFFFFF" />
-            <Text style={styles.confirmBtnText}>
-              Add {customMl ? `${customMl} ml` : `${selectedPreset} ml`}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </View>
     </BottomSheet>
   );
 }
@@ -141,7 +135,7 @@ export default function WaterSizePicker({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 16,
     gap: 16,
   },
   subtitle: {
@@ -221,7 +215,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.blue600,
     borderRadius: 16,
     paddingVertical: 14,
-    marginTop: 4,
+    marginHorizontal: 20,
+    marginBottom: 8,
   },
   confirmBtnDisabled: {
     backgroundColor: colors.slate400,

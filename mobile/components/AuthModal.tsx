@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { Mail, Lock, User, ShieldCheck, CheckCircle2, Eye, EyeOff } from 'lucide-react-native';
@@ -107,16 +105,13 @@ export default function AuthModal({
       visible={visible}
       onClose={onClose}
       title={mode === 'signup' ? 'Create Account' : 'Welcome Back'}
-      scrollable={false}
+      scrollable={true}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
         <ScrollView
           contentContainerStyle={[styles.container, { flexGrow: 1, paddingBottom: 120 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="always"
+          automaticallyAdjustKeyboardInsets={true}
+          showsVerticalScrollIndicator={false}
         >
         <Text style={styles.subtitle}>
           {mode === 'signup'
@@ -252,11 +247,10 @@ export default function AuthModal({
         <View style={styles.disclaimer}>
           <ShieldCheck size={12} color={colors.slate400} />
           <Text style={styles.disclaimerText}>
-            Your data is stored securely in Supabase Cloud.
+            Your Tollgram data is stored securely in Supabase Cloud.
           </Text>
         </View>
         </ScrollView>
-      </KeyboardAvoidingView>
     </BottomSheet>
   );
 }

@@ -194,6 +194,50 @@ select:focus {
   background: #64748b;
 }
 
+/* ============================================================
+   GLOBAL SMOOTH SCROLL — viewport scrolls to new content
+   ============================================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Utility: smoothly scroll a container to any new child */
+.smooth-scroll-container {
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* When a new element mounts inside a scroll container, animate it in */
+@keyframes slideInFade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Applied to any dynamically-mounted element that should scroll-to on mount */
+.scroll-anchor-new {
+  animation: slideInFade 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  scroll-margin-top: 20px;
+}
+
+/* Chat / message feed auto-scroll anchor */
+.chat-scroll-anchor {
+  height: 1px;
+  width: 100%;
+  display: block;
+  scroll-margin-bottom: 0;
+}
+
+/* Loading / data cards that fade in when new data arrives */
+.data-mount-animate {
+  animation: slideInFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Respect prefers-reduced-motion: disable transforms and transitions */
 @media (prefers-reduced-motion: reduce) {
   *,

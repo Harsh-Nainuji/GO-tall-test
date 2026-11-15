@@ -5,6 +5,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Moon, Sparkles, Check } from 'lucide-react-native';
 import BottomSheet from './ui/BottomSheet';
@@ -51,11 +55,49 @@ const SLEEP_QUALITIES = [
 ];
 
 function parseTimeTo24hDecimal(timeStr: string): number {
-  const [timePart, modifier] = timeStr.trim().split(' ');
-  const [hourStr, minStr] = timePart.split(':');
-  let hours = parseInt(hourStr, 10);
-  const minutes = parseInt(minStr, 10);
+  if (!timeStr || !timeStr.trim()) return 0;
 
+  const raw = timeStr.trim();
+
+  // Detect AM/PM suffix (case-insensitive, with or without space)
+  const amPmMatch = raw.match(/^([\d:. ]+)\s*(am|pm)$/i);
+  let timePortion = raw;
+  let modifier: 'AM' | 'PM' | null = null;
+
+  if (amPmMatch) {
+    timePortion = amPmMatch[1].trim();
+    modifier = amPmMatch[2].toUpperCase() as 'AM' | 'PM';
+  }
+
+  // Normalize condensed formats like "245" → "2:45", "1030" → "10:30"
+  const noColon = timePortion.replace(/\s+/g, '');
+  let hours: number;
+  let minutes: number;
+
+  if (noColon.includes(':')) {
+    const parts = noColon.split(':');
+    hours = parseInt(parts[0], 10);
+    minutes = parseInt(parts[1] || '0', 10);
+  } else if (noColon.length <= 2) {
+    // e.g. "9" or "10" — treat as hour, 0 minutes
+    hours = parseInt(noColon, 10);
+    minutes = 0;
+  } else if (noColon.length === 3) {
+    // e.g. "245" → 2:45
+    hours = parseInt(noColon[0], 10);
+    minutes = parseInt(noColon.slice(1), 10);
+  } else if (noColon.length === 4) {
+    // e.g. "1030" → 10:30
+    hours = parseInt(noColon.slice(0, 2), 10);
+    minutes = parseInt(noColon.slice(2), 10);
+  } else {
+    return 0;
+  }
+
+  if (isNaN(hours) || isNaN(minutes)) return 0;
+  if (hours > 23 || minutes > 59) return 0;
+
+  // Apply AM/PM conversion
   if (modifier === 'PM' && hours < 12) hours += 12;
   if (modifier === 'AM' && hours === 12) hours = 0;
 
@@ -70,19 +112,38 @@ export function calculateSleepDuration(bedtimeStr: string, wakeStr: string): num
   return Math.round(duration * 100) / 100;
 }
 
+function formatDuration(hours: number): string {
+  if (hours <= 0) return '—';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) {
   const addSleepLog = useAppStore((state) => state.addSleepLog);
   const sleepTargetHours = useAppStore((state) => state.sleepTargetHours);
 
-  const [inputMode, setInputMode] = useState<'times' | 'direct'>('times');
+  const [inputMode, setInputMode] = useState<'times' | 'direct' | 'manual'>('times');
   const [selectedBedtime, setSelectedBedtime] = useState<string>('10:30 PM');
   const [selectedWakeup, setSelectedWakeup] = useState<string>('07:00 AM');
   const [directHours, setDirectHours] = useState<number>(8.5);
   const [selectedQuality, setSelectedQuality] = useState<string>('Deep Restorative');
 
+  // Manual entry state
+  const [manualBedtime, setManualBedtime] = useState<string>('');
+  const [manualWakeup, setManualWakeup] = useState<string>('');
+
+  const manualHours =
+    manualBedtime.trim() && manualWakeup.trim()
+      ? calculateSleepDuration(manualBedtime, manualWakeup)
+      : 0;
+
   const calculatedHours =
     inputMode === 'times'
       ? calculateSleepDuration(selectedBedtime, selectedWakeup)
+      : inputMode === 'manual'
+      ? manualHours
       : directHours;
 
   const handleSave = () => {
@@ -96,8 +157,16 @@ export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) 
     addSleepLog({
       date: dateStr,
       dayOfWeek: currentDay,
-      bedtime: inputMode === 'times' ? selectedBedtime : undefined,
-      wakeupTime: inputMode === 'times' ? selectedWakeup : undefined,
+      bedtime: inputMode === 'times'
+        ? selectedBedtime
+        : inputMode === 'manual' && manualBedtime.trim()
+        ? manualBedtime.trim()
+        : undefined,
+      wakeupTime: inputMode === 'times'
+        ? selectedWakeup
+        : inputMode === 'manual' && manualWakeup.trim()
+        ? manualWakeup.trim()
+        : undefined,
       hours: calculatedHours,
       quality: selectedQuality,
     });
@@ -124,169 +193,230 @@ export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) 
         </TouchableOpacity>
       }
     >
-      <View style={styles.container}>
-        {/* Mode Selector */}
-        <View style={styles.tabSwitcher}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              haptics.selection();
-              setInputMode('times');
-            }}
-            style={[styles.tabBtn, inputMode === 'times' && styles.tabBtnActive]}
-          >
-            <Text style={[styles.tabText, inputMode === 'times' && styles.tabTextActive]}>
-              Bed & Wake time
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              haptics.selection();
-              setInputMode('direct');
-            }}
-            style={[styles.tabBtn, inputMode === 'direct' && styles.tabBtnActive]}
-          >
-            <Text style={[styles.tabText, inputMode === 'direct' && styles.tabTextActive]}>
-              Total hours
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {inputMode === 'times' ? (
-          <View style={styles.sectionWrap}>
-            {/* Bedtime */}
-            <Text style={styles.sectionLabel}>Bedtime</Text>
-            <View style={styles.chipsRow}>
-              {BEDTIME_OPTIONS.map((time) => (
-                <TouchableOpacity
-                  key={time}
-                  onPress={() => {
-                    haptics.selection();
-                    setSelectedBedtime(time);
-                  }}
-                  style={[
-                    styles.chip,
-                    selectedBedtime === time && styles.chipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      selectedBedtime === time && styles.chipTextActive,
-                    ]}
-                  >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Wake Time */}
-            <Text style={styles.sectionLabel}>Wake time</Text>
-            <View style={styles.chipsRow}>
-              {WAKE_OPTIONS.map((time) => (
-                <TouchableOpacity
-                  key={time}
-                  onPress={() => {
-                    haptics.selection();
-                    setSelectedWakeup(time);
-                  }}
-                  style={[
-                    styles.chip,
-                    selectedWakeup === time && styles.chipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      selectedWakeup === time && styles.chipTextActive,
-                    ]}
-                  >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        ) : (
-          <View style={styles.sectionWrap}>
-            <Text style={styles.sectionLabel}>Select hours</Text>
-            <View style={styles.chipsRow}>
-              {DIRECT_HOURS_PRESETS.map((hrs) => (
-                <TouchableOpacity
-                  key={hrs}
-                  onPress={() => {
-                    haptics.selection();
-                    setDirectHours(hrs);
-                  }}
-                  style={[
-                    styles.chip,
-                    directHours === hrs && styles.chipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      directHours === hrs && styles.chipTextActive,
-                    ]}
-                  >
-                    {hrs}h
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Calculated summary card */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryHours}>{calculatedHours} Hours</Text>
-          <Text style={styles.summaryGoal}>
-            {calculatedHours >= sleepTargetHours
-              ? 'Goal reached ✓'
-              : `${(sleepTargetHours - calculatedHours).toFixed(1)}h under goal`}
-          </Text>
-        </View>
-
-        {/* Sleep Quality */}
-        <Text style={styles.sectionLabel}>Sleep quality</Text>
-        <View style={styles.qualityList}>
-          {SLEEP_QUALITIES.map((q) => (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.container}
+        >
+          {/* Mode Selector — 3 tabs */}
+          <View style={styles.tabSwitcher}>
             <TouchableOpacity
-              key={q.id}
               activeOpacity={0.7}
               onPress={() => {
                 haptics.selection();
-                setSelectedQuality(q.id);
+                setInputMode('times');
               }}
-              style={[
-                styles.qualityItem,
-                selectedQuality === q.id && styles.qualityItemActive,
-              ]}
+              style={[styles.tabBtn, inputMode === 'times' && styles.tabBtnActive]}
             >
-              <Text style={styles.qualityIcon}>{q.icon}</Text>
-              <View style={styles.qualityTextCol}>
-                <Text
-                  style={[
-                    styles.qualityTitle,
-                    selectedQuality === q.id && styles.qualityTitleActive,
-                  ]}
-                >
-                  {q.label}
-                </Text>
-                <Text style={styles.qualityDesc}>{q.desc}</Text>
-              </View>
-              {selectedQuality === q.id && (
-                <View style={styles.checkIcon}>
-                  <Check size={14} color="#FFFFFF" strokeWidth={3} />
-                </View>
-              )}
+              <Text style={[styles.tabText, inputMode === 'times' && styles.tabTextActive]}>
+                Bed & Wake
+              </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                haptics.selection();
+                setInputMode('direct');
+              }}
+              style={[styles.tabBtn, inputMode === 'direct' && styles.tabBtnActive]}
+            >
+              <Text style={[styles.tabText, inputMode === 'direct' && styles.tabTextActive]}>
+                Total hours
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                haptics.selection();
+                setInputMode('manual');
+              }}
+              style={[styles.tabBtn, inputMode === 'manual' && styles.tabBtnActive]}
+            >
+              <Text style={[styles.tabText, inputMode === 'manual' && styles.tabTextActive]}>
+                Manual Entry
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {inputMode === 'times' ? (
+            <View style={styles.sectionWrap}>
+              {/* Bedtime */}
+              <Text style={styles.sectionLabel}>Bedtime</Text>
+              <View style={styles.chipsRow}>
+                {BEDTIME_OPTIONS.map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    onPress={() => {
+                      haptics.selection();
+                      setSelectedBedtime(time);
+                    }}
+                    style={[
+                      styles.chip,
+                      selectedBedtime === time && styles.chipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        selectedBedtime === time && styles.chipTextActive,
+                      ]}
+                    >
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Wake Time */}
+              <Text style={styles.sectionLabel}>Wake time</Text>
+              <View style={styles.chipsRow}>
+                {WAKE_OPTIONS.map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    onPress={() => {
+                      haptics.selection();
+                      setSelectedWakeup(time);
+                    }}
+                    style={[
+                      styles.chip,
+                      selectedWakeup === time && styles.chipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        selectedWakeup === time && styles.chipTextActive,
+                      ]}
+                    >
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : inputMode === 'direct' ? (
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionLabel}>Select hours</Text>
+              <View style={styles.chipsRow}>
+                {DIRECT_HOURS_PRESETS.map((hrs) => (
+                  <TouchableOpacity
+                    key={hrs}
+                    onPress={() => {
+                      haptics.selection();
+                      setDirectHours(hrs);
+                    }}
+                    style={[
+                      styles.chip,
+                      directHours === hrs && styles.chipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        directHours === hrs && styles.chipTextActive,
+                      ]}
+                    >
+                      {hrs}h
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : (
+            /* Manual Entry mode */
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionLabel}>I slept at:</Text>
+              <TextInput
+                style={styles.textInput}
+                value={manualBedtime}
+                onChangeText={setManualBedtime}
+                placeholder="e.g. 2:45 AM"
+                placeholderTextColor={colors.slate400}
+                returnKeyType="next"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Text style={[styles.sectionLabel, { marginTop: 8 }]}>I woke up at:</Text>
+              <TextInput
+                style={styles.textInput}
+                value={manualWakeup}
+                onChangeText={setManualWakeup}
+                placeholder="e.g. 8:15 AM"
+                placeholderTextColor={colors.slate400}
+                returnKeyType="done"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              {/* Live-calculated duration */}
+              <View style={styles.manualDurationRow}>
+                <Moon size={14} color={colors.blue600} />
+                <Text style={styles.manualDurationText}>
+                  {manualHours > 0
+                    ? `Duration: ${formatDuration(manualHours)}`
+                    : 'Enter both times to calculate duration'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Calculated summary card */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryHours}>{calculatedHours} Hours</Text>
+            <Text style={styles.summaryGoal}>
+              {calculatedHours >= sleepTargetHours
+                ? 'Goal reached ✓'
+                : calculatedHours > 0
+                ? `${(sleepTargetHours - calculatedHours).toFixed(1)}h under goal`
+                : 'Enter your sleep times above'}
+            </Text>
+          </View>
+
+          {/* Sleep Quality */}
+          <Text style={styles.sectionLabel}>Sleep quality</Text>
+          <View style={styles.qualityList}>
+            {SLEEP_QUALITIES.map((q) => (
+              <TouchableOpacity
+                key={q.id}
+                activeOpacity={0.7}
+                onPress={() => {
+                  haptics.selection();
+                  setSelectedQuality(q.id);
+                }}
+                style={[
+                  styles.qualityItem,
+                  selectedQuality === q.id && styles.qualityItemActive,
+                ]}
+              >
+                <Text style={styles.qualityIcon}>{q.icon}</Text>
+                <View style={styles.qualityTextCol}>
+                  <Text
+                    style={[
+                      styles.qualityTitle,
+                      selectedQuality === q.id && styles.qualityTitleActive,
+                    ]}
+                  >
+                    {q.label}
+                  </Text>
+                  <Text style={styles.qualityDesc}>{q.desc}</Text>
+                </View>
+                {selectedQuality === q.id && (
+                  <View style={styles.checkIcon}>
+                    <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </BottomSheet>
   );
 }
@@ -294,6 +424,7 @@ export default function SleepLogModal({ visible, onClose }: SleepLogModalProps) 
 const styles = StyleSheet.create({
   container: {
     gap: 16,
+    paddingBottom: 8,
   },
   tabSwitcher: {
     flexDirection: 'row',
@@ -316,7 +447,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.slate400,
   },
@@ -359,6 +490,29 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: colors.blue600,
     fontWeight: '700',
+  },
+  textInput: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.slate200,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.slate900,
+  },
+  manualDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  manualDurationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.blue600,
   },
   summaryCard: {
     padding: 16,

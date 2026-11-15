@@ -124,7 +124,7 @@ export default function WelcomeScreen() {
         <SafeAreaView style={[styles.safeArea, { alignItems: 'center', justifyContent: 'center' }]}>
           <ActivityIndicator size="large" color="#0284C7" />
           <Text style={{ marginTop: 14, fontSize: 13, fontWeight: '700', color: '#475569' }}>
-            Restoring your GoTall session...
+            Restoring your Tollgram session...
           </Text>
         </SafeAreaView>
       </GlassBackgroundCanvas>
@@ -142,7 +142,7 @@ export default function WelcomeScreen() {
           <Animated.View style={[headerStyle, styles.headerWrap]}>
             <View style={styles.brandPill}>
               <Activity size={14} color="#0284C7" />
-              <Text style={styles.brandText}>GoTall Stature Science</Text>
+              <Text style={styles.brandText}>Tollgram Stature Science</Text>
               <View style={styles.brandDot} />
             </View>
 

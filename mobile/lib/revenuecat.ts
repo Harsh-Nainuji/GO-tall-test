@@ -14,6 +14,20 @@ export const REVENUECAT_API_KEY =
 
 export const ENTITLEMENT_ID = 'pro_access';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS NOTE (read before releasing to production):
+//
+// The current key (test_NvioQMUEEYXEajsWqmbSzHmsnCa) starts with "test_"
+// which means isNativeStoreKey() returns false.
+// This means ALL purchases go through mock mode (instant success, no real billing).
+//
+// To activate real Google Play billing:   replace with a key starting "goog_"
+// To activate real Apple App Store:       replace with a key starting "appl_"
+//
+// Both keys are obtained from the RevenueCat dashboard (App Settings → API Keys).
+// Until then, the app functions correctly in test/sandbox mode.
+// ─────────────────────────────────────────────────────────────────────────────
+
 let isInitialized = false;
 
 /**

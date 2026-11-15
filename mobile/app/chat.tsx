@@ -9,6 +9,7 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,22 +24,24 @@ import {
   VolumeX,
   ShieldAlert,
   Clock,
-  Zap,
+  Mic,
+  Share2,
 } from 'lucide-react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
 import { speakText, stopSpeech } from '../lib/tts';
-import { colors, gradients } from '../lib/theme';
-import GlassCard from '../components/ui/GlassCard';
+import { colors } from '../lib/theme';
 
 interface PromptChip {
   id: string;
   label: string;
   prompt: string;
-  response: string;
 }
 
 const QUICK_PROMPT_CHIPS: PromptChip[] = [
@@ -46,31 +49,78 @@ const QUICK_PROMPT_CHIPS: PromptChip[] = [
     id: 'chip-1',
     label: '🦴 Growth plates',
     prompt: 'Are my growth plates still active at my age?',
-    response:
-      'Growth plates typically remain active until ages 16 to 19 in boys, and 14 to 16 in girls. Regular spinal traction and optimal nutrition support this natural growth window.',
   },
   {
     id: 'chip-2',
     label: '🥛 Bedtime snack',
     prompt: 'What snack should I eat before bed for height growth?',
-    response:
-      'A protein-rich snack like warm milk, paneer, or Greek yogurt provides essential amino acids that fuel tissue and bone growth during deep sleep.',
   },
   {
     id: 'chip-3',
     label: '🧘 Spine decompression',
     prompt: 'Can stretching and dead hangs decompress my spine?',
-    response:
-      'Yes. Daily passive hangs and axial spinal traction relieve disc compression, restore hydration to intervertebral discs, and improve upright posture.',
   },
   {
     id: 'chip-4',
     label: '💤 Sleep & HGH',
     prompt: 'How many hours of sleep maximize natural growth hormone?',
-    response:
-      'Aim for 8 to 9 hours of uninterrupted sleep. Up to 75% of daily human growth hormone (HGH) is secreted during slow-wave stage 3 and 4 deep sleep.',
   },
 ];
+
+/** Format a timestamp (ms since epoch or Date-ish) to "2:24 PM" */
+function formatTimestamp(ts: number | string | undefined): string {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+/**
+ * Renders a string with **bold** markdown into an array of Text spans.
+ * Also splits on \n for line breaks.
+ */
+function renderMarkdown(text: string): React.ReactNode {
+  // Split by newlines first, then process bold within each line
+  const lines = text.split('\n');
+  const result: React.ReactNode[] = [];
+
+  lines.forEach((line, lineIdx) => {
+    if (lineIdx > 0) {
+      result.push(<Text key={`nl-${lineIdx}`}>{'\n'}</Text>);
+    }
+
+    // Check if it's a ### heading line
+    if (line.startsWith('### ')) {
+      result.push(
+        <Text key={`h-${lineIdx}`} style={styles.mdHeading}>
+          {line.replace(/^###\s*/, '')}
+        </Text>,
+      );
+      return;
+    }
+
+    // Split by **bold**
+    const parts = line.split(/\*\*(.*?)\*\*/g);
+    parts.forEach((part, partIdx) => {
+      if (partIdx % 2 === 1) {
+        // Odd index = inside **...**
+        result.push(
+          <Text key={`b-${lineIdx}-${partIdx}`} style={styles.mdBold}>
+            {part}
+          </Text>,
+        );
+      } else if (part) {
+        result.push(<Text key={`t-${lineIdx}-${partIdx}`}>{part}</Text>);
+      }
+    });
+  });
+
+  return result;
+}
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -84,6 +134,7 @@ export default function ChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const quota = getAiQuota();
 
@@ -104,6 +155,7 @@ export default function ChatScreen() {
     scrollToBottom();
   }, [chatMessages.length, isTyping]);
 
+  // Per-bubble "Listen" button handler
   const handleToggleTTS = async (msgId: string, text: string) => {
     Haptics.selectionAsync().catch(() => {});
 
@@ -121,11 +173,19 @@ export default function ChatScreen() {
     });
   };
 
+  const handleShare = async (text: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      await Share.share({ message: text });
+    } catch {
+      // dismissed
+    }
+  };
+
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query) return;
 
-    // Check strict 5-question limit
     const currentQuota = getAiQuota();
     if (currentQuota.isExhausted) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
@@ -135,12 +195,7 @@ export default function ChatScreen() {
     Haptics.selectionAsync().catch(() => {});
     setInputText('');
 
-    // Append user query
-    addChatMessage({
-      role: 'user',
-      text: query,
-    });
-
+    addChatMessage({ role: 'user', text: query });
     incrementAiQuestionsUsed();
     setIsTyping(true);
 
@@ -155,12 +210,7 @@ export default function ChatScreen() {
         : undefined;
 
       const result = await queryGeminiAdvisor(query, userProfile);
-
-      addChatMessage({
-        role: 'assistant',
-        text: result.text,
-        citation: result.citation,
-      });
+      addChatMessage({ role: 'assistant', text: result.text, citation: result.citation });
     } catch {
       addChatMessage({
         role: 'assistant',
@@ -174,9 +224,7 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <LinearGradient colors={gradients.canvas} style={StyleSheet.absoluteFill} />
-
-      {/* Header mirroring Gemini Clean Layout */}
+      {/* ── Dark Premium Header ───────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
@@ -187,164 +235,205 @@ export default function ChatScreen() {
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityLabel="Back"
         >
-          <ArrowLeft size={20} color={colors.slate900} />
+          <ArrowLeft size={20} color="#94A3B8" />
         </TouchableOpacity>
 
-        <View style={styles.headerTitleWrap}>
-          <View style={styles.headerBadgeRow}>
-            <Sparkles size={16} color={colors.blue600} />
-            <Text style={styles.headerTitle}>GoTall Clinical Advisor</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>Powered by Google Gemini 3.5</Text>
+        {/* Gradient wordmark pill */}
+        <View style={styles.headerCenter}>
+          <LinearGradient
+            colors={['#1E40AF', '#7C3AED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.wordmarkPill}
+          >
+            <Sparkles size={13} color="#FFFFFF" />
+            <Text style={styles.wordmarkText}>Tollgram AI</Text>
+          </LinearGradient>
+          <Text style={styles.headerSubtitle}>Powered by Gemini</Text>
         </View>
 
-        {/* 24-Hour Rolling Quota Chip */}
+        {/* 5-question quota chip */}
         <View style={[styles.quotaChip, quota.isExhausted && styles.quotaChipExhausted]}>
-          <Clock size={11} color={quota.isExhausted ? colors.amber600 : colors.blue600} />
+          <Clock size={11} color={quota.isExhausted ? colors.amber600 : '#93C5FD'} />
           <Text style={[styles.quotaText, quota.isExhausted && styles.quotaTextExhausted]}>
-            {quota.remaining}/5 left
+            {quota.remaining}/5
           </Text>
         </View>
       </View>
 
-      {/* Rolling Refill Timer Status Bar */}
+      {/* Refill timer status bar */}
       <View style={styles.refillBar}>
         <Text style={styles.refillText}>
           {quota.isExhausted
-            ? `Daily limit reached. Refills in ${quota.resetCountdown}`
-            : `5 daily questions • Refill countdown: ${quota.resetCountdown}`}
+            ? `Daily limit reached · Refills in ${quota.resetCountdown}`
+            : `5 daily questions · Refill in ${quota.resetCountdown}`}
         </Text>
       </View>
 
-      {/* Main Conversation Stream */}
+      {/* ── Conversation area ─────────────────────────────────────── */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         style={styles.flexOne}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <LinearGradient
+          colors={['#F0F4FF', '#F8FAFF', '#FFFFFF']}
+          style={styles.flexOne}
         >
-          {/* Welcome Card if chat empty */}
-          {chatMessages.length === 0 && (
-            <Animated.View entering={FadeInDown.duration(400)} style={styles.welcomeCard}>
-              <View style={styles.sparkleIconOrb}>
-                <Sparkles size={24} color="#2563EB" />
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Welcome card */}
+            {chatMessages.length === 0 && (
+              <Animated.View entering={FadeInDown.duration(400)} style={styles.welcomeCard}>
+                <LinearGradient
+                  colors={['#1E3A8A', '#7C3AED']}
+                  style={styles.sparkleOrb}
+                >
+                  <Sparkles size={22} color="#FFFFFF" />
+                </LinearGradient>
+                <Text style={styles.welcomeTitle}>Ask Tollgram AI</Text>
+                <Text style={styles.welcomeBody}>
+                  Evidence-based guidance on growth plates, sleep, nutrition, and spinal biomechanics.
+                </Text>
+              </Animated.View>
+            )}
+
+            {/* Quick-prompt chips (2 × 2 grid) */}
+            {chatMessages.length <= 1 && (
+              <View style={styles.chipsSection}>
+                <Text style={styles.chipsHeading}>Suggested topics</Text>
+                <View style={styles.chipsGrid}>
+                  {QUICK_PROMPT_CHIPS.map((chip) => (
+                    <TouchableOpacity
+                      key={chip.id}
+                      onPress={() => handleSend(chip.prompt)}
+                      disabled={isTyping || quota.isExhausted}
+                      style={styles.chipButton}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.chipLabel}>{chip.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-              <Text style={styles.welcomeTitle}>Ask your stature questions</Text>
-              <Text style={styles.welcomeBody}>
-                Trained on the Tanner-Whitehouse III method and peer-reviewed spinal biomechanics. Get
-                evidence-based guidance on growth plates, sleep, and nutrition.
-              </Text>
-            </Animated.View>
-          )}
+            )}
 
-          {/* Quick Prompt Suggestion Chips */}
-          {chatMessages.length <= 1 && (
-            <View style={styles.chipsSection}>
-              <Text style={styles.chipsHeading}>Suggested Topics</Text>
-              <View style={styles.chipsGrid}>
-                {QUICK_PROMPT_CHIPS.map((chip) => (
-                  <TouchableOpacity
-                    key={chip.id}
-                    onPress={() => handleSend(chip.prompt)}
-                    disabled={isTyping || quota.isExhausted}
-                    style={styles.chipButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.chipLabel}>{chip.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+            {/* Messages */}
+            {chatMessages.map((msg) => {
+              const isUser = msg.role === 'user';
+              const isSpeaking = speakingMessageId === msg.id;
+              const ts = formatTimestamp((msg as any).timestamp);
 
-          {/* Messages */}
-          {chatMessages.map((msg) => {
-            const isUser = msg.role === 'user';
-            const isSpeaking = speakingMessageId === msg.id;
-
-            return (
-              <Animated.View
-                key={msg.id}
-                entering={FadeInUp.duration(280)}
-                style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowAssistant]}
-              >
-                {!isUser && (
-                  <View style={styles.avatarBot}>
-                    <Bot size={15} color="#2563EB" />
-                  </View>
-                )}
-
-                <View
+              return (
+                <Animated.View
+                  key={msg.id}
+                  entering={FadeInUp.duration(280)}
                   style={[
-                    styles.messageBubble,
-                    isUser ? styles.bubbleUser : styles.bubbleAssistant,
+                    styles.messageRow,
+                    isUser ? styles.messageRowUser : styles.messageRowAssistant,
                   ]}
                 >
-                  <Text style={[styles.messageText, isUser ? styles.textUser : styles.textAssistant]}>
-                    {msg.text}
-                  </Text>
-
-                  {/* Assistant Actions Bar: TTS & Citation */}
                   {!isUser && (
-                    <View style={styles.assistantFooterRow}>
-                      {/* TTS Speak Aloud Button */}
-                      <TouchableOpacity
-                        onPress={() => handleToggleTTS(msg.id, msg.text)}
-                        style={[styles.ttsButton, isSpeaking && styles.ttsButtonActive]}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        {isSpeaking ? (
-                          <>
-                            <VolumeX size={14} color="#2563EB" />
-                            <Text style={styles.ttsButtonTextActive}>Stop</Text>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 size={14} color={colors.slate600} />
-                            <Text style={styles.ttsButtonText}>Listen</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      {msg.citation ? (
-                        <Text style={styles.citationText} numberOfLines={1}>
-                          {msg.citation}
-                        </Text>
-                      ) : null}
+                    <View style={styles.avatarBot}>
+                      <Bot size={15} color="#2563EB" />
                     </View>
                   )}
-                </View>
 
-                {isUser && (
-                  <View style={styles.avatarUser}>
-                    <User size={15} color="#FFFFFF" />
+                  <View style={[styles.messageWrapper, isUser ? styles.messageWrapperUser : styles.messageWrapperAssistant]}>
+                    <View
+                      style={[
+                        styles.messageBubble,
+                        isUser ? styles.bubbleUser : styles.bubbleAssistant,
+                      ]}
+                    >
+                      {isUser ? (
+                        <Text style={[styles.messageText, styles.textUser]}>
+                          {msg.text}
+                        </Text>
+                      ) : (
+                        <Text style={[styles.messageText, styles.textAssistant]}>
+                          {renderMarkdown(msg.text)}
+                        </Text>
+                      )}
+
+                      {/* Assistant actions: Listen + Share + citation */}
+                      {!isUser && (
+                        <View style={styles.assistantFooterRow}>
+                          <TouchableOpacity
+                            onPress={() => handleToggleTTS(msg.id, msg.text)}
+                            style={[styles.actionBtn, isSpeaking && styles.actionBtnActive]}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            {isSpeaking ? (
+                              <>
+                                <VolumeX size={13} color="#2563EB" />
+                                <Text style={styles.actionBtnTextActive}>Stop</Text>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 size={13} color={colors.slate600} />
+                                <Text style={styles.actionBtnText}>Listen</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => handleShare(msg.text)}
+                            style={styles.actionBtn}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Share2 size={13} color={colors.slate600} />
+                            <Text style={styles.actionBtnText}>Share</Text>
+                          </TouchableOpacity>
+
+                          {msg.citation ? (
+                            <Text style={styles.citationText} numberOfLines={1}>
+                              {msg.citation}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Timestamp */}
+                    {ts ? (
+                      <Text style={[styles.timestamp, isUser ? styles.timestampUser : styles.timestampAssistant]}>
+                        {ts}
+                      </Text>
+                    ) : null}
                   </View>
-                )}
+
+                  {isUser && (
+                    <View style={styles.avatarUser}>
+                      <User size={15} color="#FFFFFF" />
+                    </View>
+                  )}
+                </Animated.View>
+              );
+            })}
+
+            {/* Typing indicator */}
+            {isTyping && (
+              <Animated.View entering={FadeInUp.duration(250)} style={styles.typingRow}>
+                <View style={styles.avatarBot}>
+                  <Bot size={15} color="#2563EB" />
+                </View>
+                <View style={styles.typingBubble}>
+                  <ActivityIndicator size="small" color="#2563EB" />
+                  <Text style={styles.typingText}>Consulting clinical growth datasets…</Text>
+                </View>
               </Animated.View>
-            );
-          })}
+            )}
+          </ScrollView>
+        </LinearGradient>
 
-          {/* Typing indicator */}
-          {isTyping && (
-            <Animated.View entering={FadeInUp.duration(250)} style={styles.typingRow}>
-              <View style={styles.avatarBot}>
-                <Bot size={15} color="#2563EB" />
-              </View>
-              <View style={styles.typingBubble}>
-                <ActivityIndicator size="small" color="#2563EB" />
-                <Text style={styles.typingText}>Consulting clinical growth datasets...</Text>
-              </View>
-            </Animated.View>
-          )}
-        </ScrollView>
-
-        {/* Input Bar */}
+        {/* ── Input bar ────────────────────────────────────────────── */}
         <View style={styles.inputContainer}>
           {quota.isExhausted ? (
             <View style={styles.exhaustedBox}>
@@ -356,9 +445,10 @@ export default function ChatScreen() {
           ) : (
             <View style={styles.inputRow}>
               <TextInput
+                ref={inputRef}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Ask about growth plates, stretches, sleep..."
+                placeholder="Ask about growth plates, stretches, sleep…"
                 placeholderTextColor={colors.slate400}
                 style={styles.textInput}
                 multiline
@@ -367,15 +457,19 @@ export default function ChatScreen() {
                 onSubmitEditing={() => handleSend()}
               />
               <TouchableOpacity
-                onPress={() => handleSend()}
-                disabled={!inputText.trim() || isTyping}
+                onPress={inputText.trim() ? () => handleSend() : () => inputRef.current?.focus()}
+                disabled={isTyping}
                 style={[
                   styles.sendButton,
-                  (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
+                  (!inputText.trim() || isTyping) && styles.sendButtonMic,
                 ]}
                 activeOpacity={0.8}
               >
-                <Send size={18} color="#FFFFFF" />
+                {inputText.trim() ? (
+                  <Send size={18} color="#FFFFFF" />
+                ) : (
+                  <Mic size={18} color="#FFFFFF" />
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -392,132 +486,146 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0F172A',
   },
   flexOne: {
     flex: 1,
   },
+
+  // ── Header ────────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(226, 232, 240, 0.8)',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: '#0F172A',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(148, 163, 184, 0.15)',
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(148,163,184,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
-  headerTitleWrap: {
+  headerCenter: {
     flex: 1,
+    alignItems: 'flex-start',
+    gap: 3,
   },
-  headerBadgeRow: {
+  wordmarkPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.slate900,
+  wordmarkText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
   },
   headerSubtitle: {
     fontSize: 11,
-    color: colors.slate400,
-    marginTop: 1,
+    color: '#64748B',
+    marginLeft: 2,
   },
   quotaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(37,99,235,0.18)',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(147,197,253,0.3)',
   },
   quotaChipExhausted: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FCD34D',
+    backgroundColor: 'rgba(217,119,6,0.15)',
+    borderColor: 'rgba(252,211,77,0.35)',
   },
   quotaText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.blue600,
+    color: '#93C5FD',
   },
   quotaTextExhausted: {
     color: colors.amber600,
   },
+
+  // ── Refill bar ────────────────────────────────────────────────
   refillBar: {
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 4,
+    backgroundColor: '#1E293B',
+    paddingVertical: 5,
     paddingHorizontal: 16,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   refillText: {
     fontSize: 11,
-    color: colors.slate600,
+    color: '#64748B',
     fontWeight: '500',
   },
+
+  // ── Scroll / messages ─────────────────────────────────────────
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
     gap: 14,
   },
+
+  // ── Welcome card ──────────────────────────────────────────────
   welcomeCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     shadowColor: '#1E3A8A',
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 2,
   },
-  sparkleIconOrb: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF6FF',
+  sparkleOrb: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   welcomeTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.slate900,
     marginBottom: 6,
+    letterSpacing: -0.3,
   },
   welcomeBody: {
     fontSize: 13,
     color: colors.slate600,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
+
+  // ── Chips ─────────────────────────────────────────────────────
   chipsSection: {
-    marginBottom: 10,
+    marginBottom: 6,
   },
   chipsHeading: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.slate400,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     marginBottom: 8,
   },
   chipsGrid: {
@@ -530,7 +638,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 8,
     shadowColor: '#000',
     shadowOpacity: 0.02,
@@ -541,6 +649,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.slate600,
   },
+
+  // ── Message rows ──────────────────────────────────────────────
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -551,6 +661,16 @@ const styles = StyleSheet.create({
   },
   messageRowAssistant: {
     justifyContent: 'flex-start',
+  },
+  messageWrapper: {
+    maxWidth: '82%',
+    gap: 3,
+  },
+  messageWrapperUser: {
+    alignItems: 'flex-end',
+  },
+  messageWrapperAssistant: {
+    alignItems: 'flex-start',
   },
   avatarBot: {
     width: 28,
@@ -571,7 +691,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   messageBubble: {
-    maxWidth: '82%',
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -601,17 +720,38 @@ const styles = StyleSheet.create({
   textAssistant: {
     color: colors.slate900,
   },
+  mdBold: {
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  mdHeading: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.slate900,
+    lineHeight: 22,
+  },
+  timestamp: {
+    fontSize: 10,
+    color: colors.slate400,
+    marginTop: 2,
+  },
+  timestampUser: {
+    textAlign: 'right',
+  },
+  timestampAssistant: {
+    textAlign: 'left',
+    marginLeft: 4,
+  },
   assistantFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 8,
     paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    gap: 10,
+    gap: 6,
   },
-  ttsButton: {
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -620,18 +760,18 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
-  ttsButtonActive: {
+  actionBtnActive: {
     backgroundColor: '#EFF6FF',
     borderColor: '#93C5FD',
   },
-  ttsButtonText: {
+  actionBtnText: {
     fontSize: 11,
     color: colors.slate600,
     fontWeight: '600',
   },
-  ttsButtonTextActive: {
+  actionBtnTextActive: {
     fontSize: 11,
     color: colors.blue600,
     fontWeight: '700',
@@ -642,6 +782,8 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+
+  // ── Typing indicator ──────────────────────────────────────────
   typingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -663,6 +805,8 @@ const styles = StyleSheet.create({
     color: colors.slate600,
     fontStyle: 'italic',
   },
+
+  // ── Input bar ─────────────────────────────────────────────────
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -674,11 +818,11 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 22,
-    paddingHorizontal: 14,
+    backgroundColor: '#F8FAFF',
+    borderWidth: 1.5,
+    borderColor: '#DDE3F5',
+    borderRadius: 28,
+    paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 8 : 4,
     gap: 10,
   },
@@ -696,8 +840,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendButtonDisabled: {
-    backgroundColor: colors.slate400,
+  sendButtonMic: {
+    backgroundColor: '#94A3B8',
   },
   exhaustedBox: {
     flexDirection: 'row',

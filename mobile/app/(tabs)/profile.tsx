@@ -52,7 +52,8 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 export default function ProfileScreen() {
   const router = useRouter();
   const quizData = useAppStore((state) => state.quizData);
-  const badges = useAppStore((state) => state.badges);
+  const liveCatalogBadges = useAppStore((state) => state.liveCatalogBadges);
+  const storeStaticBadges = useAppStore((state) => state.badges);
   const unlockedBadgeIds = useAppStore((state) => state.unlockedBadgeIds);
   const streakDays = useAppStore((state) => state.streakDays);
   const user = useAppStore((state) => state.user);
@@ -119,21 +120,95 @@ export default function ProfileScreen() {
   };
   const result = calculateTarget(safeData);
 
+  // Use admin live data if available, else local fetch, else static
+  const displayBadges = liveCatalogBadges.length > 0 ? liveCatalogBadges : (liveBadges ?? storeStaticBadges);
+
   const unlockedCount = unlockedBadgeIds.length;
-  const totalBadges = badges.length;
+  const totalBadges = displayBadges.length;
 
   const handleDownloadAllData = async () => {
     Haptics.selectionAsync().catch(() => {});
     try {
       const jsonString = downloadAllUserData();
-      const approxKb = Math.max(1, Math.round(jsonString.length / 1024));
+      let data: any = {};
+      try {
+        data = JSON.parse(jsonString);
+      } catch {
+        data = {};
+      }
 
-      await Share.share({
-        title: 'GoTall_Biometric_Archive.json',
-        message: jsonString,
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       });
 
-      setExportSuccessMessage(`Data archive compiled (${approxKb} KB). Exported successfully!`);
+      const profile = data.profile || data.quizData || {};
+      const sleepLogs: any[] = data.sleepLogs || data.sleep_logs || [];
+      const meals: any[] = data.meals || data.mealLogs || data.meal_logs || [];
+      const badgesUnlocked: string[] = data.unlockedBadgeIds || data.unlocked_badge_ids || [];
+
+      const lines: string[] = [
+        'TOLLGRAM — BIOMETRIC DATA EXPORT',
+        `Generated: ${dateStr}`,
+        '==============================',
+        '',
+        'PROFILE',
+        `Name: ${profile.name || data.user?.name || 'N/A'}`,
+        `Email: ${profile.email || data.user?.email || 'N/A'}`,
+        `Height: ${profile.currentHeight ?? 'N/A'} cm`,
+        `Age: ${profile.age ?? 'N/A'}`,
+        `Gender: ${profile.gender ?? 'N/A'}`,
+        `Target Height: ${profile.dreamHeight ?? 'N/A'} cm`,
+        '',
+      ];
+
+      if (sleepLogs.length > 0) {
+        lines.push(`SLEEP LOGS (${sleepLogs.length} entries)`);
+        sleepLogs.slice(0, 20).forEach((entry: any) => {
+          const date = entry.date || entry.logged_at || '';
+          const hours = entry.hours ?? entry.duration ?? '';
+          const quality = entry.quality ?? entry.sleep_quality ?? '';
+          lines.push(`  ${date}: ${hours}h${quality ? ` — ${quality}` : ''}`);
+        });
+        if (sleepLogs.length > 20) lines.push(`  ... and ${sleepLogs.length - 20} more entries`);
+        lines.push('');
+      }
+
+      if (meals.length > 0) {
+        lines.push(`MEALS LOGGED (${meals.length} entries)`);
+        meals.slice(0, 20).forEach((meal: any) => {
+          const name = meal.name || meal.meal_name || 'Unknown';
+          const kcal = meal.calories ?? meal.kcal ?? '';
+          const protein = meal.protein ?? '';
+          lines.push(
+            `  ${name}: ${kcal ? `${kcal} kcal` : ''}${protein ? `, ${protein}g protein` : ''}`,
+          );
+        });
+        if (meals.length > 20) lines.push(`  ... and ${meals.length - 20} more entries`);
+        lines.push('');
+      }
+
+      if (badgesUnlocked.length > 0) {
+        lines.push(`BADGES UNLOCKED: ${badgesUnlocked.length}`);
+        badgesUnlocked.forEach((id: string) => lines.push(`  • ${id}`));
+        lines.push('');
+      }
+
+      lines.push('==============================');
+      lines.push('Exported from Tollgram. For personal use only.');
+
+      const formattedText = lines.join('\n');
+
+      await Share.share({
+        title: 'Tollgram_BiometricExport.txt',
+        message: formattedText,
+      });
+
+      setExportSuccessMessage('Data exported successfully!');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => setExportSuccessMessage(null), 5000);
     } catch (err: any) {
@@ -194,7 +269,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.brandPill}>
             <Activity size={14} color="#2563EB" />
-            <Text style={styles.brandText}>GoTall</Text>
+            <Text style={styles.brandText}>Tollgram</Text>
             <View style={styles.onlineDot} />
           </View>
 
@@ -349,7 +424,7 @@ export default function ProfileScreen() {
 
           {/* Badges Grid (2-column) */}
           <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.badgesGrid}>
-            {(liveBadges || badges).map((badge) => {
+            {displayBadges.map((badge) => {
               const isUnlocked = unlockedBadgeIds.includes(badge.id);
 
               return (
@@ -529,9 +604,9 @@ export default function ProfileScreen() {
                   <View style={styles.privacyBtnLeft}>
                     <Download size={15} color="#2563EB" />
                     <View>
-                      <Text style={styles.downloadDataBtnText}>Download All My Data</Text>
+                      <Text style={styles.downloadDataBtnText}>Export My Data</Text>
                       <Text style={styles.downloadDataBtnSub}>
-                        Single-click export of biometrics, meals, sleep, and workouts (.json)
+                        Human-readable export of biometrics, meals, sleep, and badges
                       </Text>
                     </View>
                   </View>
