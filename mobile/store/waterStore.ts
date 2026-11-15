@@ -146,14 +146,14 @@ export const useWaterStore = create<WaterState>()(
               .single();
 
             if (error) {
-              // If table doesn't exist yet, keep the local log — don't roll back
+              // If table doesn't exist yet, keep the local log silently — don't roll back
               if (
                 error.message?.includes('water_logs') ||
                 error.code === 'PGRST205' ||
                 error.code === '42P01'
               ) {
-                // Table missing — silently keep local entry, it will sync later
-                logError('water_logs table not found — run supabase/migrations/20261115_mobile_features_schema.sql in Supabase SQL Editor', error);
+                // Table missing — keep local entry. Run the migration to fix permanently:
+                // supabase/migrations/20261115_mobile_features_schema.sql
                 return true;
               }
               // Other DB error — roll back

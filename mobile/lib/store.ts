@@ -1307,9 +1307,24 @@ export const useAppStore = create<AppState>()(
             set({ badges: mappedBadges });
           }
 
-          // 5. Preset Meals
+          // 5. Preset Meals — map snake_case DB fields to the shape FoodLogModal expects
           if (mealsRes.status === 'fulfilled' && mealsRes.value.data && mealsRes.value.data.length > 0) {
-            set({ livePresetMeals: mealsRes.value.data });
+            const mappedMeals = mealsRes.value.data.map((m: any) => ({
+              id: String(m.id),
+              name: m.name,
+              serving_size: m.serving_size || '1 serving',
+              category: m.category || 'High Protein',
+              calories: Number(m.calories) || 0,
+              protein: Number(m.protein) || 0,
+              carbs: Number(m.carbs) || 0,
+              fat: Number(m.fat) || 0,
+              calcium: Number(m.calcium ?? 0),
+              zinc: Number(m.zinc ?? 0),
+              vitaminD3: Number(m.vitamin_d3 ?? 0),
+              clinicalRationale: m.clinical_rationale || '',
+              active: m.active !== false,
+            }));
+            set({ livePresetMeals: mappedMeals });
           }
 
           // 6. Populate live catalog — used by stretches tab instead of CLINICAL_STRETCHES.
