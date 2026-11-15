@@ -355,9 +355,9 @@ export default function QuizScreen() {
                 Calibrates percentile curves against World Health Organization (WHO) and regional demographic datasets.
               </Text>
 
-              {/* 3D Translucent Illuminated Glass Globe Centerpiece */}
+              {/* 3D Animated Illuminated Earth Globe Centerpiece with Twinkling Stars */}
               <View style={styles.globeWrapper}>
-                <GlobeGraphic size={110} />
+                <GlobeGraphic size={160} />
               </View>
 
               <View style={styles.cardList}>

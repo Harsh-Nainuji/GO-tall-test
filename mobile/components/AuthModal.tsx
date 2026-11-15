@@ -256,7 +256,7 @@ export default function AuthModal({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 80,
     gap: 14,
   },
   subtitle: {

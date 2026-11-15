@@ -1,16 +1,13 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, {
   Circle,
-  Ellipse,
-  Line,
   Defs,
+  RadialGradient,
   LinearGradient as SvgLinearGradient,
   Stop,
-  RadialGradient,
   Path,
-  G,
-  ClipPath,
 } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -24,242 +21,178 @@ interface GlobeGraphicProps {
   size?: number;
 }
 
-/**
- * Authentic 3D Spinning Glass Planet Globe
- * Features continuous horizontal planetary rotation across its polar axis,
- * stylized continents, atmospheric cyan glow, and fixed specular glass reflection.
- */
-export default function GlobeGraphic({ size = 110 }: GlobeGraphicProps) {
-  const spin = useSharedValue(0);
-  const pulse = useSharedValue(1);
+// User-provided authentic Earth texture base64
+const EARTH_TEXTURE_BASE64 =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAAAAAAD/2wBDACYaHSEdGCYhHyErKCYtOV8+OTQ0OXVTWEVfinmRj4h5hYOYq9u6mKLPpIOFvv/Bz+Lp9fj1lLf////u/9vw9ez/2wBDASgrKzkyOXA+PnDsnYWd7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Oz/wAARCAE5AfQDASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAgMEAQAFBv/EADoQAAIBAwIFAwIFAgUFAQADAAECEQADIRIxBCJBUWETcYEykRRCUqGxI8EFYnLR8DOCkuHxQxVTY//EABgBAQEBAQEAAAAAAAAAAAAAAAABAgME/8QAIBEBAQEAAwEBAAMBAQAAAAAAAAERAiExEkETUXEYERL/2gA+qm9KA1dC/Tb9I+9dRV1VH//Z';
 
-  // Continental cluster width for seamless infinite loop
-  const loopWidth = size * 1.8;
+/**
+ * 4-Point Concave Curved Diamond Star (matches the 4 curved corners in CSS)
+ */
+function CurvedCornerStar({
+  x,
+  y,
+  duration,
+  starSize = 10,
+}: {
+  x: number;
+  y: number;
+  duration: number;
+  starSize?: number;
+}) {
+  const opacity = useSharedValue(0.1);
 
   useEffect(() => {
-    // Continuous planetary rotation around Y-axis
-    spin.value = withRepeat(
-      withTiming(-loopWidth, {
-        duration: 10000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false
-    );
-
-    // Subtle atmospheric breathing aura
-    pulse.value = withRepeat(
-      withTiming(1.08, {
-        duration: 3000,
+    opacity.value = withRepeat(
+      withTiming(1, {
+        duration: duration / 2,
         easing: Easing.inOut(Easing.ease),
       }),
       -1,
       true
     );
-  }, [loopWidth]);
+  }, [duration, opacity]);
 
-  const animatedContinentsStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: spin.value }],
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
   }));
 
-  const animatedGlowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const radius = (size - 10) / 2;
-  const center = size / 2;
-
-  // Simplified elegant continent silhouettes for both hemisphere passes
-  const renderContinents = (offsetX: number) => (
-    <G x={offsetX}>
-      {/* Eurasia & Africa Silhouette */}
-      <Path
-        d={`M ${center - 25} ${center - 28} 
-            Q ${center - 10} ${center - 38} ${center + 15} ${center - 25} 
-            Q ${center + 28} ${center - 15} ${center + 20} ${center - 4} 
-            Q ${center + 12} ${center + 6} ${center + 8} ${center + 22} 
-            Q ${center - 5} ${center + 26} ${center - 12} ${center + 14} 
-            Q ${center - 24} ${center + 8} ${center - 28} ${center - 12} Z`}
-        fill="#38BDF8"
-        fillOpacity={0.45}
-      />
-      {/* Americas Silhouette */}
-      <Path
-        d={`M ${center + 45} ${center - 32} 
-            Q ${center + 60} ${center - 22} ${center + 54} ${center - 8} 
-            Q ${center + 48} ${center + 5} ${center + 52} ${center + 24} 
-            Q ${center + 42} ${center + 26} ${center + 38} ${center + 10} 
-            Q ${center + 35} ${center - 12} ${center + 45} ${center - 32} Z`}
-        fill="#0284C7"
-        fillOpacity={0.4}
-      />
-      {/* India & South Asian Hotspot */}
-      <Path
-        d={`M ${center + 6} ${center - 6} 
-            Q ${center + 12} ${center + 2} ${center + 7} ${center + 12} 
-            Q ${center + 2} ${center + 6} ${center + 6} ${center - 6} Z`}
-        fill="#00D2FF"
-        fillOpacity={0.8}
-      />
-      {/* Australia / Oceania Cluster */}
-      <Ellipse
-        cx={center + 28}
-        cy={center + 18}
-        rx={7}
-        ry={5}
-        fill="#38BDF8"
-        fillOpacity={0.5}
-      />
-      {/* Illuminated Genetic Population Nodes */}
-      <Circle cx={center + 7} cy={center + 4} r={3} fill="#FFFFFF" />
-      <Circle cx={center + 7} cy={center + 4} r={4.5} fill="#38BDF8" fillOpacity={0.6} />
-      <Circle cx={center - 10} cy={center - 12} r={2.5} fill="#BAE6FD" />
-      <Circle cx={center + 48} cy={center - 15} r={2.5} fill="#BAE6FD" />
-      <Circle cx={center + 28} cy={center + 18} r={2.2} fill="#BAE6FD" />
-
-      {/* Rotating Longitudinal Curved Meridians */}
-      <Path
-        d={`M ${center} ${center - radius} Q ${center + 18} ${center} ${center} ${center + radius}`}
-        stroke="#38BDF8"
-        strokeWidth={1}
-        strokeOpacity={0.4}
-        fill="none"
-      />
-      <Path
-        d={`M ${center} ${center - radius} Q ${center - 18} ${center} ${center} ${center + radius}`}
-        stroke="#38BDF8"
-        strokeWidth={1}
-        strokeOpacity={0.4}
-        fill="none"
-      />
-      <Path
-        d={`M ${center + 36} ${center - radius * 0.85} Q ${center + 52} ${center} ${center + 36} ${center + radius * 0.85}`}
-        stroke="#38BDF8"
-        strokeWidth={0.8}
-        strokeOpacity={0.3}
-        fill="none"
-      />
-      <Path
-        d={`M ${center - 36} ${center - radius * 0.85} Q ${center - 20} ${center} ${center - 36} ${center + radius * 0.85}`}
-        stroke="#38BDF8"
-        strokeWidth={0.8}
-        strokeOpacity={0.3}
-        fill="none"
-      />
-    </G>
-  );
+  const r = starSize / 2;
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      {/* Ambient Cyan Atmosphere Glow Halo */}
-      <Animated.View
-        pointerEvents="none"
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: x,
+          top: y,
+          zIndex: 10,
+        },
+        animatedStyle,
+      ]}
+      pointerEvents="none"
+    >
+      <Svg width={starSize} height={starSize} viewBox={`-${r} -${r} ${starSize} ${starSize}`}>
+        <Path
+          d={`M 0,-${r} Q 0,0 ${r},0 Q 0,0 0,${r} Q 0,0 -${r},0 Q 0,0 0,-${r} Z`}
+          fill="#FFFFFF"
+        />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+/**
+ * Authentic 3D Earth Globe Component
+ * Adapted from the user's styled-components Earth Card with:
+ * - 30s infinite horizontal planetary rotation
+ * - 7 twinkling 4-point curved diamond stars
+ * - Atmospheric cyan glow (#c3f4ff) & 3D spherical shadow depth
+ */
+export default function GlobeGraphic({ size = 160 }: GlobeGraphicProps) {
+  const scrollOffset = useSharedValue(0);
+
+  // Each repeating texture block width
+  const textureWidth = size * 2.2;
+
+  useEffect(() => {
+    // 30s continuous linear rotation matching @keyframes earthRotate
+    scrollOffset.value = withRepeat(
+      withTiming(-textureWidth, {
+        duration: 30000,
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
+  }, [textureWidth, scrollOffset]);
+
+  const animatedTextureStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: scrollOffset.value }],
+  }));
+
+  const scaleRatio = size / 250;
+
+  return (
+    <View style={[styles.outerWrapper, { width: size + 70 * scaleRatio, height: size + 50 * scaleRatio }]}>
+      {/* 7 Curved Corner Twinkling Stars positioned matching #star-1 to #star-7 */}
+      <CurvedCornerStar x={10 * scaleRatio} y={20 * scaleRatio} duration={3000} starSize={10 * scaleRatio} />
+      <CurvedCornerStar x={0 * scaleRatio} y={55 * scaleRatio} duration={2000} starSize={12 * scaleRatio} />
+      <CurvedCornerStar x={(size + 40) * scaleRatio} y={40 * scaleRatio} duration={4000} starSize={11 * scaleRatio} />
+      <CurvedCornerStar x={(size + 20) * scaleRatio} y={(size + 20) * scaleRatio} duration={3000} starSize={9 * scaleRatio} />
+      <CurvedCornerStar x={25 * scaleRatio} y={(size + 25) * scaleRatio} duration={1500} starSize={12 * scaleRatio} />
+      <CurvedCornerStar x={(size + 15) * scaleRatio} y={5 * scaleRatio} duration={4000} starSize={10 * scaleRatio} />
+      <CurvedCornerStar x={(size + 35) * scaleRatio} y={90 * scaleRatio} duration={2000} starSize={11 * scaleRatio} />
+
+      {/* Atmospheric Outer Cyan Glow Halo */}
+      <View
         style={[
           styles.glowHalo,
-          animatedGlowStyle,
           {
-            width: size * 0.95,
-            height: size * 0.95,
-            borderRadius: (size * 0.95) / 2,
+            width: size + 16,
+            height: size + 16,
+            borderRadius: (size + 16) / 2,
           },
         ]}
       />
 
-      <View style={[styles.globeSphereMask, { width: size, height: size, borderRadius: size / 2 }]}>
-        {/* Base Planet Ocean Sphere Gradient */}
-        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-          <Defs>
-            <RadialGradient id="oceanGrad" cx="35%" cy="30%" r="65%">
-              <Stop offset="0%" stopColor="#E0F2FE" stopOpacity="0.85" />
-              <Stop offset="45%" stopColor="#BAE6FD" stopOpacity="0.5" />
-              <Stop offset="80%" stopColor="#0284C7" stopOpacity="0.25" />
-              <Stop offset="100%" stopColor="#0369A1" stopOpacity="0.4" />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={center} cy={center} r={radius} fill="url(#oceanGrad)" />
-        </Svg>
-
-        {/* CONTINENTS & MERIDIANS HORIZONTAL SPIN CONTAINER */}
-        <Animated.View style={[styles.spinTrack, animatedContinentsStyle, { width: loopWidth * 2 }]}>
-          <Svg width={loopWidth * 2} height={size}>
-            {/* Pass 1 */}
-            {renderContinents(0)}
-            {/* Pass 2 (Seamless loop repeat) */}
-            {renderContinents(loopWidth)}
-          </Svg>
+      {/* Spherical Earth Globe with Inset Shadows */}
+      <View
+        style={[
+          styles.sphereContainer,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
+      >
+        {/* Animated Rotating Earth Texture Map */}
+        <Animated.View style={[styles.textureRow, animatedTextureStyle]}>
+          <Image
+            source={{ uri: EARTH_TEXTURE_BASE64 }}
+            style={{ width: textureWidth, height: size }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+          <Image
+            source={{ uri: EARTH_TEXTURE_BASE64 }}
+            style={{ width: textureWidth, height: size }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
         </Animated.View>
 
-        {/* Fixed 3D Spherical Atmosphere, Latitudes & Specular Highlight */}
-        <Svg width={size} height={size} style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* 3D Atmospheric Depth & Shading Overlay (Replicating exact CSS inset box-shadows) */}
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
           <Defs>
-            {/* Glossy 3D rim border */}
-            <SvgLinearGradient id="globeBorder" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.95" />
-              <Stop offset="50%" stopColor="#0284C7" stopOpacity="0.6" />
-              <Stop offset="100%" stopColor="#818CF8" stopOpacity="0.8" />
-            </SvgLinearGradient>
-
-            {/* Specular glass reflection on top left */}
-            <RadialGradient id="specularGlow" cx="28%" cy="22%" r="40%">
-              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.85" />
-              <Stop offset="60%" stopColor="#BAE6FD" stopOpacity="0.15" />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+            {/* Primary Spherical Lighting: Bright top-left atmosphere -> deep space darkness */}
+            <RadialGradient id="earthLighting" cx="32%" cy="28%" r="68%">
+              <Stop offset="0%" stopColor="#c3f4ff" stopOpacity="0.45" />
+              <Stop offset="25%" stopColor="#38bdf8" stopOpacity="0.15" />
+              <Stop offset="65%" stopColor="#000000" stopOpacity="0.55" />
+              <Stop offset="92%" stopColor="#000000" stopOpacity="0.88" />
+              <Stop offset="100%" stopColor="#000000" stopOpacity="0.95" />
             </RadialGradient>
+
+            {/* Inset Cyan Atmospheric Rim Glow (-5px 0px 8px #c3f4ff inset) */}
+            <SvgLinearGradient id="cyanAtmosphereRim" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#c3f4ff" stopOpacity="0.8" />
+              <Stop offset="35%" stopColor="#38bdf8" stopOpacity="0.25" />
+              <Stop offset="70%" stopColor="#000000" stopOpacity="0.6" />
+              <Stop offset="100%" stopColor="#000000" stopOpacity="0.95" />
+            </SvgLinearGradient>
           </Defs>
 
-          {/* Fixed Latitude Rings (Parallels) */}
-          <Ellipse
-            cx={center}
-            cy={center}
-            rx={radius}
-            ry={radius * 0.28}
-            stroke="#0284C7"
-            strokeWidth={1.2}
-            strokeOpacity={0.45}
-            fill="none"
-          />
-          <Ellipse
-            cx={center}
-            cy={center - radius * 0.45}
-            rx={radius * 0.88}
-            ry={radius * 0.2}
-            stroke="#38BDF8"
-            strokeWidth={1}
-            strokeOpacity={0.35}
-            fill="none"
-          />
-          <Ellipse
-            cx={center}
-            cy={center + radius * 0.45}
-            rx={radius * 0.88}
-            ry={radius * 0.2}
-            stroke="#38BDF8"
-            strokeWidth={1}
-            strokeOpacity={0.35}
-            fill="none"
-          />
+          {/* Deep 3D Sphere Shading */}
+          <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="url(#earthLighting)" />
 
-          {/* Equator Line */}
-          <Line
-            x1={center - radius}
-            y1={center}
-            x2={center + radius}
-            y2={center}
-            stroke="#0284C7"
-            strokeWidth={1.3}
-            strokeOpacity={0.6}
-          />
-
-          {/* Specular Highlight Shell */}
-          <Circle cx={center} cy={center} r={radius} fill="url(#specularGlow)" />
-
-          {/* 3D Glass Rim Border */}
+          {/* Glowing Atmospheric Limb Ring */}
           <Circle
-            cx={center}
-            cy={center}
-            r={radius}
+            cx={size / 2}
+            cy={size / 2}
+            r={size / 2 - 1}
             fill="none"
-            stroke="url(#globeBorder)"
+            stroke="url(#cyanAtmosphereRim)"
             strokeWidth={2}
           />
         </Svg>
@@ -269,31 +202,32 @@ export default function GlobeGraphic({ size = 110 }: GlobeGraphicProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    alignSelf: 'center',
   },
   glowHalo: {
     position: 'absolute',
-    backgroundColor: 'rgba(56, 189, 248, 0.22)',
-    shadowColor: '#00D2FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 22,
-    elevation: 8,
+    backgroundColor: '#c3f4ff',
+    opacity: 0.22,
+    shadowColor: '#38bdf8',
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  globeSphereMask: {
+  sphereContainer: {
     overflow: 'hidden',
     position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    shadowColor: '#c3f4ff',
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 14,
   },
-  spinTrack: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  textureRow: {
+    flexDirection: 'row',
     height: '100%',
   },
 });
