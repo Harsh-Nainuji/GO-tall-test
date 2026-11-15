@@ -105,6 +105,7 @@ export default function StretchesScreen() {
   useEffect(() => {
     setIsLoadingLive(true);
     loadLiveStretches();
+    useAppStore.getState().fetchLiveContent().catch(() => {});
   }, []);
 
   const scheduleDays = Object.keys(weeklyPlan);

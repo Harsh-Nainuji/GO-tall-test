@@ -69,7 +69,52 @@ export default function FoodLogModal({ visible, onClose }: FoodLogModalProps) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
     if (!searchQuery.trim()) {
-      setSearchResults(DEFAULT_PRESETS);
+      const liveStoreMeals = useAppStore.getState().livePresetMeals;
+      if (liveStoreMeals && liveStoreMeals.length > 0) {
+        setSearchResults(
+          liveStoreMeals.map((m: any) => ({
+            id: String(m.id),
+            name: m.name,
+            serving_size: m.serving_size || '1 serving',
+            category: m.category || 'High Protein',
+            calories: Number(m.calories) || 0,
+            protein: Number(m.protein) || 0,
+            carbs: Number(m.carbs) || 0,
+            fat: Number(m.fat) || 0,
+          }))
+        );
+      } else if (isSupabaseConfigured()) {
+        supabase
+          .from('meals')
+          .select('*')
+          .order('name', { ascending: true })
+          .limit(25)
+          .then(
+            ({ data }) => {
+              if (data && data.length > 0) {
+                setSearchResults(
+                  data.map((m: any) => ({
+                    id: String(m.id),
+                    name: m.name,
+                    serving_size: m.serving_size || '1 serving',
+                    category: m.category || 'High Protein',
+                    calories: Number(m.calories) || 0,
+                    protein: Number(m.protein) || 0,
+                    carbs: Number(m.carbs) || 0,
+                    fat: Number(m.fat) || 0,
+                  }))
+                );
+              } else {
+                setSearchResults(DEFAULT_PRESETS);
+              }
+            },
+            () => {
+              setSearchResults(DEFAULT_PRESETS);
+            }
+          );
+      } else {
+        setSearchResults(DEFAULT_PRESETS);
+      }
       setIsLoading(false);
       return;
     }

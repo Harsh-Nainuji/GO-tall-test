@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Mail, Lock, User, ShieldCheck, CheckCircle2, Eye, EyeOff } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -106,11 +107,17 @@ export default function AuthModal({
       visible={visible}
       onClose={onClose}
       title={mode === 'signup' ? 'Create Account' : 'Welcome Back'}
+      scrollable={false}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
+        style={{ flex: 1 }}
       >
+        <ScrollView
+          contentContainerStyle={[styles.container, { flexGrow: 1, paddingBottom: 120 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
         <Text style={styles.subtitle}>
           {mode === 'signup'
             ? 'Save your growth progress and daily routines.'
@@ -248,6 +255,7 @@ export default function AuthModal({
             Your data is stored securely in Supabase Cloud.
           </Text>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </BottomSheet>
   );

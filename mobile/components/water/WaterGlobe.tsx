@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
   Defs,
-  ClipPath,
   Circle,
   Path,
   LinearGradient,
@@ -28,15 +27,13 @@ interface WaterGlobeProps {
 }
 
 const GLOBE_SIZE = 240;
-const RADIUS = 114;
-const CENTER = GLOBE_SIZE / 2;
-
-// Repeating wave path for smooth horizontal translation
 const WAVE_WIDTH = 240;
-const waveD1 = `M 0 0 Q 60 -12 120 0 T 240 0 Q 300 -12 360 0 T 480 0 L 480 300 L 0 300 Z`;
-const waveD2 = `M 0 0 Q 60 10 120 0 T 240 0 Q 300 10 360 0 T 480 0 L 480 300 L 0 300 Z`;
 
-// Pulsing star component inside the globe
+// Repeating wave paths for smooth continuous flow
+const waveD1 = `M 0 0 Q 60 -12 120 0 T 240 0 Q 300 -12 360 0 T 480 0 L 480 320 L 0 320 Z`;
+const waveD2 = `M 0 0 Q 60 10 120 0 T 240 0 Q 300 10 360 0 T 480 0 L 480 320 L 0 320 Z`;
+
+// Pulsing star component inside the water globe
 function PulsingStar({ cx, cy, r, delay }: { cx: number; cy: number; r: number; delay: number }) {
   const opacity = useSharedValue(0.3);
 
@@ -46,9 +43,9 @@ function PulsingStar({ cx, cy, r, delay }: { cx: number; cy: number; r: number; 
       -1,
       true
     );
-  }, []);
+  }, [delay, opacity]);
 
-  return <Circle cx={cx} cy={cy} r={r} fill="#FFFFFF" fillOpacity={0.7} />;
+  return <Circle cx={cx} cy={cy} r={r} fill="#FFFFFF" fillOpacity={0.75} />;
 }
 
 export default function WaterGlobe({
@@ -57,13 +54,18 @@ export default function WaterGlobe({
   goalMl,
   size = GLOBE_SIZE,
 }: WaterGlobeProps) {
-  // Wave horizontal movement
+  // Expand outer circle to prevent clipping
+  const outerBorderWidth = 6;
+  const innerRadius = size / 2 - outerBorderWidth - 3;
+  const center = size / 2;
+
+  // Wave horizontal translation
   const waveTranslate = useSharedValue(0);
   const waveTranslateBack = useSharedValue(0);
 
   // Water level animation
-  const clampedProgress = Math.min(Math.max(progress, 0), 1.1);
-  const waterY = useSharedValue(GLOBE_SIZE);
+  const clampedProgress = Math.min(Math.max(progress, 0), 1.05);
+  const waterY = useSharedValue(size);
 
   useEffect(() => {
     // 3000ms loop driving translateX
@@ -78,13 +80,13 @@ export default function WaterGlobe({
       -1,
       false
     );
-  }, []);
+  }, [waveTranslate, waveTranslateBack]);
 
   useEffect(() => {
-    // Map progress 0..1 to Y coordinate (bottom: 240, top: 10)
-    const targetY = GLOBE_SIZE - clampedProgress * (GLOBE_SIZE - 20);
+    // Map progress 0..1 to Y coordinate (0 = bottom, 1 = top)
+    const targetY = size - clampedProgress * (size - 16);
     waterY.value = withSpring(targetY, { damping: 20, stiffness: 90 });
-  }, [clampedProgress]);
+  }, [clampedProgress, size, waterY]);
 
   const animatedWaveFront = useAnimatedStyle(() => ({
     transform: [{ translateX: waveTranslate.value }],
@@ -100,99 +102,107 @@ export default function WaterGlobe({
 
   const percentDisplay = Math.round(progress * 100);
 
-  // 7 Star coordinates within the globe
+  // Sparkle stars
+  const scaleRatio = size / 240;
   const stars = [
-    { cx: 70, cy: 60, r: 2.2, delay: 0 },
-    { cx: 160, cy: 50, r: 2.8, delay: 200 },
-    { cx: 190, cy: 110, r: 2.0, delay: 400 },
-    { cx: 50, cy: 120, r: 2.5, delay: 100 },
-    { cx: 120, cy: 80, r: 3.0, delay: 300 },
-    { cx: 90, cy: 160, r: 1.8, delay: 500 },
-    { cx: 155, cy: 170, r: 2.2, delay: 250 },
+    { cx: 70 * scaleRatio, cy: 60 * scaleRatio, r: 2.2 * scaleRatio, delay: 0 },
+    { cx: 160 * scaleRatio, cy: 50 * scaleRatio, r: 2.8 * scaleRatio, delay: 200 },
+    { cx: 190 * scaleRatio, cy: 110 * scaleRatio, r: 2.0 * scaleRatio, delay: 400 },
+    { cx: 50 * scaleRatio, cy: 120 * scaleRatio, r: 2.5 * scaleRatio, delay: 100 },
+    { cx: 120 * scaleRatio, cy: 80 * scaleRatio, r: 3.0 * scaleRatio, delay: 300 },
+    { cx: 90 * scaleRatio, cy: 160 * scaleRatio, r: 1.8 * scaleRatio, delay: 500 },
+    { cx: 155 * scaleRatio, cy: 170 * scaleRatio, r: 2.2 * scaleRatio, delay: 250 },
   ];
 
   return (
     <View style={[styles.wrapper, { width: size, height: size }]}>
-      <Svg width={size} height={size} viewBox={`0 0 ${GLOBE_SIZE} ${GLOBE_SIZE}`}>
-        <Defs>
-          <ClipPath id="globeClip">
-            <Circle cx={CENTER} cy={CENTER} r={RADIUS} />
-          </ClipPath>
+      {/* Outer White Circular Border Ring with Soft Halo */}
+      <View
+        style={[
+          styles.outerWhiteBorder,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: outerBorderWidth,
+          },
+        ]}
+      />
 
-          <LinearGradient id="globeBg" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#EFF6FF" stopOpacity="0.8" />
-            <Stop offset="100%" stopColor="#DBEAFE" stopOpacity="0.4" />
-          </LinearGradient>
-
-          <LinearGradient id="waterFrontGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#60A5FA" stopOpacity="0.85" />
-            <Stop offset="100%" stopColor="#2563EB" stopOpacity="0.95" />
-          </LinearGradient>
-
-          <LinearGradient id="waterBackGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#93C5FD" stopOpacity="0.5" />
-            <Stop offset="100%" stopColor="#3B82F6" stopOpacity="0.65" />
-          </LinearGradient>
-        </Defs>
-
-        {/* Globe Base Background */}
-        <Circle
-          cx={CENTER}
-          cy={CENTER}
-          r={RADIUS}
-          fill="url(#globeBg)"
-          stroke="#BFDBFE"
-          strokeWidth="3"
-        />
-
-        {/* Scale Ticks: 25%, 50%, 75%, 100% */}
-        <G stroke="#93C5FD" strokeWidth="2" strokeDasharray="3,3">
-          {/* 100% tick */}
-          <Line x1="18" y1="35" x2="36" y2="35" />
-          {/* 75% tick */}
-          <Line x1="10" y1="85" x2="28" y2="85" />
-          {/* 50% tick */}
-          <Line x1="6" y1="120" x2="26" y2="120" strokeWidth="2.5" />
-          {/* 25% tick */}
-          <Line x1="14" y1="170" x2="30" y2="170" />
-        </G>
-
-        {/* 7 Pulsing Stars */}
-        {stars.map((s, idx) => (
-          <PulsingStar key={idx} cx={s.cx} cy={s.cy} r={s.r} delay={s.delay} />
-        ))}
-      </Svg>
-
-      {/* Clipped Animated Waves */}
-      <View style={[StyleSheet.absoluteFill, styles.clippedArea]}>
-        <Animated.View style={[styles.wavesContainer, animatedContainer]}>
-          {/* Back wave */}
+      {/* Internal Circular Mask for Wave Animation - Perfectly Contained Inside White Border */}
+      <View
+        style={{
+          width: innerRadius * 2,
+          height: innerRadius * 2,
+          borderRadius: innerRadius,
+          overflow: 'hidden',
+          backgroundColor: '#F0F9FF', // Realistic light water flask background (Never black)
+          position: 'absolute',
+          top: center - innerRadius,
+          left: center - innerRadius,
+        }}
+      >
+        {/* Animated Water Waves Container */}
+        <Animated.View style={[styles.wavesContainer, animatedContainer, { width: size * 2 }]}>
+          {/* Back wave layer - Luminous crystal aqua */}
           <Animated.View style={[styles.waveRow, animatedWaveBack]}>
-            <Svg width={WAVE_WIDTH * 2} height={300} viewBox="0 0 480 300">
-              <Path d={waveD2} fill="url(#waterBackGrad)" />
+            <Svg width={WAVE_WIDTH * 2} height={340} viewBox="0 0 480 320">
+              <Defs>
+                <LinearGradient id="backWaveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor="#7DD3FC" stopOpacity="0.75" />
+                  <Stop offset="50%" stopColor="#38BDF8" stopOpacity="0.85" />
+                  <Stop offset="100%" stopColor="#0284C7" stopOpacity="0.95" />
+                </LinearGradient>
+              </Defs>
+              <Path d={waveD2} fill="url(#backWaveGrad)" />
             </Svg>
           </Animated.View>
 
-          {/* Front wave */}
+          {/* Front wave layer - Realistic vibrant refreshing blue water */}
           <Animated.View style={[styles.waveRow, animatedWaveFront]}>
-            <Svg width={WAVE_WIDTH * 2} height={300} viewBox="0 0 480 300">
-              <Path d={waveD1} fill="url(#waterFrontGrad)" />
+            <Svg width={WAVE_WIDTH * 2} height={340} viewBox="0 0 480 320">
+              <Defs>
+                <LinearGradient id="frontWaveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.9" />
+                  <Stop offset="40%" stopColor="#0EA5E9" stopOpacity="0.95" />
+                  <Stop offset="100%" stopColor="#0284C7" stopOpacity="1" />
+                </LinearGradient>
+              </Defs>
+              <Path d={waveD1} fill="url(#frontWaveGrad)" />
             </Svg>
           </Animated.View>
         </Animated.View>
+
+        {/* Ambient Stars & Water Bubbles inside the flask */}
+        <Svg width={innerRadius * 2} height={innerRadius * 2} style={StyleSheet.absoluteFill}>
+          {stars.map((s, idx) => (
+            <PulsingStar key={idx} cx={s.cx} cy={s.cy} r={s.r} delay={s.delay} />
+          ))}
+
+          {/* Level Ticks */}
+          <G stroke="#BAE6FD" strokeWidth="2" strokeDasharray="3,3">
+            <Line x1="16" y1={innerRadius * 0.4} x2="32" y2={innerRadius * 0.4} />
+            <Line x1="10" y1={innerRadius * 0.8} x2="28" y2={innerRadius * 0.8} />
+            <Line x1="8" y1={innerRadius} x2="30" y2={innerRadius} strokeWidth="2.5" />
+            <Line x1="14" y1={innerRadius * 1.4} x2="30" y2={innerRadius * 1.4} />
+          </G>
+        </Svg>
       </View>
 
-      {/* Globe Rim Highlight */}
-      <Svg width={size} height={size} viewBox={`0 0 ${GLOBE_SIZE} ${GLOBE_SIZE}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Circle
-          cx={CENTER}
-          cy={CENTER}
-          r={RADIUS}
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.6)"
-          strokeWidth="2"
-        />
-      </Svg>
+      {/* Surface Glass Specular Gloss Ring */}
+      <View
+        pointerEvents="none"
+        style={{
+          width: innerRadius * 2,
+          height: innerRadius * 2,
+          borderRadius: innerRadius,
+          position: 'absolute',
+          top: center - innerRadius,
+          left: center - innerRadius,
+          borderWidth: 1.5,
+          borderColor: 'rgba(255, 255, 255, 0.75)',
+        }}
+      />
 
       {/* Centered Numbers Overlay */}
       <View style={styles.centerOverlay} pointerEvents="none">
@@ -212,17 +222,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clippedArea: {
-    borderRadius: RADIUS,
-    overflow: 'hidden',
-    width: RADIUS * 2,
-    height: RADIUS * 2,
-    top: CENTER - RADIUS,
-    left: CENTER - RADIUS,
+  outerWhiteBorder: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 8,
+    position: 'absolute',
   },
   wavesContainer: {
-    width: '100%',
-    height: 300,
+    height: 340,
     position: 'relative',
   },
   waveRow: {
@@ -245,9 +256,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.slate900,
     fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowColor: 'rgba(255, 255, 255, 0.95)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
   },
   metricsText: {
     fontSize: 13,
@@ -255,8 +266,8 @@ const styles = StyleSheet.create({
     color: colors.slate600,
     fontVariant: ['tabular-nums'],
     marginTop: 2,
-    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowColor: 'rgba(255, 255, 255, 0.95)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 5,
   },
 });

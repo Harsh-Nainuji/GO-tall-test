@@ -21,7 +21,7 @@ import { colors, gradients } from '../../lib/theme';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUpWithEmail, isLoading, error, clearError } = useAuthStore();
+  const { signUpWithEmail, signInWithOAuth, isLoading, error, clearError } = useAuthStore();
   const setUser = useAppStore((state) => state.setUser);
   const setPremium = useAppStore((state) => state.setPremium);
 
@@ -170,6 +170,31 @@ export default function SignUpScreen() {
             </TouchableOpacity>
           </GlassCard>
 
+          {/* Social Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Social Buttons */}
+          <View style={styles.socialRow}>
+            <TouchableOpacity
+              onPress={() => signInWithOAuth('google')}
+              style={styles.socialBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.socialBtnText}>🇬 Google</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => signInWithOAuth('apple')}
+              style={[styles.socialBtn, styles.socialBtnApple]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.socialBtnText, { color: '#FFFFFF' }]}>🍎 Apple</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Already have an account?</Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/sign-in' as any)}>
@@ -290,4 +315,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.blue600,
   },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+  dividerText: { fontSize: 12, color: colors.slate400, fontWeight: '500' },
+  socialRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  socialBtnApple: { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' },
+  socialBtnText: { fontSize: 14, fontWeight: '600', color: colors.slate900 },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -36,12 +36,14 @@ export default function NutritionScreen() {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  useEffect(() => {
+    useAppStore.getState().fetchLiveContent().catch(() => {});
+  }, []);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulates checking live sync
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 600);
+    await useAppStore.getState().fetchLiveContent().catch(() => {});
+    setIsRefreshing(false);
   };
 
   // Compute live nutritional totals from store

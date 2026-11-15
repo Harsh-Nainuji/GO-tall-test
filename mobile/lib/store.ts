@@ -829,6 +829,8 @@ interface AppState {
   setWorkoutDaysPerWeek: (days: number) => void;
   setActivePlanDay: (day: string) => void;
   generateWeeklyPlan: (daysPerWeek?: number) => Promise<void>;
+  livePresetMeals: any[];
+  fetchLiveContent: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>()(
@@ -850,6 +852,7 @@ export const useAppStore = create<AppState>()(
       // Categories and Category Questions
       categories: INITIAL_CATEGORIES,
       categoryQuestions: INITIAL_CATEGORY_QUESTIONS,
+      livePresetMeals: [],
 
       // Sleep tracking state (fresh starter state)
       sleepLogs: [],
@@ -1091,9 +1094,9 @@ export const useAppStore = create<AppState>()(
 
         // If window has elapsed, count is 0 until next question
         const used = hasActiveWindow ? s.aiQuestionsUsedToday : 0;
-        const limit = s.isPremium ? 50 : 5;
+        const limit = 5;
         const remaining = Math.max(0, limit - used);
-        const planName = s.isPremium ? 'Pro Clinical' : 'Free Plan';
+        const planName = s.isPremium ? 'Pro Clinical' : 'Free';
 
         let resetCountdown = 'Ready';
         if (hasActiveWindow && s.aiWindowStart) {
@@ -1188,6 +1191,98 @@ export const useAppStore = create<AppState>()(
           workoutDaysPerWeek: currentDays,
           activePlanDay: activeDay,
         });
+      },
+
+      fetchLiveContent: async () => {
+        if (!isSupabaseConfigured()) return;
+        try {
+          const [stretchesRes, catRes, qRes, badgeRes, mealsRes] = await Promise.allSettled([
+            supabase.from('stretches').select('*').eq('active', true).order('sort_order', { ascending: true }),
+            supabase.from('workout_categories').select('*').order('sort_order', { ascending: true }),
+            supabase.from('category_questions').select('*').eq('active', true),
+            supabase.from('achievements').select('*').order('sort_order', { ascending: true }),
+            supabase.from('meals').select('*').order('name', { ascending: true }),
+          ]);
+
+          // 1. Stretches / Exercises
+          if (stretchesRes.status === 'fulfilled' && stretchesRes.value.data && stretchesRes.value.data.length > 0) {
+            const mappedStretches: StretchExercise[] = stretchesRes.value.data.map((d: any, idx: number) => ({
+              id: Number(d.id) || idx + 1,
+              title: d.title,
+              category: (d.category as any) || 'Height Growth',
+              tag: d.tag || 'Spine',
+              targetZone: d.target_area || d.target_zone || 'Thoracic Spine',
+              durationSeconds: Number(d.duration_seconds) || 60,
+              intensity: d.intensity || 'Beginner',
+              clinicalBenefit: Array.isArray(d.benefits) ? d.benefits[0] : (d.clinical_benefit || d.benefits || 'Promotes spinal decompression and fluid rehydration.'),
+              instructions: Array.isArray(d.instructions) ? d.instructions : [d.instructions || 'Follow posture guide'],
+              contraindications: d.contraindications || undefined,
+              media_url: d.media_url,
+              media_type: d.media_type || 'image',
+            }));
+
+            const currentDays = get().workoutDaysPerWeek || 4;
+            const { plan, activeDay } = buildWeeklyPlanSchedule(mappedStretches, currentDays);
+            set({
+              weeklyPlan: plan,
+              activePlanDay: activeDay,
+            });
+          }
+
+          // 2. Workout Categories
+          if (catRes.status === 'fulfilled' && catRes.value.data && catRes.value.data.length > 0) {
+            const mappedCats: WorkoutCategory[] = catRes.value.data.map((c: any, idx: number) => ({
+              id: String(c.id),
+              name: c.name || 'Category',
+              slug: c.slug || `category-${idx + 1}`,
+              icon: c.icon || '🌱',
+              description: c.description || '',
+              color: c.color || c.accent_color || '#0284C7',
+              workoutIds: Array.isArray(c.workout_ids) ? c.workout_ids : [],
+              active: c.active !== false,
+              order: Number(c.sort_order ?? c.order) || idx + 1,
+            }));
+            set({ categories: mappedCats });
+          }
+
+          // 3. Category Questions
+          if (qRes.status === 'fulfilled' && qRes.value.data && qRes.value.data.length > 0) {
+            const mappedQuestions: CategoryQuestion[] = qRes.value.data.map((q: any, idx: number) => ({
+              id: String(q.id),
+              categoryId: String(q.category_id || q.categoryId),
+              questionText: q.question_text || q.questionText || '',
+              subtitle: q.subtitle || '',
+              options: Array.isArray(q.options) ? q.options : [],
+              active: q.active !== false,
+              order: Number(q.sort_order ?? q.order) || idx + 1,
+            }));
+            set({ categoryQuestions: mappedQuestions });
+          }
+
+          // 4. Badges / Achievements
+          if (badgeRes.status === 'fulfilled' && badgeRes.value.data && badgeRes.value.data.length > 0) {
+            const mappedBadges: AchievementBadgeItem[] = badgeRes.value.data.map((b: any) => ({
+              id: b.id,
+              title: b.title,
+              description: b.description,
+              icon: b.icon || 'Sparkles',
+              icon_url: b.icon_url || b.media_url,
+              category: b.category || 'stretches',
+              targetMetric: b.target_metric || 'stretches_completed',
+              targetValue: Number(b.target_value) || 1,
+              xpReward: Number(b.xp_reward) || 50,
+              tier: b.tier || 'bronze',
+            }));
+            set({ badges: mappedBadges });
+          }
+
+          // 5. Preset Meals
+          if (mealsRes.status === 'fulfilled' && mealsRes.value.data && mealsRes.value.data.length > 0) {
+            set({ livePresetMeals: mealsRes.value.data });
+          }
+        } catch (err) {
+          console.warn('[Supabase live content fetch warning]:', err);
+        }
       },
 
       resetAllData: () => {

@@ -450,12 +450,12 @@ export default function HomeScreen() {
           </Animated.View>
         </ScrollView>
 
-        {/* Floating Dr. Jack AI Summon Button */}
+        {/* Floating Dr. Jack AI Summon Button - Dedicated Screen */}
         <TouchableOpacity
           style={styles.floatingAiFab}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setIsAiModalOpen(true);
+            router.push('/chat' as any);
           }}
           activeOpacity={0.88}
         >

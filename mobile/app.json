@@ -15,14 +15,28 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gotall.app"
+      "bundleIdentifier": "com.gotall.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "GoTall uses speech features to read personalized clinical stature guidance aloud.",
+        "NSMicrophoneUsageDescription": "GoTall uses microphone access for stature inquiry interactions.",
+        "NSCameraUsageDescription": "GoTall may use your camera to track posture alignment and spinal decompression.",
+        "NSPhotoLibraryUsageDescription": "GoTall accesses your photo library to save and track growth milestone progress."
+      }
     },
     "android": {
       "package": "com.gotall.app",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.VIBRATE",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro",

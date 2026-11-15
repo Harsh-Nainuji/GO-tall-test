@@ -48,6 +48,10 @@ export default function WorkoutCategoriesScreen() {
   const [isActivating, setIsActivating] = useState(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    useAppStore.getState().fetchLiveContent().catch(() => {});
+  }, []);
+
   const selectedCategory = categories.find((c) => c.id === selectedCatId) || categories[0];
 
   // Retrieve questions specifically tied to this category

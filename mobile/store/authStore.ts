@@ -13,6 +13,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   signUpWithEmail: (email: string, pass: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithOAuth: (provider: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -99,6 +100,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { success: true };
     } catch (err: any) {
       const message = err?.message || 'Sign up failed';
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
+    }
+  },
+
+  signInWithOAuth: async (provider) => {
+    set({ isLoading: true, error: null });
+    if (!isSupabaseConfigured()) {
+      set({ isLoading: false, error: 'Auth not configured' });
+      return { success: false, error: 'Auth not configured' };
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: 'gotall://auth/callback',
+        },
+      });
+      if (error) {
+        set({ error: error.message, isLoading: false });
+        return { success: false, error: error.message };
+      }
+      set({ isLoading: false });
+      return { success: true };
+    } catch (err: any) {
+      const message = err?.message || `${provider} sign in failed`;
       set({ error: message, isLoading: false });
       return { success: false, error: message };
     }

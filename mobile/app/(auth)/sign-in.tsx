@@ -21,7 +21,7 @@ import { colors, gradients } from '../../lib/theme';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { signInWithEmail, isLoading, error, clearError } = useAuthStore();
+  const { signInWithEmail, signInWithOAuth, isLoading, error, clearError } = useAuthStore();
   const setUser = useAppStore((state) => state.setUser);
   const setPremium = useAppStore((state) => state.setPremium);
 
