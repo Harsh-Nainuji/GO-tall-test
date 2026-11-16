@@ -71,24 +71,34 @@ export default function WorkoutCategoriesScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setIsActivating(true);
 
-    // Filter CLINICAL_STRETCHES matching this category's workoutIds
+    // Filter live catalog or CLINICAL_STRETCHES matching this category
+    const liveStretches = useAppStore.getState().liveCatalogStretches;
+    const exercisePool = liveStretches && liveStretches.length > 0 ? liveStretches : CLINICAL_STRETCHES;
     const catWorkoutIds = selectedCategory?.workoutIds || [];
-    let matchingExercises = CLINICAL_STRETCHES.filter((stretch) => {
+    const catNameLower = (selectedCategory?.name || '').toLowerCase();
+    const catSlugLower = (selectedCategory?.slug || '').toLowerCase();
+
+    let matchingExercises = exercisePool.filter((stretch) => {
       const sIdStr = String(stretch.id);
       const stretchNumStr = `stretch-${Number(stretch.id) + 1}`;
-      return catWorkoutIds.includes(sIdStr) || catWorkoutIds.includes(stretchNumStr);
+      const inWorkoutIds = catWorkoutIds.includes(sIdStr) || catWorkoutIds.includes(stretchNumStr);
+
+      const sCategory = (stretch.category || '').toLowerCase();
+      const sTag = (stretch.tag || '').toLowerCase();
+      const sTarget = (stretch.targetZone || '').toLowerCase();
+
+      const matchCategory =
+        Boolean(
+          (sCategory && (catNameLower.includes(sCategory) || catSlugLower.includes(sCategory) || sCategory.includes(catSlugLower))) ||
+          (sTag && (catNameLower.includes(sTag) || catSlugLower.includes(sTag))) ||
+          (sTarget && (catNameLower.includes(sTarget) || catSlugLower.includes(sTarget)))
+        );
+
+      return inWorkoutIds || matchCategory;
     });
 
     if (matchingExercises.length === 0) {
-      // Fallback: match by title keywords or category text
-      matchingExercises = CLINICAL_STRETCHES.filter(
-        (s) =>
-          s.category.toLowerCase().includes(selectedCategory?.slug.toLowerCase() || '') ||
-          s.targetZone.toLowerCase().includes(selectedCategory?.name.toLowerCase() || '')
-      );
-      if (matchingExercises.length === 0) {
-        matchingExercises = CLINICAL_STRETCHES.slice(0, 4);
-      }
+      matchingExercises = exercisePool.slice(0, 4);
     }
 
     // Rebuild schedule prioritizing these category workouts

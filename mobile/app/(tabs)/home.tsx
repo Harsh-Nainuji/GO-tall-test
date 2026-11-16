@@ -52,6 +52,9 @@ export default function HomeScreen() {
   const sleepTargetHours = useAppStore((state) => state.sleepTargetHours);
   const newlyUnlockedBadge = useAppStore((state) => state.newlyUnlockedBadge);
   const clearNewlyUnlockedBadge = useAppStore((state) => state.clearNewlyUnlockedBadge);
+  const liveCatalogStretches = useAppStore((state) => state.liveCatalogStretches);
+  const weeklyPlan = useAppStore((state) => state.weeklyPlan);
+  const activePlanDay = useAppStore((state) => state.activePlanDay);
   const hasSeenAppTour = useAppStore((state) => state.hasSeenAppTour);
   const setHasSeenAppTour = useAppStore((state) => state.setHasSeenAppTour);
   const user = useAppStore((state) => state.user);
@@ -110,8 +113,20 @@ export default function HomeScreen() {
   const sleepHoursLogged = latestSleep;
   const sleepPct = sleepTarget > 0 && sleepHoursLogged > 0 ? Math.min(100, Math.round((sleepHoursLogged / sleepTarget) * 100)) : 0;
 
+  // Auto-fetch live exercise & meal updates from cloud on mount
+  React.useEffect(() => {
+    useAppStore.getState().fetchLiveContent().catch(() => {});
+  }, []);
+
+  const dailyRoutinePool: StretchExercise[] =
+    (liveCatalogStretches && liveCatalogStretches.length > 0)
+      ? liveCatalogStretches
+      : (weeklyPlan && weeklyPlan[activePlanDay] && weeklyPlan[activePlanDay].length > 0)
+      ? weeklyPlan[activePlanDay]
+      : CLINICAL_STRETCHES;
+
   const stretchCount = completedStretches.length;
-  const stretchTotal = CLINICAL_STRETCHES.length;
+  const stretchTotal = Math.max(1, dailyRoutinePool.length);
   const stretchPct = Math.min(100, Math.round((stretchCount / stretchTotal) * 100));
 
   return (
@@ -363,7 +378,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.routineList}>
-                {CLINICAL_STRETCHES.slice(0, 3).map((stretch) => {
+                {dailyRoutinePool.slice(0, 3).map((stretch) => {
                   const isDone = completedStretches.includes(stretch.id);
                   return (
                     <View

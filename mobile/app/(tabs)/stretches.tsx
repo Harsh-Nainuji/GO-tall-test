@@ -84,10 +84,10 @@ export default function StretchesScreen() {
           title: d.title,
           category: (d.category as any) || 'Height Growth',
           tag: d.tag || 'Spine',
-          targetZone: d.target_area || d.targetZone || 'Thoracic Spine',
+          targetZone: d.target_zone || d.target_area || d.targetZone || 'Thoracic Spine',
           durationSeconds: Number(d.duration_seconds) || 60,
-          intensity: 'Beginner',
-          clinicalBenefit: Array.isArray(d.benefits) ? d.benefits[0] : (d.benefits || 'Spinal disc rehydration'),
+          intensity: d.intensity || 'Beginner',
+          clinicalBenefit: d.clinical_benefit || (Array.isArray(d.benefits) ? d.benefits[0] : (d.benefits || 'Spinal disc rehydration')),
           instructions: Array.isArray(d.instructions) ? d.instructions : [d.instructions || 'Follow posture guide'],
           media_url: d.media_url,
           media_type: d.media_type || 'image',
@@ -142,29 +142,51 @@ export default function StretchesScreen() {
     if (selectedCategorySlug === 'all' || !selectedCategory) {
       return dailyExercises;
     }
+
+    const catNameLower = (selectedCategory.name || '').toLowerCase();
+    const catSlugLower = (selectedCategory.slug || '').toLowerCase();
+    const catWorkoutIds = selectedCategory.workoutIds || [];
+
     const filtered = dailyExercises.filter((s) => {
       const sIdStr = String(s.id);
       const stretchNumStr = `stretch-${Number(s.id) + 1}`;
-      return (
-        selectedCategory.workoutIds.includes(sIdStr) ||
-        selectedCategory.workoutIds.includes(stretchNumStr)
-      );
+      const inWorkoutIds =
+        catWorkoutIds.includes(sIdStr) || catWorkoutIds.includes(stretchNumStr);
+
+      const sCategory = (s.category || '').toLowerCase();
+      const sTag = (s.tag || '').toLowerCase();
+      const sTarget = (s.targetZone || '').toLowerCase();
+
+      const matchCategory =
+        Boolean(
+          (sCategory && (catNameLower.includes(sCategory) || catSlugLower.includes(sCategory) || sCategory.includes(catSlugLower))) ||
+          (sTag && (catNameLower.includes(sTag) || catSlugLower.includes(sTag))) ||
+          (sTarget && (catNameLower.includes(sTarget) || catSlugLower.includes(sTarget)))
+        );
+
+      return inWorkoutIds || matchCategory;
     });
 
     if (filtered.length > 0) return filtered;
 
-    // Fallback: search across all CLINICAL_STRETCHES for this category
-    const poolFallback = CLINICAL_STRETCHES.filter((s) => {
+    // Fallback: search across all available exercises (live catalog or clinical defaults)
+    const pool = (liveCatalogStretches && liveCatalogStretches.length > 0)
+      ? liveCatalogStretches
+      : CLINICAL_STRETCHES;
+
+    const poolFallback = pool.filter((s) => {
       const sIdStr = String(s.id);
       const stretchNumStr = `stretch-${Number(s.id) + 1}`;
-      return (
-        selectedCategory.workoutIds.includes(sIdStr) ||
-        selectedCategory.workoutIds.includes(stretchNumStr)
-      );
+      const inWorkoutIds =
+        catWorkoutIds.includes(sIdStr) || catWorkoutIds.includes(stretchNumStr);
+      const sCategory = (s.category || '').toLowerCase();
+      const matchCategory =
+        Boolean(sCategory && (catNameLower.includes(sCategory) || catSlugLower.includes(sCategory)));
+      return inWorkoutIds || matchCategory;
     });
 
     return poolFallback.length > 0 ? poolFallback : dailyExercises;
-  }, [dailyExercises, selectedCategorySlug, selectedCategory]);
+  }, [dailyExercises, selectedCategorySlug, selectedCategory, liveCatalogStretches]);
 
   const dayCompleted = displayedExercises.filter((s) =>
     completedStretches.includes(Number(s.id))

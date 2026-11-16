@@ -205,9 +205,10 @@ export async function POST(request: Request) {
 
     if (entity === 'stretches') {
       const rows = items.map((s: any, idx: number) => {
-        const numId = parseInt(String(s.id).replace(/\D/g, ''), 10)
+        const rawNum = parseInt(String(s.id).replace(/\D/g, ''), 10)
+        const numId = !isNaN(rawNum) && rawNum > 0 && rawNum <= 2147483647 ? rawNum : idx + 100
         return {
-          id: isNaN(numId) || numId <= 0 ? idx + 100 : numId,
+          id: numId,
           title: s.title,
           category: s.category || 'Height Growth',
           tag: s.tag || 'Axial Traction',

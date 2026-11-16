@@ -449,8 +449,13 @@ export function StretchesCMS({
       return
     }
 
+    const maxExistingId = stretches.reduce((acc, s) => {
+      const n = parseInt(String(s.id).replace(/\D/g, ''), 10)
+      return !isNaN(n) && n < 1000000 ? Math.max(acc, n) : acc
+    }, 0)
+
     const newStretches: SpinalStretch[] = validRows.map((r, idx) => ({
-      id: `stretch-${Date.now()}-${idx + 1}`,
+      id: `stretch-${maxExistingId + idx + 1}`,
       title: r.title,
       category: (r.category as any) || 'Height Growth',
       targetZone: r.targetZone,
@@ -608,8 +613,13 @@ export function StretchesCMS({
       onUpdateStretches(updated)
       showToast(`Updated "${formTitle}" successfully!`, 'success')
     } else {
+      const maxExistingId = stretches.reduce((acc, s) => {
+        const n = parseInt(String(s.id).replace(/\D/g, ''), 10)
+        return !isNaN(n) && n < 1000000 ? Math.max(acc, n) : acc
+      }, 0)
+
       const newStretch: SpinalStretch = {
-        id: `stretch-${Date.now()}`,
+        id: `stretch-${maxExistingId + 1}`,
         title: formTitle.trim(),
         category: formCategory as any,
         targetZone: formZone,

@@ -1142,25 +1142,47 @@ export const useAppStore = create<AppState>()(
       checkBadges: () => {
         const state = get();
         const totalProtein = state.meals.reduce((sum, m) => sum + m.protein, 0);
+        const stretchesCount = state.completedStretches.length;
+        const streak = state.streakDays;
+        const mealsCount = state.meals.length;
+        const maxSleepHours = state.sleepLogs.reduce((max, l) => Math.max(max, l.hours), 0);
 
-        // Check Protein Maxima badge (badge-4)
+        // 1. Dynamic evaluation across all configured/synced badges from Supabase
+        state.badges.forEach((b) => {
+          if (state.unlockedBadgeIds.includes(b.id)) return;
+
+          let shouldUnlock = false;
+          const metric = (b.targetMetric || '').toLowerCase();
+          const target = b.targetValue || 1;
+
+          if (metric.includes('protein')) {
+            shouldUnlock = totalProtein >= target;
+          } else if (metric.includes('stretch') || metric.includes('workout')) {
+            shouldUnlock = stretchesCount >= target;
+          } else if (metric.includes('streak')) {
+            shouldUnlock = streak >= target;
+          } else if (metric.includes('sleep')) {
+            shouldUnlock = maxSleepHours >= target;
+          } else if (metric.includes('nutrition') || metric.includes('meal')) {
+            shouldUnlock = mealsCount >= target;
+          }
+
+          if (shouldUnlock) {
+            state.unlockBadge(b.id);
+          }
+        });
+
+        // 2. Hardcoded fallback checks for default initial badges
         if (totalProtein >= 100 && !state.unlockedBadgeIds.includes('badge-4')) {
           state.unlockBadge('badge-4');
         }
-
-        // Check 1st Stretch badge (badge-1)
-        if (state.completedStretches.length >= 1 && !state.unlockedBadgeIds.includes('badge-1')) {
+        if (stretchesCount >= 1 && !state.unlockedBadgeIds.includes('badge-1')) {
           state.unlockBadge('badge-1');
         }
-
-        // Check 7-Day streak (badge-2)
-        if (state.streakDays >= 7 && !state.unlockedBadgeIds.includes('badge-2')) {
+        if (streak >= 7 && !state.unlockedBadgeIds.includes('badge-2')) {
           state.unlockBadge('badge-2');
         }
-
-        // Check Somatotropin Pulse Synced badge (badge-3) if logged >= 8h sleep
-        const recent8hSleep = state.sleepLogs.some((l) => l.hours >= 8.0);
-        if (recent8hSleep && !state.unlockedBadgeIds.includes('badge-3')) {
+        if (maxSleepHours >= 8.0 && !state.unlockedBadgeIds.includes('badge-3')) {
           state.unlockBadge('badge-3');
         }
       },
@@ -1225,7 +1247,7 @@ export const useAppStore = create<AppState>()(
             supabase.from('workout_categories').select('*').order('sort_order', { ascending: true }),
             supabase.from('category_questions').select('*').eq('active', true),
             supabase.from('achievements').select('*').order('created_at', { ascending: true }),
-            supabase.from('meals').select('*').order('name', { ascending: true }),
+            supabase.from('meals').select('*').is('user_id', null).eq('active', true).order('name', { ascending: true }),
           ]);
 
           // 1. Stretches / Exercises
@@ -1458,6 +1480,10 @@ export const useAppStore = create<AppState>()(
         aiQuestionsUsedToday: state.aiQuestionsUsedToday,
         lastAiQuestionDate: state.lastAiQuestionDate,
         aiWindowStart: state.aiWindowStart,
+        liveCatalogStretches: state.liveCatalogStretches,
+        livePresetMeals: state.livePresetMeals,
+        liveCatalogBadges: state.liveCatalogBadges,
+        badges: state.badges,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

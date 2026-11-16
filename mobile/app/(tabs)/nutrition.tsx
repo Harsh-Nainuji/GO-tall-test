@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import {
   Utensils,
   Plus,
@@ -19,6 +20,9 @@ import {
   Wheat,
   Droplet,
   Sparkles,
+  Check,
+  Flame,
+  ChevronRight,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -27,13 +31,20 @@ import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
-import FoodLogModal from '../../components/FoodLogModal';
+import FoodLogModal, { FoodItem, DEFAULT_PRESETS } from '../../components/FoodLogModal';
+
+const FOOD_CATEGORY_FILTERS = ['All', 'High Protein', 'Bone Mineralization', 'Bedtime Anabolic', 'Growth Micronutrients'];
 
 export default function NutritionScreen() {
   const meals = useAppStore((state) => state.meals);
   const deleteMeal = useAppStore((state) => state.deleteMeal);
+  const addMeal = useAppStore((state) => state.addMeal);
+  const liveStoreMeals = useAppStore((state) => state.livePresetMeals);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [selectedFoodForModal, setSelectedFoodForModal] = useState<FoodItem | null>(null);
+  const [selectedCatalogCategory, setSelectedCatalogCategory] = useState('All');
+  const [quickAddedId, setQuickAddedId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -45,6 +56,53 @@ export default function NutritionScreen() {
     await useAppStore.getState().fetchLiveContent().catch(() => {});
     setIsRefreshing(false);
   };
+
+  // Build unified live catalog from admin-managed livePresetMeals + DEFAULT_PRESETS
+  const catalogFoods: FoodItem[] = useMemo(() => {
+    const list: FoodItem[] = [];
+    const seenNames = new Set<string>();
+
+    if (Array.isArray(liveStoreMeals)) {
+      liveStoreMeals.forEach((m: any) => {
+        const normName = String(m.name || '').trim().toLowerCase();
+        if (normName && !seenNames.has(normName)) {
+          seenNames.add(normName);
+          list.push({
+            id: String(m.id),
+            name: String(m.name).trim(),
+            serving_size: m.serving_size || m.servingSize || '100g',
+            category: m.category || 'High Protein',
+            calories: Number(m.calories) || 0,
+            protein: Number(m.protein) || 0,
+            carbs: Number(m.carbs) || 0,
+            fat: Number(m.fat) || 0,
+            calcium: Number(m.calcium ?? 0),
+            zinc: Number(m.zinc ?? 0),
+            vitaminD3: Number(m.vitaminD3 ?? m.vitamin_d3 ?? 0),
+            clinicalRationale: m.clinicalRationale || m.clinical_rationale || '',
+          });
+        }
+      });
+    }
+
+    DEFAULT_PRESETS.forEach((p) => {
+      const normName = p.name.trim().toLowerCase();
+      if (!seenNames.has(normName)) {
+        seenNames.add(normName);
+        list.push(p);
+      }
+    });
+
+    return list;
+  }, [liveStoreMeals]);
+
+  // Filter catalog by active category
+  const filteredCatalog = useMemo(() => {
+    if (selectedCatalogCategory === 'All') return catalogFoods;
+    return catalogFoods.filter(
+      (f) => (f.category || '').toLowerCase() === selectedCatalogCategory.toLowerCase()
+    );
+  }, [catalogFoods, selectedCatalogCategory]);
 
   // Compute live nutritional totals from store
   const totalCalories = meals.reduce((sum, m) => sum + m.calories, 0);
@@ -63,6 +121,32 @@ export default function NutritionScreen() {
   const targetFat = 70;
   const fatPct = Math.min(100, Math.round((totalFat / targetFat) * 100));
 
+  // 1-Tap Quick Log directly from the screen
+  const handleQuickLog = (item: FoodItem) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setQuickAddedId(item.id);
+
+    addMeal({
+      name: item.name,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      category: 'Lunch',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    });
+
+    setTimeout(() => {
+      setQuickAddedId(null);
+    }, 1500);
+  };
+
+  const handleOpenFoodModal = (item?: FoodItem) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelectedFoodForModal(item || null);
+    setIsLogModalOpen(true);
+  };
+
   return (
     <GlassBackgroundCanvas>
       <SafeAreaView style={styles.safeArea}>
@@ -78,11 +162,11 @@ export default function NutritionScreen() {
           </View>
 
           <GlassButton
-            onPress={() => setIsLogModalOpen(true)}
+            onPress={() => handleOpenFoodModal()}
             style={styles.logActionBtn}
           >
             <Plus size={14} color="#FFFFFF" />
-            <Text style={styles.logActionBtnText}>Log Food</Text>
+            <Text style={styles.logActionBtnText}>Log Custom</Text>
           </GlassButton>
         </Animated.View>
 
@@ -181,16 +265,152 @@ export default function NutritionScreen() {
             </GlassCard>
           </Animated.View>
 
+          {/* VERIFIED GROWTH FOODS CATALOG SECTION (Admin-Managed Live Feed) */}
+          <Animated.View entering={FadeInDown.delay(240).springify()}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  Clinical Growth Foods ({filteredCatalog.length})
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  Verified by pediatric endocrinology & bone matrix biology
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleOpenFoodModal()}
+                style={styles.searchCatalogBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.searchCatalogBtnText}>Search all</Text>
+                <ChevronRight size={13} color="#2563EB" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Category Filter Chips */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryChipsRow}
+            >
+              {FOOD_CATEGORY_FILTERS.map((cat) => {
+                const isActive = selectedCatalogCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setSelectedCatalogCategory(cat);
+                    }}
+                    style={[
+                      styles.catalogChip,
+                      isActive && styles.catalogChipActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.catalogChipText,
+                        isActive && styles.catalogChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Catalog Food Cards */}
+            <View style={styles.catalogListWrap}>
+              {filteredCatalog.slice(0, 6).map((item) => {
+                const isLoggedNow = quickAddedId === item.id;
+                return (
+                  <GlassCard key={item.id} style={styles.catalogFoodCard}>
+                    <TouchableOpacity
+                      onPress={() => handleOpenFoodModal(item)}
+                      style={styles.catalogCardInner}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.catalogInfoCol}>
+                        <View style={styles.catalogTopRow}>
+                          <Text style={styles.catalogFoodName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          {item.category && (
+                            <View style={styles.catalogTagPill}>
+                              <Text style={styles.catalogTagText}>{item.category}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <Text style={styles.catalogServing}>
+                          {item.serving_size || '100g'} • {item.calories} kcal
+                        </Text>
+
+                        {item.clinicalRationale ? (
+                          <Text style={styles.catalogRationale} numberOfLines={2}>
+                            ✨ {item.clinicalRationale}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Nutrient Metrics & 1-Tap Log Button */}
+                      <View style={styles.catalogActionsCol}>
+                        <View style={styles.catalogMacrosBadge}>
+                          <Text style={styles.catalogProteinText}>{item.protein}g P</Text>
+                          {item.calcium ? (
+                            <Text style={styles.catalogCaText}>{item.calcium}mg Ca</Text>
+                          ) : null}
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleQuickLog(item);
+                          }}
+                          style={[
+                            styles.quickLogBtn,
+                            isLoggedNow && styles.quickLogBtnSuccess,
+                          ]}
+                          activeOpacity={0.8}
+                          accessibilityLabel={`Quick add ${item.name}`}
+                        >
+                          {isLoggedNow ? (
+                            <>
+                              <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                              <Text style={styles.quickLogBtnTextSuccess}>Added</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Plus size={12} color="#FFFFFF" strokeWidth={2.5} />
+                              <Text style={styles.quickLogBtnText}>+ Log</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  </GlassCard>
+                );
+              })}
+            </View>
+          </Animated.View>
+
           {/* Logged Meals Header */}
           <Animated.View
-            entering={FadeInDown.delay(260).springify()}
+            entering={FadeInDown.delay(300).springify()}
             style={styles.sectionHeaderRow}
           >
-            <Text style={styles.sectionTitle}>
-              Today&apos;s Logged Meals ({meals.length})
-            </Text>
+            <View>
+              <Text style={styles.sectionTitle}>
+                Today&apos;s Logged Meals ({meals.length})
+              </Text>
+              <Text style={styles.sectionSubtitle}>
+                {totalProtein}g protein • {totalCalories} kcal consumed
+              </Text>
+            </View>
+
             <GlassButton
-              onPress={() => setIsLogModalOpen(true)}
+              onPress={() => handleOpenFoodModal()}
               style={styles.addMealBtn}
             >
               <Plus size={12} color="#2563EB" />
@@ -199,7 +419,7 @@ export default function NutritionScreen() {
           </Animated.View>
 
           {/* Live Meals List */}
-          <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.mealsListWrap}>
+          <Animated.View entering={FadeInDown.delay(360).springify()} style={styles.mealsListWrap}>
             {meals.map((m) => (
               <GlassCard key={m.id} style={styles.mealCard}>
                 <View style={styles.mealRow}>
@@ -219,7 +439,10 @@ export default function NutritionScreen() {
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => deleteMeal(m.id)}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      deleteMeal(m.id);
+                    }}
                     style={styles.deleteBtn}
                     accessibilityLabel="Delete meal"
                   >
@@ -239,7 +462,7 @@ export default function NutritionScreen() {
                   Track your protein, calcium, and collagen intake to fuel epiphyseal bone growth.
                 </Text>
                 <GlassButton
-                  onPress={() => setIsLogModalOpen(true)}
+                  onPress={() => handleOpenFoodModal()}
                   style={styles.emptyActionBtn}
                 >
                   <Plus size={14} color="#FFFFFF" />
@@ -250,7 +473,7 @@ export default function NutritionScreen() {
           </Animated.View>
 
           {/* Scientific Citation Card */}
-          <Animated.View entering={FadeInDown.delay(400).springify()}>
+          <Animated.View entering={FadeInDown.delay(420).springify()}>
             <GlassCard style={styles.citationCard}>
               <View style={styles.citationRow}>
                 <ShieldCheck size={16} color="#2563EB" />
@@ -262,10 +485,14 @@ export default function NutritionScreen() {
           </Animated.View>
         </ScrollView>
 
-        {/* Food Log Modal */}
+        {/* Enhanced Synchronized Food Log Modal */}
         <FoodLogModal
           visible={isLogModalOpen}
-          onClose={() => setIsLogModalOpen(false)}
+          onClose={() => {
+            setIsLogModalOpen(false);
+            setSelectedFoodForModal(null);
+          }}
+          initialFood={selectedFoodForModal}
         />
       </SafeAreaView>
     </GlassBackgroundCanvas>
@@ -273,10 +500,6 @@ export default function NutritionScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenWrapper: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
   safeArea: {
     flex: 1,
   },
@@ -300,9 +523,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   brandText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.3,
   },
   onlineDot: {
     width: 6,
@@ -314,10 +538,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    backgroundColor: '#2563EB',
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#2563EB',
+    borderRadius: 18,
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -334,14 +558,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   titleSection: {
-    marginVertical: 12,
+    marginBottom: 16,
+    marginTop: 4,
   },
   subheadingText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#2563EB',
     textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
   headingText: {
     fontSize: 24,
@@ -356,21 +581,18 @@ const styles = StyleSheet.create({
   },
   meterCenterWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
+    marginBottom: 20,
   },
   macroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(226, 232, 240, 0.6)',
   },
   macroCol: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
     paddingHorizontal: 4,
   },
   macroColBorder: {
@@ -379,32 +601,31 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(226, 232, 240, 0.6)',
   },
   macroIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   macroLabel: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   macroValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#0F172A',
-    marginTop: 1,
+    letterSpacing: -0.3,
   },
   macroProgressBarBg: {
     width: '80%',
     height: 4,
+    backgroundColor: '#E2E8F0',
     borderRadius: 2,
-    backgroundColor: 'rgba(226, 232, 240, 0.8)',
-    marginTop: 6,
+    marginVertical: 6,
     overflow: 'hidden',
   },
   macroProgressBarFill: {
@@ -412,21 +633,157 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   macroGoal: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '600',
     color: '#94A3B8',
-    marginTop: 4,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  searchCatalogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  searchCatalogBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 10,
+  },
+  catalogChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  catalogChipActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
+  },
+  catalogChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  catalogChipTextActive: {
+    color: '#2563EB',
+  },
+  catalogListWrap: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  catalogFoodCard: {
+    padding: 12,
+    borderRadius: 18,
+  },
+  catalogCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  catalogInfoCol: {
+    flex: 1,
+    marginRight: 10,
+  },
+  catalogTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  catalogFoodName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  catalogTagPill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  catalogTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  catalogServing: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  catalogRationale: {
+    fontSize: 10,
+    color: '#0284C7',
+    marginTop: 3,
+    fontWeight: '500',
+    lineHeight: 14,
+  },
+  catalogActionsCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  catalogMacrosBadge: {
+    alignItems: 'flex-end',
+  },
+  catalogProteinText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#2563EB',
+  },
+  catalogCaText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  quickLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  quickLogBtnSuccess: {
+    backgroundColor: '#10B981',
+  },
+  quickLogBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  quickLogBtnTextSuccess: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   addMealBtn: {
     flexDirection: 'row',
@@ -434,10 +791,8 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 246, 255, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(191, 219, 254, 0.9)',
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
   },
   addMealBtnText: {
     fontSize: 11,
