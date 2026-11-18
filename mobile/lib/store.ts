@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QuizData, calculateTarget } from './growth-calc';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { classifyBiomechanicalArchetype, buildCalibrated6WeekProgram, BiomechanicalClassification } from './ai-program-generator';
 
 export interface LoggedMeal {
   id: string;
@@ -841,6 +842,14 @@ interface AppState {
   advanceToNextWeek: () => void;
   completeCurrentWeek: () => void;
 
+  // AI Program Personalization & Disclaimer State
+  isProgramCalibrated: boolean;
+  programCalibrationDate: string | null;
+  biomechanicalProfile: BiomechanicalClassification | null;
+  hasAcceptedHealthDisclaimer: boolean;
+  setHasAcceptedHealthDisclaimer: (accepted: boolean) => void;
+  calibratePersonalizedProgram: (diagnosticOverride?: any) => Promise<void>;
+
   // Categories & Question Templates
   categories: WorkoutCategory[];
   categoryQuestions: CategoryQuestion[];
@@ -963,6 +972,68 @@ export const useAppStore = create<AppState>()(
           completedWeeks: newCompleted,
           currentProgramWeek: next,
           selectedViewingWeek: next,
+        });
+      },
+
+      // AI Program Personalization & Disclaimer State
+      isProgramCalibrated: false,
+      programCalibrationDate: null,
+      biomechanicalProfile: null,
+      hasAcceptedHealthDisclaimer: false,
+      setHasAcceptedHealthDisclaimer: (accepted: boolean) => set({ hasAcceptedHealthDisclaimer: accepted }),
+      calibratePersonalizedProgram: async (diagnosticOverride?: any) => {
+        const s = get();
+        const quiz = diagnosticOverride || s.quizData;
+        const diagnosticInput = {
+          age: quiz?.age || 16,
+          gender: quiz?.gender || 'male',
+          currentHeight: quiz?.currentHeight || 172,
+          sittingHours: quiz?.sittingHours || '6-8 hours/day',
+          postureConcern: quiz?.motivation || 'General posture alignment and decompression',
+          spinalFatigue: 'Moderate midday spinal compression',
+          workoutDaysPerWeek: s.workoutDaysPerWeek || 4,
+        };
+
+        const classification = await classifyBiomechanicalArchetype(diagnosticInput);
+
+        let pool = s.liveCatalogStretches.length > 0 ? s.liveCatalogStretches : CLINICAL_STRETCHES;
+        if (isSupabaseConfigured() && s.liveCatalogStretches.length === 0) {
+          try {
+            const { data } = await supabase.from('stretches').select('*').eq('active', true).order('sort_order', { ascending: true });
+            if (data && data.length > 0) {
+              pool = data.map((item: any, idx: number) => ({
+                id: item.id ?? idx,
+                title: item.title,
+                category: (item.category as any) || 'Height Growth',
+                tag: item.tag || 'Clinical Traction',
+                targetZone: item.target_zone || 'Lumbar & Thoracic',
+                durationSeconds: item.duration_seconds || 60,
+                intensity: item.intensity || 'Beginner',
+                clinicalBenefit: item.clinical_benefit || 'Promotes spinal decompression and fluid rehydration.',
+                instructions: Array.isArray(item.instructions) ? item.instructions : ['Align spine and breathe deeply.'],
+                contraindications: item.contraindications || undefined,
+                media_url: item.media_url || undefined,
+                media_type: item.media_type || undefined,
+              }));
+            }
+          } catch (e) {}
+        }
+
+        const days = s.workoutDaysPerWeek || 4;
+        const calibratedProgram = buildCalibrated6WeekProgram(classification, pool, days);
+        const week1Plan = calibratedProgram[1]?.plan || {};
+        const firstDay = Object.keys(week1Plan)[0] || 'Monday';
+
+        set({
+          isProgramCalibrated: true,
+          programCalibrationDate: new Date().toISOString(),
+          biomechanicalProfile: classification,
+          multiWeekPlan: calibratedProgram,
+          weeklyPlan: week1Plan,
+          activePlanDay: firstDay,
+          currentProgramWeek: 1,
+          selectedViewingWeek: 1,
+          completedWeeks: [],
         });
       },
 
@@ -1336,6 +1407,22 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        const s = get();
+        if (s.isProgramCalibrated && s.biomechanicalProfile) {
+          const multiPlan = buildCalibrated6WeekProgram(s.biomechanicalProfile, pool, currentDays);
+          const weekPlan = multiPlan[s.selectedViewingWeek || 1]?.plan || {};
+          const activeDay = Object.keys(weekPlan).includes(s.activePlanDay)
+            ? s.activePlanDay
+            : Object.keys(weekPlan)[0] || 'Monday';
+          set({
+            weeklyPlan: weekPlan,
+            multiWeekPlan: multiPlan,
+            workoutDaysPerWeek: currentDays,
+            activePlanDay: activeDay,
+          });
+          return;
+        }
+
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         const { plan, activeDay } = buildWeeklyPlanSchedule(shuffled, currentDays);
         const multiPlan = buildMultiWeekProgramSchedule(pool, currentDays, 6);
@@ -1501,6 +1588,10 @@ export const useAppStore = create<AppState>()(
           selectedViewingWeek: 1,
           completedWeeks: [],
           multiWeekPlan: initialMultiWeekPlan,
+          isProgramCalibrated: false,
+          programCalibrationDate: null,
+          biomechanicalProfile: null,
+          hasAcceptedHealthDisclaimer: false,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
@@ -1537,6 +1628,10 @@ export const useAppStore = create<AppState>()(
           selectedViewingWeek: 1,
           completedWeeks: [],
           multiWeekPlan: initialMultiWeekPlan,
+          isProgramCalibrated: false,
+          programCalibrationDate: null,
+          biomechanicalProfile: null,
+          hasAcceptedHealthDisclaimer: false,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
@@ -1594,6 +1689,10 @@ export const useAppStore = create<AppState>()(
         selectedViewingWeek: state.selectedViewingWeek,
         completedWeeks: state.completedWeeks,
         multiWeekPlan: state.multiWeekPlan,
+        isProgramCalibrated: state.isProgramCalibrated,
+        programCalibrationDate: state.programCalibrationDate,
+        biomechanicalProfile: state.biomechanicalProfile,
+        hasAcceptedHealthDisclaimer: state.hasAcceptedHealthDisclaimer,
         sleepLogs: state.sleepLogs,
         sleepTargetHours: state.sleepTargetHours,
         user: state.user,

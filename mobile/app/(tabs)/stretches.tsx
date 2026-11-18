@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Tag,
   Lock,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -43,6 +44,7 @@ import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
 import StretchTimerModal from '../../components/StretchTimerModal';
 import BadgeModal from '../../components/BadgeModal';
+import HealthDisclaimerModal from '../../components/HealthDisclaimerModal';
 
 export default function StretchesScreen() {
   const router = useRouter();
@@ -70,6 +72,27 @@ export default function StretchesScreen() {
   const setSelectedViewingWeek = useAppStore((state) => state.setSelectedViewingWeek);
   const advanceToNextWeek = useAppStore((state) => state.advanceToNextWeek);
   const completeCurrentWeek = useAppStore((state) => state.completeCurrentWeek);
+
+  // AI Program Calibration & Disclaimer state
+  const isProgramCalibrated = useAppStore((state) => state.isProgramCalibrated);
+  const biomechanicalProfile = useAppStore((state) => state.biomechanicalProfile);
+  const hasAcceptedHealthDisclaimer = useAppStore((state) => state.hasAcceptedHealthDisclaimer);
+  const setHasAcceptedHealthDisclaimer = useAppStore((state) => state.setHasAcceptedHealthDisclaimer);
+  const calibratePersonalizedProgram = useAppStore((state) => state.calibratePersonalizedProgram);
+
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(!hasAcceptedHealthDisclaimer);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+
+  const handleAcceptDisclaimer = async () => {
+    setHasAcceptedHealthDisclaimer(true);
+    setShowDisclaimerModal(false);
+    setIsCalibrating(true);
+    try {
+      await calibratePersonalizedProgram();
+    } finally {
+      setIsCalibrating(false);
+    }
+  };
 
   const [selectedStretch, setSelectedStretch] = useState<StretchExercise | null>(null);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('all');
@@ -118,7 +141,10 @@ export default function StretchesScreen() {
     setIsLoadingLive(true);
     loadLiveStretches();
     useAppStore.getState().fetchLiveContent().catch(() => {});
-  }, []);
+    if (hasAcceptedHealthDisclaimer && !isProgramCalibrated) {
+      calibratePersonalizedProgram().catch(() => {});
+    }
+  }, [hasAcceptedHealthDisclaimer, isProgramCalibrated]);
 
   const liveCatalogStretches = useAppStore((state) => state.liveCatalogStretches);
 
@@ -410,6 +436,46 @@ export default function StretchesScreen() {
             </Animated.View>
           ) : (
             <>
+          {/* Biomechanical Calibration Archetype Card */}
+          {biomechanicalProfile && (
+            <Animated.View entering={FadeInDown.delay(130).springify()}>
+              <GlassCard style={styles.archetypeCard}>
+                <View style={styles.archetypeHeaderRow}>
+                  <View style={styles.archetypeBadge}>
+                    <Sparkles size={11} color="#0284C7" />
+                    <Text style={styles.archetypeBadgeText}>AI Diagnostic Calibration</Text>
+                  </View>
+                  <View style={styles.intensityTag}>
+                    <Text style={styles.intensityTagText}>{biomechanicalProfile.intensity || 'Intermediate'}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.archetypeNameText}>{biomechanicalProfile.archetypeName}</Text>
+                <Text style={styles.archetypeFocusText}>Focus: {biomechanicalProfile.focus}</Text>
+                <Text style={styles.archetypeRationaleText}>{biomechanicalProfile.rationale}</Text>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+          {!isProgramCalibrated && (
+            <Animated.View entering={FadeInDown.delay(130).springify()}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setShowDisclaimerModal(true)}
+                style={styles.uncalibratedBanner}
+              >
+                <View style={styles.uncalibratedBannerLeft}>
+                  <Sparkles size={18} color="#FFFFFF" />
+                  <View>
+                    <Text style={styles.uncalibratedBannerTitle}>Calibrate Your 6-Week Protocol</Text>
+                    <Text style={styles.uncalibratedBannerSub}>Personalized to your posture & growth metrics</Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           {/* ============================================================== */}
           {/* WEEKLY AUTO-SCHEDULER CONTROLS & DAYS PER WEEK SELECTOR        */}
           {/* ============================================================== */}
@@ -426,19 +492,26 @@ export default function StretchesScreen() {
                   </Text>
                 </View>
 
-                {/* Regenerate Plan Button */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleRegenerate}
-                  style={styles.regenerateBtn}
-                >
-                  <RotateCcw
-                    size={12}
-                    color="#2563EB"
-                    style={isRegenerating ? { transform: [{ rotate: '180deg' }] } : undefined}
-                  />
-                  <Text style={styles.regenerateBtnText}>Regenerate</Text>
-                </TouchableOpacity>
+                {/* Locked Protocol Badge vs Regenerate Button */}
+                {isProgramCalibrated ? (
+                  <View style={styles.lockedProtocolPill}>
+                    <Lock size={11} color="#0284C7" />
+                    <Text style={styles.lockedProtocolPillText}>Calibrated Protocol</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleRegenerate}
+                    style={styles.regenerateBtn}
+                  >
+                    <RotateCcw
+                      size={12}
+                      color="#2563EB"
+                      style={isRegenerating ? { transform: [{ rotate: '180deg' }] } : undefined}
+                    />
+                    <Text style={styles.regenerateBtnText}>Regenerate</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Days per week frequency pills */}
@@ -834,6 +907,19 @@ export default function StretchesScreen() {
               </View>
             </GlassCard>
           </Animated.View>
+
+          {/* Comprehensive Medical & Legal Disclaimer Card */}
+          <Animated.View entering={FadeInDown.delay(420).springify()}>
+            <GlassCard style={styles.legalDisclaimerCard}>
+              <View style={styles.legalDisclaimerHeader}>
+                <ShieldAlert size={15} color="#D97706" />
+                <Text style={styles.legalDisclaimerTitle}>Medical Notice & Legal Guardrails</Text>
+              </View>
+              <Text style={styles.legalDisclaimerBody}>
+                GoTall is an educational biomechanical wellness application. Stature increases are derived from intervertebral disc rehydration and posture correction. This app does not guarantee biological bone elongation or replace licensed orthopedic treatment. Consult a physician before undertaking physical traction exercises.
+              </Text>
+            </GlassCard>
+          </Animated.View>
         </ScrollView>
 
         {/* Stretch Timer Modal */}
@@ -849,6 +935,13 @@ export default function StretchesScreen() {
           badge={newlyUnlockedBadge}
           isUnlocked={true}
           onClose={clearNewlyUnlockedBadge}
+        />
+
+        {/* Health Disclaimer & Calibration Modal */}
+        <HealthDisclaimerModal
+          visible={showDisclaimerModal}
+          onAccept={handleAcceptDisclaimer}
+          onClose={() => setShowDisclaimerModal(false)}
         />
 
         {/* Category Diagnostic Questions Modal */}
@@ -1823,5 +1916,135 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  archetypeCard: {
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    backgroundColor: 'rgba(240, 249, 255, 0.75)',
+  },
+  archetypeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  archetypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  archetypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0284C7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  intensityTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  intensityTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  archetypeNameText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  archetypeFocusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+    marginBottom: 6,
+  },
+  archetypeRationaleText: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
+  },
+  uncalibratedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    marginBottom: 16,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  uncalibratedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  uncalibratedBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  uncalibratedBannerSub: {
+    fontSize: 11,
+    color: '#E0F2FE',
+    marginTop: 1,
+  },
+  lockedProtocolPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  lockedProtocolPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  legalDisclaimerCard: {
+    padding: 14,
+    marginTop: 12,
+    marginBottom: 28,
+    backgroundColor: 'rgba(254, 243, 199, 0.45)',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  legalDisclaimerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  legalDisclaimerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  legalDisclaimerBody: {
+    fontSize: 10.5,
+    color: '#78350F',
+    lineHeight: 15,
   },
 });
