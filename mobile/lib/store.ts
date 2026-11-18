@@ -745,7 +745,74 @@ export function buildWeeklyPlanSchedule(
   return { plan, activeDay: days[0] };
 }
 
+export interface ProgramWeekInfo {
+  weekNumber: number;
+  title: string;
+  focus: string;
+  scientificGoal: string;
+  plan: Record<string, StretchExercise[]>;
+}
+
+export const PROGRAM_WEEK_METADATA: Array<{ title: string; focus: string; scientificGoal: string }> = [
+  {
+    title: 'Axial Decompression & Baseline Mobilization',
+    focus: 'Thoracic & Lumbar Space Restoration',
+    scientificGoal: 'Rehydrating intervertebral fibrocartilage discs after daily gravity compression.',
+  },
+  {
+    title: 'Thoracic Expansion & Lordosis Correction',
+    focus: 'Spinal Kyphosis & Ribcage Alignment',
+    scientificGoal: 'Opening thoracic curvature and correcting anterior head posture to reclaim 1-2 cm of true vertical height.',
+  },
+  {
+    title: 'Deep Core Stabilization & Pelvic Neutrality',
+    focus: 'Transverse Abdominis & Sacral Traction',
+    scientificGoal: 'Eliminating excessive anterior pelvic tilt to lock in upright spinal verticality.',
+  },
+  {
+    title: 'Epiphyseal Micro-Traction & Joint Mobilization',
+    focus: 'Distal Femur & Proximal Tibia Tension',
+    scientificGoal: 'Stimulating chondrocyte proliferation at the lower limb growth plates through controlled elongation.',
+  },
+  {
+    title: 'Advanced Longitudinal Traction & Kinetic Symmetry',
+    focus: 'Full Axial Spinal & Lower Extremity Elongation',
+    scientificGoal: 'Deep fascia decompression across the complete posterior kinetic chain for enhanced overnight growth hormone response.',
+  },
+  {
+    title: 'Kinetic Chain Integration & Permanent Maintenance',
+    focus: 'Neuromuscular Lock-In & Postural Anchoring',
+    scientificGoal: 'Consolidating cumulative vertical structural gains into permanent biomechanical posture memory.',
+  },
+];
+
+export function buildMultiWeekProgramSchedule(
+  exercises: StretchExercise[],
+  daysCount: number,
+  totalWeeks = 6
+): Record<number, ProgramWeekInfo> {
+  const result: Record<number, ProgramWeekInfo> = {};
+  const pool = exercises.length > 0 ? exercises : CLINICAL_STRETCHES;
+
+  for (let w = 1; w <= totalWeeks; w++) {
+    const meta = PROGRAM_WEEK_METADATA[(w - 1) % PROGRAM_WEEK_METADATA.length];
+    // Rotate and shift exercise pool to create distinct progressive routines each week
+    const shifted = pool.map((_, i) => pool[(i + (w - 1) * 2) % pool.length]);
+    const { plan } = buildWeeklyPlanSchedule(shifted, daysCount);
+    result[w] = {
+      weekNumber: w,
+      title: `Week ${w}: ${meta.title}`,
+      focus: meta.focus,
+      scientificGoal: meta.scientificGoal,
+      plan,
+    };
+  }
+
+  return result;
+}
+
 const initialSchedule = buildWeeklyPlanSchedule(CLINICAL_STRETCHES, 4);
+const initialMultiWeekPlan = buildMultiWeekProgramSchedule(CLINICAL_STRETCHES, 4, 6);
 
 interface AppState {
   quizData: QuizData | null;
@@ -763,6 +830,16 @@ interface AppState {
   workoutDaysPerWeek: number;
   activePlanDay: string;
   weeklyPlan: Record<string, StretchExercise[]>;
+
+  // Multi-Week Program Progression & Gating
+  currentProgramWeek: number;
+  selectedViewingWeek: number;
+  completedWeeks: number[];
+  totalProgramWeeks: number;
+  multiWeekPlan: Record<number, ProgramWeekInfo>;
+  setSelectedViewingWeek: (week: number) => void;
+  advanceToNextWeek: () => void;
+  completeCurrentWeek: () => void;
 
   // Categories & Question Templates
   categories: WorkoutCategory[];
@@ -858,6 +935,36 @@ export const useAppStore = create<AppState>()(
       workoutDaysPerWeek: 4,
       activePlanDay: initialSchedule.activeDay,
       weeklyPlan: initialSchedule.plan,
+
+      // Multi-Week Program Progression initial values
+      currentProgramWeek: 1,
+      selectedViewingWeek: 1,
+      completedWeeks: [],
+      totalProgramWeeks: 6,
+      multiWeekPlan: initialMultiWeekPlan,
+      setSelectedViewingWeek: (week: number) => set({ selectedViewingWeek: week }),
+      advanceToNextWeek: () => {
+        const current = get().currentProgramWeek;
+        const completed = get().completedWeeks;
+        const next = Math.min(6, current + 1);
+        const newCompleted = completed.includes(current) ? completed : [...completed, current];
+        set({
+          currentProgramWeek: next,
+          selectedViewingWeek: next,
+          completedWeeks: newCompleted,
+        });
+      },
+      completeCurrentWeek: () => {
+        const current = get().currentProgramWeek;
+        const completed = get().completedWeeks;
+        const newCompleted = completed.includes(current) ? completed : [...completed, current];
+        const next = Math.min(6, current + 1);
+        set({
+          completedWeeks: newCompleted,
+          currentProgramWeek: next,
+          selectedViewingWeek: next,
+        });
+      },
 
       // Categories and Category Questions
       categories: INITIAL_CATEGORIES,
@@ -1231,9 +1338,11 @@ export const useAppStore = create<AppState>()(
 
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         const { plan, activeDay } = buildWeeklyPlanSchedule(shuffled, currentDays);
+        const multiPlan = buildMultiWeekProgramSchedule(pool, currentDays, 6);
 
         set({
           weeklyPlan: plan,
+          multiWeekPlan: multiPlan,
           workoutDaysPerWeek: currentDays,
           activePlanDay: activeDay,
         });
@@ -1274,8 +1383,10 @@ export const useAppStore = create<AppState>()(
 
             const currentDays = get().workoutDaysPerWeek || 4;
             const { plan, activeDay } = buildWeeklyPlanSchedule(mappedStretches, currentDays);
+            const multiPlan = buildMultiWeekProgramSchedule(mappedStretches, currentDays, 6);
             set({
               weeklyPlan: plan,
+              multiWeekPlan: multiPlan,
               activePlanDay: activeDay,
             });
           }
@@ -1386,6 +1497,10 @@ export const useAppStore = create<AppState>()(
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
+          currentProgramWeek: 1,
+          selectedViewingWeek: 1,
+          completedWeeks: [],
+          multiWeekPlan: initialMultiWeekPlan,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
@@ -1418,6 +1533,10 @@ export const useAppStore = create<AppState>()(
           workoutDaysPerWeek: 4,
           weeklyPlan: initialSchedule.plan,
           activePlanDay: initialSchedule.activeDay,
+          currentProgramWeek: 1,
+          selectedViewingWeek: 1,
+          completedWeeks: [],
+          multiWeekPlan: initialMultiWeekPlan,
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
@@ -1471,6 +1590,10 @@ export const useAppStore = create<AppState>()(
         workoutDaysPerWeek: state.workoutDaysPerWeek,
         activePlanDay: state.activePlanDay,
         weeklyPlan: state.weeklyPlan,
+        currentProgramWeek: state.currentProgramWeek,
+        selectedViewingWeek: state.selectedViewingWeek,
+        completedWeeks: state.completedWeeks,
+        multiWeekPlan: state.multiWeekPlan,
         sleepLogs: state.sleepLogs,
         sleepTargetHours: state.sleepTargetHours,
         user: state.user,

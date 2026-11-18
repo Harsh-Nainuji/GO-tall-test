@@ -31,7 +31,9 @@ import {
   X,
   ChevronRight,
   Tag,
+  Lock,
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useAppStore, CLINICAL_STRETCHES, StretchExercise, WorkoutCategory, CategoryQuestion } from '../../lib/store';
@@ -58,6 +60,16 @@ export default function StretchesScreen() {
   const setWorkoutDaysPerWeek = useAppStore((state) => state.setWorkoutDaysPerWeek);
   const setActivePlanDay = useAppStore((state) => state.setActivePlanDay);
   const generateWeeklyPlan = useAppStore((state) => state.generateWeeklyPlan);
+
+  // Multi-Week Program Progression & Gating
+  const currentProgramWeek = useAppStore((state) => state.currentProgramWeek ?? 1);
+  const selectedViewingWeek = useAppStore((state) => state.selectedViewingWeek ?? 1);
+  const completedWeeks = useAppStore((state) => state.completedWeeks ?? []);
+  const totalProgramWeeks = useAppStore((state) => state.totalProgramWeeks ?? 6);
+  const multiWeekPlan = useAppStore((state) => state.multiWeekPlan ?? {});
+  const setSelectedViewingWeek = useAppStore((state) => state.setSelectedViewingWeek);
+  const advanceToNextWeek = useAppStore((state) => state.advanceToNextWeek);
+  const completeCurrentWeek = useAppStore((state) => state.completeCurrentWeek);
 
   const [selectedStretch, setSelectedStretch] = useState<StretchExercise | null>(null);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('all');
@@ -110,20 +122,22 @@ export default function StretchesScreen() {
 
   const liveCatalogStretches = useAppStore((state) => state.liveCatalogStretches);
 
-  const scheduleDays = Object.keys(weeklyPlan);
+  const currentWeekInfo = multiWeekPlan[selectedViewingWeek];
+  const isWeekLocked = selectedViewingWeek > currentProgramWeek;
+  const currentWeekPlan = currentWeekInfo?.plan || weeklyPlan;
+
+  const scheduleDays = Object.keys(currentWeekPlan).length > 0 ? Object.keys(currentWeekPlan) : Object.keys(weeklyPlan);
   const currentDayKey = scheduleDays.includes(activePlanDay)
     ? activePlanDay
     : scheduleDays[0] || 'Monday';
 
-  // Priority: admin-panel live catalog > direct Supabase fetch > weekly plan > static fallback
-  const baseExercises: StretchExercise[] =
-    (liveCatalogStretches && liveCatalogStretches.length > 0)
-      ? liveCatalogStretches
-      : (liveExercises && liveExercises.length > 0)
-      ? liveExercises
-      : weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0
-      ? weeklyPlan[currentDayKey]
-      : CLINICAL_STRETCHES;
+  // Exercises scheduled for this active day in this specific week
+  const scheduledForDay = currentWeekPlan[currentDayKey] || [];
+  const baseExercises: StretchExercise[] = scheduledForDay.length > 0
+    ? scheduledForDay
+    : (weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0)
+    ? weeklyPlan[currentDayKey]
+    : CLINICAL_STRETCHES;
 
   const dailyExercises: StretchExercise[] = baseExercises;
 
@@ -270,6 +284,132 @@ export default function StretchesScreen() {
             <Text style={styles.headingText}>Spinal Decompression</Text>
           </Animated.View>
 
+          {/* ============================================================== */}
+          {/* 6-WEEK PROGRESSIVE CURRICULUM SELECTOR & WEEK GATING           */}
+          {/* ============================================================== */}
+          <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.weekSelectorSection}>
+            <View style={styles.weekHeaderRow}>
+              <View>
+                <Text style={styles.weekSectionTitle}>6-Week Height Program</Text>
+                <Text style={styles.weekSectionSubtitle}>
+                  Week {currentProgramWeek} of {totalProgramWeeks} Active • {completedWeeks.length} Completed
+                </Text>
+              </View>
+              <View style={styles.weekProgressPill}>
+                <Text style={styles.weekProgressPillText}>
+                  {Math.round((completedWeeks.length / totalProgramWeeks) * 100)}% Complete
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.weekPillsScroll}
+            >
+              {Array.from({ length: totalProgramWeeks }, (_, i) => i + 1).map((weekNum) => {
+                const isSelected = selectedViewingWeek === weekNum;
+                const isCompleted = completedWeeks.includes(weekNum) || weekNum < currentProgramWeek;
+                const isCurrent = currentProgramWeek === weekNum;
+                const isLocked = weekNum > currentProgramWeek;
+
+                return (
+                  <TouchableOpacity
+                    key={weekNum}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setSelectedViewingWeek(weekNum);
+                    }}
+                    style={[
+                      styles.weekPill,
+                      isSelected && styles.weekPillSelected,
+                      isCurrent && styles.weekPillCurrent,
+                      isLocked && styles.weekPillLocked,
+                    ]}
+                  >
+                    <View style={styles.weekPillTop}>
+                      <Text
+                        style={[
+                          styles.weekPillLabel,
+                          isSelected && styles.weekPillLabelSelected,
+                          isLocked && styles.weekPillLabelLocked,
+                        ]}
+                      >
+                        Week {weekNum}
+                      </Text>
+                      {isCompleted ? (
+                        <CheckCircle2 size={12} color="#10B981" />
+                      ) : isLocked ? (
+                        <Lock size={11} color="#94A3B8" />
+                      ) : (
+                        <View style={styles.activeDot} />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.weekPillStatus,
+                        isCompleted
+                          ? styles.weekStatusCompleted
+                          : isCurrent
+                          ? styles.weekStatusActive
+                          : styles.weekStatusLocked,
+                      ]}
+                    >
+                      {isCompleted ? 'Done' : isCurrent ? 'Active' : 'Locked'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Animated.View>
+
+          {isWeekLocked ? (
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <GlassCard style={styles.lockedContainerCard}>
+                <View style={styles.lockedIconWrapper}>
+                  <Lock size={36} color="#D97706" />
+                </View>
+                <View style={styles.lockedBadge}>
+                  <Text style={styles.lockedBadgeText}>Phase Locked</Text>
+                </View>
+                <Text style={styles.lockedPhaseTitle}>
+                  {currentWeekInfo?.title || `Week ${selectedViewingWeek}`}
+                </Text>
+                <Text style={styles.lockedPhaseFocus}>
+                  Target: {currentWeekInfo?.focus || 'Spinal Decompression & Posture'}
+                </Text>
+                <Text style={styles.lockedPhaseGoal}>
+                  {currentWeekInfo?.scientificGoal ||
+                    'Complete all scheduled daily decompressions in your current active week to unlock this training phase.'}
+                </Text>
+
+                <View style={styles.lockRequirementBox}>
+                  <View style={styles.lockReqHeaderRow}>
+                    <ShieldCheck size={14} color="#0284C7" />
+                    <Text style={styles.lockReqTitle}>Unlock Condition</Text>
+                  </View>
+                  <Text style={styles.lockReqDesc}>
+                    You are currently in Week {currentProgramWeek}. You must complete Week {selectedViewingWeek - 1} workouts before accessing Week {selectedViewingWeek} workouts.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setSelectedViewingWeek(currentProgramWeek);
+                  }}
+                  style={styles.returnToCurrentBtn}
+                >
+                  <Text style={styles.returnToCurrentBtnText}>
+                    Return to Week {currentProgramWeek} (Active)
+                  </Text>
+                </TouchableOpacity>
+              </GlassCard>
+            </Animated.View>
+          ) : (
+            <>
           {/* ============================================================== */}
           {/* WEEKLY AUTO-SCHEDULER CONTROLS & DAYS PER WEEK SELECTOR        */}
           {/* ============================================================== */}
@@ -548,6 +688,22 @@ export default function StretchesScreen() {
                     onPress={() => setSelectedStretch(s)}
                     style={styles.stretchContentRow}
                   >
+                    {s.media_url ? (
+                      <View style={styles.cardThumbnailWrapper}>
+                        <Image
+                          source={{ uri: s.media_url }}
+                          style={styles.cardThumbnailImg}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                        {s.media_type === 'video' && (
+                          <View style={styles.cardThumbnailPlayBadge}>
+                            <Play size={10} color="#FFFFFF" fill="#FFFFFF" />
+                          </View>
+                        )}
+                      </View>
+                    ) : null}
+
                     <View style={styles.stretchInfoCol}>
                       <View style={styles.stretchTagsRow}>
                         {/* Category Tag Badge (Strict: Height Growth, Strength, Posture) */}
@@ -645,6 +801,27 @@ export default function StretchesScreen() {
             })
           )}
           </Animated.View>
+
+          {/* Advance to next week button */}
+          {currentProgramWeek < totalProgramWeeks && selectedViewingWeek === currentProgramWeek && (
+            <View style={styles.advanceWeekSection}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                  advanceToNextWeek();
+                }}
+                style={styles.advanceWeekBtn}
+              >
+                <Sparkles size={16} color="#FFFFFF" />
+                <Text style={styles.advanceWeekBtnText}>
+                  Complete Week {currentProgramWeek} & Unlock Week {currentProgramWeek + 1}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          </>
+        )}
 
           {/* Scientific Citation Card */}
           <Animated.View entering={FadeInDown.delay(400).springify()}>
@@ -868,6 +1045,245 @@ const styles = StyleSheet.create({
   titleSection: {
     marginTop: 8,
     marginBottom: 16,
+  },
+  // 6-Week Progressive Curriculum styles
+  weekSelectorSection: {
+    marginBottom: 16,
+  },
+  weekHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    marginBottom: 10,
+  },
+  weekSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  weekSectionSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  weekProgressPill: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  weekProgressPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  weekPillsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  weekPill: {
+    width: 96,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    gap: 4,
+  },
+  weekPillSelected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  weekPillCurrent: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#F0F9FF',
+  },
+  weekPillLocked: {
+    opacity: 0.65,
+    backgroundColor: 'rgba(241, 245, 249, 0.7)',
+  },
+  weekPillTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weekPillLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  weekPillLabelSelected: {
+    color: '#2563EB',
+  },
+  weekPillLabelLocked: {
+    color: '#64748B',
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2563EB',
+  },
+  weekPillStatus: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  weekStatusCompleted: {
+    color: '#10B981',
+  },
+  weekStatusActive: {
+    color: '#0284C7',
+  },
+  weekStatusLocked: {
+    color: '#94A3B8',
+  },
+
+  // Locked Phase Card styles
+  lockedContainerCard: {
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 8,
+  },
+  lockedIconWrapper: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  lockedBadge: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  lockedBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  lockedPhaseTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  lockedPhaseFocus: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+    textAlign: 'center',
+  },
+  lockedPhaseGoal: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  lockRequirementBox: {
+    width: '100%',
+    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
+    marginTop: 8,
+  },
+  lockReqHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  lockReqTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  lockReqDesc: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
+  },
+  returnToCurrentBtn: {
+    marginTop: 10,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  returnToCurrentBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Advance week action
+  advanceWeekSection: {
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  advanceWeekBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0284C7',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  advanceWeekBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Media preview thumbnail on exercise card
+  cardThumbnailWrapper: {
+    width: 58,
+    height: 58,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#0F172A',
+    position: 'relative',
+    marginRight: 10,
+    flexShrink: 0,
+  },
+  cardThumbnailImg: {
+    width: '100%',
+    height: '100%',
+  },
+  cardThumbnailPlayBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(37, 99, 235, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subheadingText: {
     fontSize: 11,

@@ -573,6 +573,15 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
                           </label>
                         )}
                       </div>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <input
+                          type="url"
+                          placeholder="Or paste direct badge image URL (https://...)"
+                          value={formIconUrl}
+                          onChange={(e) => setFormIconUrl(e.target.value.trim())}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
+                        />
+                      </div>
                       {uploadError && <p className="text-xs text-rose-400 mt-1.5">{uploadError}</p>}
                     </div>
 

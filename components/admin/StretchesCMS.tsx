@@ -1508,6 +1508,34 @@ export function StretchesCMS({
                     </div>
                   </div>
 
+                  {/* Direct URL entry alternative */}
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={mediaUrl || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.trim()
+                        setMediaUrl(val || undefined)
+                        if (val) {
+                          const lower = val.toLowerCase()
+                          if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')) {
+                            setMediaType('video')
+                          } else if (lower.endsWith('.gif')) {
+                            setMediaType('gif')
+                          } else {
+                            setMediaType('image')
+                          }
+                          setMediaFileName('Direct Media Link')
+                        } else {
+                          setMediaType(undefined)
+                          setMediaFileName(undefined)
+                        }
+                      }}
+                      placeholder="Or paste direct Image / GIF / MP4 Video URL (https://...)"
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
                   {mediaUrl && (
                     <div className="mt-3 p-3 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">

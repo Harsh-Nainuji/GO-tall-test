@@ -11,6 +11,7 @@ import {
   Image,
   RefreshControl,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -472,10 +473,11 @@ export default function ProfileScreen() {
                           ]}
                         >
                           {badge.icon_url ? (
-                            <Image
+                            <ExpoImage
                               source={{ uri: badge.icon_url }}
                               style={{ width: 26, height: 26 }}
-                              resizeMode="contain"
+                              contentFit="contain"
+                              transition={200}
                             />
                           ) : (
                             <Text style={styles.badgeIconEmoji}>{badge.icon}</Text>

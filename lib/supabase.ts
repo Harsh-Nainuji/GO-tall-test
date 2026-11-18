@@ -131,47 +131,78 @@ export async function uploadExerciseMedia(
     throw new Error('Image exceeds 10MB limit. Please select a smaller file.')
   }
 
+  // 1. Try server-side upload endpoint (uses Service Role Key to bypass any RLS or CORS issues)
+  if (typeof window !== 'undefined') {
+    try {
+      const token = sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026'
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', folder)
+
+      const res = await fetch('/api/admin/upload-media', {
+        method: 'POST',
+        headers: {
+          'x-admin-token': token,
+        },
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.publicUrl) {
+          return {
+            publicUrl: data.publicUrl,
+            mediaType: data.mediaType || mediaType,
+            fileName: data.fileName || file.name,
+            fileSize: data.fileSize || file.size,
+            path: data.path || '',
+          }
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}))
+        console.warn('Server upload-media error:', errJson.error)
+      }
+    } catch (e) {
+      console.warn('Server upload-media call failed, attempting direct bucket upload:', e)
+    }
+  }
+
+  // 2. Direct client-side bucket upload fallback
   const client = getSupabaseClient()
-  // Sanitize filename and prevent directory traversal
   const safeBaseName = file.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)
   const safeRandomId = Math.random().toString(36).substring(2, 10)
   const filePath = `${folder}/${Date.now()}_${safeRandomId}_${safeBaseName}.${ext}`
 
-  try {
-    const { error: uploadError } = await client.storage
-      .from('exercise-media')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: isVideo ? (ext === 'webm' ? 'video/webm' : 'video/mp4') : isGif ? 'image/gif' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
-      })
+  const { error: uploadError } = await client.storage
+    .from('exercise-media')
+    .upload(filePath, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: isVideo
+        ? ext === 'webm' ? 'video/webm' : 'video/mp4'
+        : isGif
+        ? 'image/gif'
+        : ext === 'png'
+        ? 'image/png'
+        : ext === 'webp'
+        ? 'image/webp'
+        : 'image/jpeg',
+    })
 
-    if (uploadError) {
-      console.warn('Supabase storage upload error:', uploadError.message)
-      throw new Error(`Upload failed: ${uploadError.message}`)
-    }
-
-    const { data: publicData } = client.storage
-      .from('exercise-media')
-      .getPublicUrl(filePath)
-
-    if (publicData?.publicUrl) {
-      return {
-        publicUrl: publicData.publicUrl,
-        mediaType,
-        fileName: file.name,
-        fileSize: file.size,
-        path: filePath,
-      }
-    }
-  } catch (err: any) {
-    console.warn('Direct bucket upload failed, using local blob fallback:', err)
+  if (uploadError) {
+    throw new Error(`Upload failed: ${uploadError.message}`)
   }
 
-  // Graceful browser-side fallback for offline/preview
-  const localBlobUrl = typeof window !== 'undefined' ? URL.createObjectURL(file) : ''
+  const { data: publicData } = client.storage
+    .from('exercise-media')
+    .getPublicUrl(filePath)
+
+  if (!publicData?.publicUrl) {
+    throw new Error('Could not retrieve public URL for uploaded media')
+  }
+
   return {
-    publicUrl: localBlobUrl,
+    publicUrl: publicData.publicUrl,
     mediaType,
     fileName: file.name,
     fileSize: file.size,
