@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { Home, Apple, BedDouble, AlignJustify, User } from 'lucide-react-native';
+import { Home, Apple, BedDouble, AlignJustify, ListTodo, User } from 'lucide-react-native';
 import { useAppStore } from '../../lib/store';
 
 export default function TabLayout() {
@@ -9,12 +9,13 @@ export default function TabLayout() {
   const isPremium = useAppStore((state) => state.isPremium);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
 
-  // Protected route guard: if user is not logged in or has no active subscription, redirect immediately to landing page
+  // Protected route guard: if user has no account at all, redirect to landing page
   useEffect(() => {
-    if (hasHydrated && (!user?.isLoggedIn || !isPremium)) {
+    const hasAccount = Boolean(user?.isLoggedIn || user?.email || user?.id || isPremium);
+    if (hasHydrated && !hasAccount) {
       router.replace('/');
     }
-  }, [hasHydrated, user?.isLoggedIn, isPremium]);
+  }, [hasHydrated, user, isPremium]);
 
   return (
     <Tabs
@@ -36,7 +37,7 @@ export default function TabLayout() {
           shadowRadius: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10.5,
           fontWeight: '700',
         },
       }}
@@ -67,6 +68,13 @@ export default function TabLayout() {
         options={{
           title: 'Stretches',
           tabBarIcon: ({ color, size }) => <AlignJustify color={color} size={size} strokeWidth={2.3} />,
+        }}
+      />
+      <Tabs.Screen
+        name="todos"
+        options={{
+          title: 'To-Do',
+          tabBarIcon: ({ color, size }) => <ListTodo color={color} size={size} strokeWidth={2.3} />,
         }}
       />
       <Tabs.Screen

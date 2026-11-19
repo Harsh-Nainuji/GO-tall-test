@@ -34,40 +34,84 @@ export default function WelcomeScreen() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
-  // Check persistent session on mount: if user is already logged in with subscription, bypass onboarding!
+  // Check persistent session on mount: if user already has an account, bypass onboarding directly!
   useEffect(() => {
-    // 1. Immediate check if store is already hydrated
-    if (user?.isLoggedIn && isPremium) {
-      router.replace('/(tabs)/home');
-      return;
-    }
+    let isMounted = true;
 
-    // 2. Listen for store hydration completion from AsyncStorage
-    let hasChecked = false;
-    const unsubscribe = useAppStore.persist.onFinishHydration((hydratedState) => {
-      hasChecked = true;
-      if (hydratedState.user?.isLoggedIn && hydratedState.isPremium) {
+    const checkExistingAccount = async () => {
+      // 1. Check local persistent Zustand store
+      const state = useAppStore.getState();
+      const hasLocalAccount = Boolean(
+        state.user?.isLoggedIn ||
+        state.user?.email ||
+        state.user?.id ||
+        state.isPremium
+      );
+
+      if (hasLocalAccount) {
+        if (!state.isPremium) {
+          useAppStore.getState().setPremium(true);
+        }
         router.replace('/(tabs)/home');
-      } else {
-        setIsCheckingSession(false);
+        return;
       }
-    });
 
-    // 3. Fallback check after 120ms
-    const timer = setTimeout(() => {
-      if (!hasChecked) {
-        const state = useAppStore.getState();
-        if (state.user?.isLoggedIn && state.isPremium) {
-          router.replace('/(tabs)/home');
-        } else {
-          setIsCheckingSession(false);
+      // 2. Check Supabase persistent session
+      if (isSupabaseConfigured()) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session?.user && isMounted) {
+            useAppStore.getState().setUser({
+              id: data.session.user.id,
+              email: data.session.user.email || '',
+              name: data.session.user.user_metadata?.display_name || data.session.user.email?.split('@')[0] || 'User',
+              provider: 'supabase',
+              isLoggedIn: true,
+            });
+            useAppStore.getState().setPremium(true);
+            router.replace('/(tabs)/home');
+            return;
+          }
+        } catch {
+          // Graceful handling
         }
       }
-    }, 120);
+
+      // 3. Listen for store hydration if not yet done
+      const unsubscribe = useAppStore.persist.onFinishHydration((hydrated) => {
+        const hasHydratedAccount = Boolean(
+          hydrated.user?.isLoggedIn ||
+          hydrated.user?.email ||
+          hydrated.user?.id ||
+          hydrated.isPremium
+        );
+        if (hasHydratedAccount && isMounted) {
+          if (!hydrated.isPremium) {
+            useAppStore.getState().setPremium(true);
+          }
+          router.replace('/(tabs)/home');
+        } else if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      });
+
+      // 4. Timeout fallback
+      const timer = setTimeout(() => {
+        if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      }, 140);
+
+      return () => {
+        clearTimeout(timer);
+        unsubscribe();
+      };
+    };
+
+    checkExistingAccount();
 
     return () => {
-      clearTimeout(timer);
-      unsubscribe();
+      isMounted = false;
     };
   }, [user, isPremium]);
 

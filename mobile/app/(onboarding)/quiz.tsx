@@ -43,6 +43,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function QuizScreen() {
   const router = useRouter();
   const setQuizData = useAppStore((state) => state.setQuizData);
+  const user = useAppStore((state) => state.user);
+  const isPremium = useAppStore((state) => state.isPremium);
+
+  // If user already has an account, bypass questionnaire and redirect directly to dashboard
+  React.useEffect(() => {
+    const hasAccount = Boolean(user?.isLoggedIn || user?.email || user?.id || isPremium);
+    if (hasAccount) {
+      router.replace('/(tabs)/home');
+    }
+  }, [user, isPremium]);
 
   // Stepped Questionnaire: 1 to 15
   const [currentStep, setCurrentStep] = useState<number>(1);

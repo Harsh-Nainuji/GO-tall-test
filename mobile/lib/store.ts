@@ -72,6 +72,65 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface DailyTodo {
+  id: string;
+  title: string;
+  category: 'Habit' | 'Spinal' | 'Nutrition' | 'Recovery' | 'Custom';
+  icon?: string;
+  completed: boolean;
+  completedAt?: string;
+  createdAt: string;
+  isDefault?: boolean;
+}
+
+export const INITIAL_DAILY_TODOS: DailyTodo[] = [
+  {
+    id: 'todo-1',
+    title: 'Drink 2.5L Water for Spinal Disc Hydration',
+    category: 'Habit',
+    icon: '💧',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'todo-2',
+    title: 'Complete 15-Min Axial Spinal Decompression',
+    category: 'Spinal',
+    icon: '🧘',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'todo-3',
+    title: 'Take Bone Matrix Nutrients (Vitamin D3 + Calcium)',
+    category: 'Nutrition',
+    icon: '💊',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'todo-4',
+    title: 'Sleep 8.5 Hours (In bed before 10:30 PM for hGH Peak)',
+    category: 'Recovery',
+    icon: '🌙',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'todo-5',
+    title: '5-Min Posture Reset (Scapular Retraction & Wall Check)',
+    category: 'Spinal',
+    icon: '⚡',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+];
+
 export const CLINICAL_STRETCHES: StretchExercise[] = [
   {
     id: 0,
@@ -832,6 +891,13 @@ interface AppState {
   activePlanDay: string;
   weeklyPlan: Record<string, StretchExercise[]>;
 
+  // Daily Protocol To-Dos State & Actions
+  todos: DailyTodo[];
+  toggleTodo: (id: string) => void;
+  addTodo: (todo: { title: string; category?: DailyTodo['category']; icon?: string }) => void;
+  deleteTodo: (id: string) => void;
+  resetDailyTodos: () => void;
+
   // Multi-Week Program Progression & Gating
   currentProgramWeek: number;
   selectedViewingWeek: number;
@@ -1050,6 +1116,45 @@ export const useAppStore = create<AppState>()(
       // Sleep tracking state (fresh starter state)
       sleepLogs: [],
       sleepTargetHours: 8.5,
+
+      // Daily Protocol To-Dos State
+      todos: INITIAL_DAILY_TODOS,
+      toggleTodo: (id: string) => {
+        set((state) => {
+          const updated = state.todos.map((t) => {
+            if (t.id === id) {
+              const nextCompleted = !t.completed;
+              return {
+                ...t,
+                completed: nextCompleted,
+                completedAt: nextCompleted ? new Date().toISOString() : undefined,
+              };
+            }
+            return t;
+          });
+          return { todos: updated };
+        });
+      },
+      addTodo: ({ title, category = 'Custom', icon = '✨' }) => {
+        const newTodo: DailyTodo = {
+          id: `todo-${Date.now()}`,
+          title,
+          category,
+          icon,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          isDefault: false,
+        };
+        set((state) => ({ todos: [newTodo, ...state.todos] }));
+      },
+      deleteTodo: (id: string) => {
+        set((state) => ({ todos: state.todos.filter((t) => t.id !== id) }));
+      },
+      resetDailyTodos: () => {
+        set((state) => ({
+          todos: state.todos.map((t) => ({ ...t, completed: false, completedAt: undefined })),
+        }));
+      },
 
       // Authentication state
       user: null,
@@ -1595,6 +1700,7 @@ export const useAppStore = create<AppState>()(
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
+          todos: INITIAL_DAILY_TODOS,
         });
       },
 
@@ -1635,6 +1741,7 @@ export const useAppStore = create<AppState>()(
           aiQuestionsUsedToday: 0,
           lastAiQuestionDate: new Date().toISOString().split('T')[0],
           aiWindowStart: null,
+          todos: INITIAL_DAILY_TODOS,
         });
       },
 
@@ -1695,6 +1802,7 @@ export const useAppStore = create<AppState>()(
         hasAcceptedHealthDisclaimer: state.hasAcceptedHealthDisclaimer,
         sleepLogs: state.sleepLogs,
         sleepTargetHours: state.sleepTargetHours,
+        todos: state.todos,
         user: state.user,
         categories: state.categories,
         categoryQuestions: state.categoryQuestions,

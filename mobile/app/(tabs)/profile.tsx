@@ -35,6 +35,8 @@ import {
   Database,
   FileText,
   X,
+  Users,
+  Dna,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -411,6 +413,124 @@ export default function ProfileScreen() {
                   </View>
                 </View>
               )}
+            </GlassCard>
+          </Animated.View>
+
+          {/* ============================================================== */}
+          {/* QUESTIONNAIRE ANSWERS & PARENTAL GENETICS (User Requested)     */}
+          {/* ============================================================== */}
+          <Animated.View entering={FadeInDown.delay(160).springify()}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionTitleWithIcon}>
+                <Dna size={18} color="#2563EB" />
+                <Text style={styles.sectionTitle}>Biometric Assessment Answers</Text>
+              </View>
+              <View style={styles.calibratedBadge}>
+                <CheckCircle2 size={12} color="#10B981" />
+                <Text style={styles.calibratedBadgeText}>Calibrated</Text>
+              </View>
+            </View>
+
+            <GlassCard style={styles.biometricsCard}>
+              {/* Parental Genetics subsection */}
+              <View style={styles.bioSubsectionHeader}>
+                <Users size={15} color="#2563EB" />
+                <Text style={styles.bioSubsectionTitle}>Parental Genetics & Ceiling</Text>
+              </View>
+
+              <View style={styles.bioGridTwoCol}>
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Father's Height</Text>
+                  <Text style={styles.bioMetricValue}>
+                    {safeData.fatherHeight ?? 178} cm
+                  </Text>
+                  <Text style={styles.bioMetricSub}>
+                    {cmToFtIn(safeData.fatherHeight ?? 178)}
+                  </Text>
+                </View>
+
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Mother's Height</Text>
+                  <Text style={styles.bioMetricValue}>
+                    {safeData.motherHeight ?? 164.5} cm
+                  </Text>
+                  <Text style={styles.bioMetricSub}>
+                    {cmToFtIn(safeData.motherHeight ?? 164.5)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Mid-Parental Height Projection Card */}
+              <View style={styles.geneticCeilingBanner}>
+                <View style={styles.geneticCeilingLeft}>
+                  <Target size={18} color="#1D4ED8" />
+                  <View>
+                    <Text style={styles.geneticCeilingTitle}>Tanner-Whitehouse Ceiling</Text>
+                    <Text style={styles.geneticCeilingValue}>
+                      {result.target.toFixed(1)} cm ({cmToFtIn(result.target)})
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.potentialPill}>
+                  <Text style={styles.potentialPillText}>
+                    +{Math.max(0, result.target - (safeData.currentHeight ?? 172.4)).toFixed(1)} cm
+                  </Text>
+                </View>
+              </View>
+
+              {/* Baseline Stature & Growth Indicators */}
+              <View style={[styles.bioSubsectionHeader, { marginTop: 14 }]}>
+                <Activity size={15} color="#0284C7" />
+                <Text style={styles.bioSubsectionTitle}>Your Biological Baseline</Text>
+              </View>
+
+              <View style={styles.bioGridTwoCol}>
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Current Height</Text>
+                  <Text style={styles.bioMetricValue}>
+                    {(safeData.currentHeight ?? 172.4).toFixed(1)} cm
+                  </Text>
+                  <Text style={styles.bioMetricSub}>
+                    {cmToFtIn(safeData.currentHeight ?? 172.4)}
+                  </Text>
+                </View>
+
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Biological Age & Sex</Text>
+                  <Text style={styles.bioMetricValue}>
+                    {safeData.age} Years
+                  </Text>
+                  <Text style={styles.bioMetricSub}>
+                    {safeData.gender === 'female' ? 'Female' : 'Male'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bioGridTwoCol}>
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Recent Growth Rate</Text>
+                  <Text style={styles.bioMetricValue} numberOfLines={1}>
+                    {safeData.growthRate || '2–5 cm / yr'}
+                  </Text>
+                  <Text style={styles.bioMetricSub}>Velocity active</Text>
+                </View>
+
+                <View style={styles.bioMetricBox}>
+                  <Text style={styles.bioMetricLabel}>Daily Sedentary Time</Text>
+                  <Text style={styles.bioMetricValue} numberOfLines={1}>
+                    {safeData.sittingHours || '4–8 hrs'}
+                  </Text>
+                  <Text style={styles.bioMetricSub}>Spinal compression risk</Text>
+                </View>
+              </View>
+
+              {/* Posture & Growth Plate Motivation */}
+              <View style={styles.motivationBox}>
+                <Text style={styles.motivationLabel}>Primary Stature Goal & Motivation</Text>
+                <Text style={styles.motivationText}>
+                  &ldquo;{safeData.motivation || 'Maximize my genetic height potential and spinal alignment'}&rdquo;
+                </Text>
+              </View>
             </GlassCard>
           </Animated.View>
 
@@ -823,6 +943,134 @@ const styles = StyleSheet.create({
   userBioCard: {
     padding: 18,
     marginVertical: 12,
+  },
+
+  // Biometrics Assessment & Questionnaire Answers styles
+  biometricsCard: {
+    padding: 18,
+    marginBottom: 20,
+    gap: 8,
+  },
+  calibratedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  calibratedBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  bioSubsectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  bioSubsectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bioGridTwoCol: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 6,
+  },
+  bioMetricBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 2,
+  },
+  bioMetricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  bioMetricValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  bioMetricSub: {
+    fontSize: 10.5,
+    color: '#0284C7',
+    fontWeight: '600',
+  },
+  geneticCeilingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 16,
+    padding: 12,
+    marginVertical: 4,
+  },
+  geneticCeilingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  geneticCeilingTitle: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#1E40AF',
+    textTransform: 'uppercase',
+  },
+  geneticCeilingValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1E3A8A',
+  },
+  potentialPill: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  potentialPillText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  motivationBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 6,
+    gap: 4,
+  },
+  motivationLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  motivationText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
   userBioRow: {
     flexDirection: 'row',
