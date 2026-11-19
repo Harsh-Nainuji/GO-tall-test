@@ -20,16 +20,22 @@ interface SleepSchedulerModalProps {
   onClose: () => void;
 }
 
-function timeValueToMinutes(t: WheelTimeValue): number {
+function timeValueToMinutes(t: WheelTimeValue, is24h: boolean): number {
+  if (is24h) {
+    return t.hours * 60 + t.minutes;
+  }
   let h = t.hours % 12;
   if (t.period === 'PM') h += 12;
   return h * 60 + t.minutes;
 }
 
-function formatTimeValue(t: WheelTimeValue): string {
+function formatTimeValue(t: WheelTimeValue, is24h: boolean): string {
   const h = String(t.hours).padStart(2, '0');
   const m = String(t.minutes).padStart(2, '0');
-  return `${h}:${m} ${t.period}`;
+  if (is24h) {
+    return `${h}:${m}`;
+  }
+  return `${h}:${m} ${t.period || 'PM'}`;
 }
 
 export default function SleepSchedulerModal({
@@ -39,6 +45,7 @@ export default function SleepSchedulerModal({
   const addSleepLog = useAppStore((state) => state.addSleepLog);
   const setSleepTargetHours = useAppStore((state) => state.setSleepTargetHours);
 
+  const [is24Hour, setIs24Hour] = useState(false);
   const [activeTab, setActiveTab] = useState<'bedtime' | 'wakeup'>('bedtime');
   const [bedtime, setBedtime] = useState<WheelTimeValue>({
     hours: 10,
@@ -52,10 +59,39 @@ export default function SleepSchedulerModal({
   });
   const [quality, setQuality] = useState<'Deep Restorative' | 'Normal Rest' | 'Light / Interrupted'>('Deep Restorative');
 
+  const handleToggleFormat = (to24h: boolean) => {
+    setIs24Hour(to24h);
+    if (to24h) {
+      // 12h -> 24h
+      setBedtime((prev) => {
+        let h = prev.hours % 12;
+        if (prev.period === 'PM') h += 12;
+        return { hours: h, minutes: prev.minutes, is24Hour: true };
+      });
+      setWakeup((prev) => {
+        let h = prev.hours % 12;
+        if (prev.period === 'PM') h += 12;
+        return { hours: h, minutes: prev.minutes, is24Hour: true };
+      });
+    } else {
+      // 24h -> 12h
+      setBedtime((prev) => {
+        const period = prev.hours >= 12 ? 'PM' : 'AM';
+        const h = prev.hours % 12 || 12;
+        return { hours: h, minutes: prev.minutes, period, is24Hour: false };
+      });
+      setWakeup((prev) => {
+        const period = prev.hours >= 12 ? 'PM' : 'AM';
+        const h = prev.hours % 12 || 12;
+        return { hours: h, minutes: prev.minutes, period, is24Hour: false };
+      });
+    }
+  };
+
   // Calculate duration across midnight
   const { totalHours, hoursPart, minutesPart, isOptimalHgh } = useMemo(() => {
-    const bedMin = timeValueToMinutes(bedtime);
-    const wakeMin = timeValueToMinutes(wakeup);
+    const bedMin = timeValueToMinutes(bedtime, is24Hour);
+    const wakeMin = timeValueToMinutes(wakeup, is24Hour);
 
     let diffMin = wakeMin - bedMin;
     if (diffMin <= 0) {
@@ -66,10 +102,9 @@ export default function SleepSchedulerModal({
     const hPart = Math.floor(diffMin / 60);
     const mPart = diffMin % 60;
 
-    // Check if bedtime is within prime hGH window (09:30 PM - 11:30 PM) and duration >= 8h
-    const isOptimal =
-      (bedtime.period === 'PM' && (bedtime.hours >= 9 && bedtime.hours <= 11)) &&
-      hours >= 7.5;
+    // Check if bedtime is within prime hGH window (09:30 PM - 11:30 PM, or 21:30 - 23:30) and duration >= 7.5h
+    const bedHour24 = is24Hour ? bedtime.hours : (bedtime.period === 'PM' ? (bedtime.hours % 12) + 12 : bedtime.hours % 12);
+    const isOptimal = (bedHour24 >= 21 && bedHour24 <= 23) && hours >= 7.5;
 
     return {
       totalHours: Math.round(hours * 10) / 10,
@@ -77,7 +112,7 @@ export default function SleepSchedulerModal({
       minutesPart: mPart,
       isOptimalHgh: isOptimal,
     };
-  }, [bedtime, wakeup]);
+  }, [bedtime, wakeup, is24Hour]);
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -95,8 +130,8 @@ export default function SleepSchedulerModal({
       dayOfWeek,
       hours: totalHours,
       quality,
-      bedtime: formatTimeValue(bedtime),
-      wakeupTime: formatTimeValue(wakeup),
+      bedtime: formatTimeValue(bedtime, is24Hour),
+      wakeupTime: formatTimeValue(wakeup, is24Hour),
     });
 
     onClose();
@@ -118,8 +153,8 @@ export default function SleepSchedulerModal({
                 <Moon size={18} color="#2563EB" />
               </View>
               <View>
-                <Text style={styles.titleText}>Sleep Scheduler</Text>
-                <Text style={styles.subtitleText}>Vertical wheel circadian setup</Text>
+                <Text style={styles.titleText}>Log & Schedule Sleep</Text>
+                <Text style={styles.subtitleText}>Vertical wheel circadian setup (12h / 24h)</Text>
               </View>
             </View>
 
@@ -141,7 +176,7 @@ export default function SleepSchedulerModal({
               >
                 <Moon size={14} color={activeTab === 'bedtime' ? '#2563EB' : '#64748B'} />
                 <Text style={[styles.tabBtnText, activeTab === 'bedtime' && styles.tabBtnTextActive]}>
-                  Bedtime: {formatTimeValue(bedtime)}
+                  Bedtime: {formatTimeValue(bedtime, is24Hour)}
                 </Text>
               </TouchableOpacity>
 
@@ -155,12 +190,12 @@ export default function SleepSchedulerModal({
               >
                 <Sunrise size={14} color={activeTab === 'wakeup' ? '#2563EB' : '#64748B'} />
                 <Text style={[styles.tabBtnText, activeTab === 'wakeup' && styles.tabBtnTextActive]}>
-                  Wake-Up: {formatTimeValue(wakeup)}
+                  Wake-Up: {formatTimeValue(wakeup, is24Hour)}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Vertical Scrolling Wheel Selector */}
+            {/* Vertical Scrolling Wheel Selector with 12h/24h Liberty */}
             <View style={styles.wheelSection}>
               <Text style={styles.wheelSectionLabel}>
                 {activeTab === 'bedtime' ? 'SCROLL TO SELECT BEDTIME' : 'SCROLL TO SELECT WAKE-UP TIME'}
@@ -169,13 +204,15 @@ export default function SleepSchedulerModal({
                 <WheelTimePicker
                   value={bedtime}
                   onChange={(val) => setBedtime(val)}
-                  minuteStep={15}
+                  is24Hour={is24Hour}
+                  onToggleFormat={handleToggleFormat}
                 />
               ) : (
                 <WheelTimePicker
                   value={wakeup}
                   onChange={(val) => setWakeup(val)}
-                  minuteStep={15}
+                  is24Hour={is24Hour}
+                  onToggleFormat={handleToggleFormat}
                 />
               )}
             </View>

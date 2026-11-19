@@ -25,14 +25,12 @@ import GoTallBackground from '../../components/GoTallBackground';
 import GlassCard from '../../components/ui/GlassCard';
 import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
 import GradientBarChart from '../../components/GradientBarChart';
-import SleepLogModal from '../../components/SleepLogModal';
 import SleepSchedulerModal from '../../components/SleepSchedulerModal';
 import { useAppStore } from '../../lib/store';
 import { SLEEP_GOAL_HOURS, SLEEP_STREAK_MIN_HOURS } from '../../lib/constants';
 import { colors } from '../../lib/theme';
 
 export default function SleepScreen() {
-  const [logModalVisible, setLogModalVisible] = useState(false);
   const [schedulerModalVisible, setSchedulerModalVisible] = useState(false);
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(6); // Default today (last index)
 
@@ -167,30 +165,18 @@ export default function SleepScreen() {
                 </View>
               </View>
 
-              {/* Action Buttons: Log Sleep & Set Schedule */}
+              {/* Action Button: Single Unified Wheel Sleep Scheduler */}
               <View style={styles.cardActionsRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setLogModalVisible(true);
-                  }}
-                  style={styles.primaryLogSleepBtn}
-                  activeOpacity={0.8}
-                >
-                  <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
-                  <Text style={styles.primaryLogSleepBtnText}>Log Sleep</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
                     setSchedulerModalVisible(true);
                   }}
-                  style={styles.secondaryScheduleBtn}
+                  style={styles.primaryLogSleepBtn}
                   activeOpacity={0.8}
                 >
-                  <Clock size={15} color="#2563EB" />
-                  <Text style={styles.secondaryScheduleBtnText}>Wheel Scheduler</Text>
+                  <Clock size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  <Text style={styles.primaryLogSleepBtnText}>Log & Schedule Sleep</Text>
                 </TouchableOpacity>
               </View>
             </GlassCard>
@@ -288,13 +274,7 @@ export default function SleepScreen() {
           )}
         </ScrollView>
 
-        {/* Manual Log Modal */}
-        <SleepLogModal
-          visible={logModalVisible}
-          onClose={() => setLogModalVisible(false)}
-        />
-
-        {/* Tactile Vertical Wheel Sleep Scheduler Modal */}
+        {/* Tactile Vertical Wheel Sleep Scheduler Modal with 12h / 24h liberty */}
         <SleepSchedulerModal
           visible={schedulerModalVisible}
           onClose={() => setSchedulerModalVisible(false)}

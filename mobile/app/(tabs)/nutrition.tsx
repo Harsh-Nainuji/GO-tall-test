@@ -160,14 +160,6 @@ export default function NutritionScreen() {
             <Text style={styles.brandText}>GoTall</Text>
             <View style={styles.onlineDot} />
           </View>
-
-          <GlassButton
-            onPress={() => handleOpenFoodModal()}
-            style={styles.logActionBtn}
-          >
-            <Plus size={14} color="#FFFFFF" />
-            <Text style={styles.logActionBtnText}>Log Custom</Text>
-          </GlassButton>
         </Animated.View>
 
         <ScrollView

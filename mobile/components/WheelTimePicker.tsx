@@ -101,82 +101,182 @@ function WheelColumn<T>({
 }
 
 export interface WheelTimeValue {
-  hours: number; // 1-12
-  minutes: number; // 0-59 (typically steps of 5 or 15)
-  period: 'AM' | 'PM';
+  hours: number; // 1-12 in 12h mode, 0-23 in 24h mode
+  minutes: number; // 0-59
+  period?: 'AM' | 'PM';
+  is24Hour?: boolean;
 }
 
 interface WheelTimePickerProps {
   value: WheelTimeValue;
   onChange: (value: WheelTimeValue) => void;
-  minuteStep?: number;
+  is24Hour?: boolean;
+  onToggleFormat?: (is24Hour: boolean) => void;
 }
 
 /**
  * Apple-Grade Vertical Scrolling Wheel Time Selector
  * - 3 Visible Levels: Center selected (bold 24px, 1.0 opacity), previous & next faded (0.30 opacity)
  * - Snaps naturally into center with tactile haptic feedback
- * - Supports 12-hour format with AM/PM column
+ * - Supports both 12-hour (1-12 AM/PM) and 24-hour (00-23) modes with full 0-59 minute liberty
  */
 export default function WheelTimePicker({
   value,
   onChange,
-  minuteStep = 15,
+  is24Hour = false,
+  onToggleFormat,
 }: WheelTimePickerProps) {
-  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-  const minutes = Array.from(
-    { length: Math.floor(60 / minuteStep) },
-    (_, i) => i * minuteStep
-  );
+  // Hours: 1-12 for 12h mode, 0-23 for 24h mode
+  const hours12 = Array.from({ length: 12 }, (_, i) => i + 1);
+  const hours24 = Array.from({ length: 24 }, (_, i) => i);
+  const hours = is24Hour ? hours24 : hours12;
+
+  // Full 0-59 minutes
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
   const periods: ('AM' | 'PM')[] = ['AM', 'PM'];
 
-  const hourIndex = Math.max(0, hours.indexOf(value.hours));
-  const minuteIndex = Math.max(0, minutes.indexOf(value.minutes));
-  const periodIndex = Math.max(0, periods.indexOf(value.period));
+  const normalizedHour = is24Hour
+    ? Math.max(0, Math.min(23, value.hours))
+    : Math.max(1, Math.min(12, value.hours % 12 || 12));
+
+  const hourIndex = Math.max(0, hours.indexOf(normalizedHour));
+  const minuteIndex = Math.max(0, Math.min(59, value.minutes));
+  const currentPeriod = value.period || 'PM';
+  const periodIndex = Math.max(0, periods.indexOf(currentPeriod));
 
   return (
-    <View style={styles.pickerContainer}>
-      {/* Selection Center Highlight Bar */}
-      <View pointerEvents="none" style={styles.selectionHighlight}>
-        <View style={styles.highlightLineTop} />
-        <View style={styles.highlightLineBottom} />
-      </View>
+    <View style={styles.pickerWrapper}>
+      {/* 12h vs 24h format switcher */}
+      {onToggleFormat && (
+        <View style={styles.formatSwitcherRow}>
+          <View style={styles.formatToggleContainer}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                onToggleFormat(false);
+              }}
+              style={[
+                styles.formatBtn,
+                !is24Hour && styles.formatBtnActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.formatBtnText,
+                  !is24Hour && styles.formatBtnTextActive,
+                ]}
+              >
+                12-Hour
+              </Text>
+            </TouchableOpacity>
 
-      {/* Columns Row */}
-      <View style={styles.columnsRow}>
-        {/* Hours Column */}
-        <WheelColumn
-          items={hours}
-          selectedIndex={hourIndex}
-          onSelect={(idx) => onChange({ ...value, hours: hours[idx] })}
-          labelFormat={(h) => String(h).padStart(2, '0')}
-          width={65}
-        />
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                onToggleFormat(true);
+              }}
+              style={[
+                styles.formatBtn,
+                is24Hour && styles.formatBtnActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.formatBtnText,
+                  is24Hour && styles.formatBtnTextActive,
+                ]}
+              >
+                24-Hour
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
-        <Text style={styles.colonSeparator}>:</Text>
+      <View style={styles.pickerContainer}>
+        {/* Selection Center Highlight Bar */}
+        <View pointerEvents="none" style={styles.selectionHighlight}>
+          <View style={styles.highlightLineTop} />
+          <View style={styles.highlightLineBottom} />
+        </View>
 
-        {/* Minutes Column */}
-        <WheelColumn
-          items={minutes}
-          selectedIndex={minuteIndex}
-          onSelect={(idx) => onChange({ ...value, minutes: minutes[idx] })}
-          labelFormat={(m) => String(m).padStart(2, '0')}
-          width={65}
-        />
+        {/* Columns Row */}
+        <View style={styles.columnsRow}>
+          {/* Hours Column */}
+          <WheelColumn
+            items={hours}
+            selectedIndex={hourIndex}
+            onSelect={(idx) => onChange({ ...value, hours: hours[idx] })}
+            labelFormat={(h) => String(h).padStart(2, '0')}
+            width={is24Hour ? 85 : 68}
+          />
 
-        {/* AM / PM Column */}
-        <WheelColumn
-          items={periods}
-          selectedIndex={periodIndex}
-          onSelect={(idx) => onChange({ ...value, period: periods[idx] })}
-          width={60}
-        />
+          <Text style={styles.colonSeparator}>:</Text>
+
+          {/* Minutes Column (Full 0-59 liberty) */}
+          <WheelColumn
+            items={minutes}
+            selectedIndex={minuteIndex}
+            onSelect={(idx) => onChange({ ...value, minutes: minutes[idx] })}
+            labelFormat={(m) => String(m).padStart(2, '0')}
+            width={is24Hour ? 85 : 68}
+          />
+
+          {/* AM / PM Column (only in 12h mode) */}
+          {!is24Hour && (
+            <WheelColumn
+              items={periods}
+              selectedIndex={periodIndex}
+              onSelect={(idx) => onChange({ ...value, period: periods[idx] })}
+              width={64}
+            />
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pickerWrapper: {
+    gap: 8,
+  },
+  formatSwitcherRow: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  formatToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  formatBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 9,
+  },
+  formatBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  formatBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  formatBtnTextActive: {
+    color: '#2563EB',
+    fontWeight: '800',
+  },
   pickerContainer: {
     height: ITEM_HEIGHT * VISIBLE_ITEMS,
     alignItems: 'center',

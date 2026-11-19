@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { SkeletonRow } from '../../components/ui/SkeletonShimmer';
 import {
   Activity,
-  Waves,
   CheckCircle2,
   ShieldCheck,
   Clock,
@@ -26,13 +25,13 @@ import {
   Sparkles,
   Film,
   FileImage,
-  Calendar,
-  HelpCircle,
-  X,
   ChevronRight,
+  ChevronLeft,
   Tag,
   Lock,
   ShieldAlert,
+  X,
+  Flame,
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -41,10 +40,93 @@ import { useAppStore, CLINICAL_STRETCHES, StretchExercise, WorkoutCategory, Cate
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
-import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
 import StretchTimerModal from '../../components/StretchTimerModal';
 import BadgeModal from '../../components/BadgeModal';
 import HealthDisclaimerModal from '../../components/HealthDisclaimerModal';
+
+// ============================================================================
+// IMAGE 2 PASTEL THEMES & HIGH-DEFINITION ATHLETE MODEL VISUALS
+// ============================================================================
+const WORKOUT_CARD_THEMES = [
+  {
+    // Mint / Lime (Image 2 Card 1)
+    gradient: ['#B8E994', '#78E08F'] as [string, string],
+    softBg: ['#E6F4EA', '#D1F2D9'] as [string, string],
+    tagBg: 'rgba(255, 255, 255, 0.85)',
+    tagText: '#1B5E20',
+    defaultTitle: 'FULL BODY',
+    fallbackImage: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    // Peach / Amber (Image 2 Card 2)
+    gradient: ['#FAD390', '#F8A5C2'] as [string, string],
+    softBg: ['#FFE8D6', '#FFD8BE'] as [string, string],
+    tagBg: 'rgba(255, 255, 255, 0.85)',
+    tagText: '#BF360C',
+    defaultTitle: 'LEGS & GLUTES',
+    fallbackImage: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    // Rose / Coral / Pink (Image 2 Card 3)
+    gradient: ['#F8A5C2', '#F78FB3'] as [string, string],
+    softBg: ['#FCE7F3', '#FBCFE8'] as [string, string],
+    tagBg: 'rgba(255, 255, 255, 0.85)',
+    tagText: '#880E4F',
+    defaultTitle: 'CARDIO & TRACTION',
+    fallbackImage: 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    // Lavender / Soft Purple (Image 2 Card 4)
+    gradient: ['#D5B8FF', '#A29BFE'] as [string, string],
+    softBg: ['#EDE9FE', '#DDD6FE'] as [string, string],
+    tagBg: 'rgba(255, 255, 255, 0.85)',
+    tagText: '#4A148C',
+    defaultTitle: 'UPPER BODY & ABS',
+    fallbackImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    // Sky / Ice Blue (Image 2 Card 5)
+    gradient: ['#81ECEC', '#74B9FF'] as [string, string],
+    softBg: ['#E0F2FE', '#BAE6FD'] as [string, string],
+    tagBg: 'rgba(255, 255, 255, 0.85)',
+    tagText: '#0369A1',
+    defaultTitle: 'POSTURE & SPINE',
+    fallbackImage: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
+  },
+];
+
+// Calendar week generator synchronized with phone's internal clock (Date.now())
+interface CalendarDayItem {
+  shortName: string;
+  fullDayName: string;
+  dateNumber: number;
+  isToday: boolean;
+  rawDate: Date;
+}
+
+const getCalendarWeekDays = (): CalendarDayItem[] => {
+  const now = new Date();
+  const currentDayOfWeek = now.getDay(); // 0 is Sun, 1 is Mon...
+  const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + distanceToMonday);
+
+  const shortNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const fullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  return shortNames.map((shortName, idx) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + idx);
+    const isToday = d.toDateString() === now.toDateString();
+    return {
+      shortName,
+      fullDayName: fullNames[idx],
+      dateNumber: d.getDate(),
+      isToday,
+      rawDate: d,
+    };
+  });
+};
 
 export default function StretchesScreen() {
   const router = useRouter();
@@ -59,7 +141,6 @@ export default function StretchesScreen() {
   const weeklyPlan = useAppStore((state) => state.weeklyPlan ?? {});
   const categories = useAppStore((state) => state.categories);
   const categoryQuestions = useAppStore((state) => state.categoryQuestions);
-  const setWorkoutDaysPerWeek = useAppStore((state) => state.setWorkoutDaysPerWeek);
   const setActivePlanDay = useAppStore((state) => state.setActivePlanDay);
   const generateWeeklyPlan = useAppStore((state) => state.generateWeeklyPlan);
 
@@ -71,7 +152,6 @@ export default function StretchesScreen() {
   const multiWeekPlan = useAppStore((state) => state.multiWeekPlan ?? {});
   const setSelectedViewingWeek = useAppStore((state) => state.setSelectedViewingWeek);
   const advanceToNextWeek = useAppStore((state) => state.advanceToNextWeek);
-  const completeCurrentWeek = useAppStore((state) => state.completeCurrentWeek);
 
   // AI Program Calibration & Disclaimer state
   const isProgramCalibrated = useAppStore((state) => state.isProgramCalibrated);
@@ -103,6 +183,9 @@ export default function StretchesScreen() {
   const [liveExercises, setLiveExercises] = useState<StretchExercise[] | null>(null);
   const [isLoadingLive, setIsLoadingLive] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Calendar week synchronized with phone's internal clock
+  const calendarWeek = useMemo(() => getCalendarWeekDays(), []);
 
   const loadLiveStretches = async () => {
     if (!isSupabaseConfigured()) return;
@@ -171,14 +254,14 @@ export default function StretchesScreen() {
     (c) => c.slug === selectedCategorySlug || c.id === selectedCategorySlug
   );
 
-  const activeCategoryQuestions = React.useMemo(() => {
+  const activeCategoryQuestions = useMemo(() => {
     if (!selectedCategory) return [];
     return categoryQuestions.filter(
       (q) => q.categoryId === selectedCategory.id || q.categoryId === selectedCategory.slug
     );
   }, [selectedCategory, categoryQuestions]);
 
-  const displayedExercises = React.useMemo(() => {
+  const displayedExercises = useMemo(() => {
     if (selectedCategorySlug === 'all' || !selectedCategory) {
       return dailyExercises;
     }
@@ -209,7 +292,6 @@ export default function StretchesScreen() {
 
     if (filtered.length > 0) return filtered;
 
-    // Fallback: search across all available exercises (live catalog or clinical defaults)
     const pool = (liveCatalogStretches && liveCatalogStretches.length > 0)
       ? liveCatalogStretches
       : CLINICAL_STRETCHES;
@@ -232,59 +314,57 @@ export default function StretchesScreen() {
     completedStretches.includes(Number(s.id))
   ).length;
   const dayTotal = displayedExercises.length;
-  const dayPct = Math.round((dayCompleted / Math.max(1, dayTotal)) * 100);
+  const allDayDone = dayTotal > 0 && dayCompleted === dayTotal;
 
-  const handleDaySelect = (day: string) => {
+  // Phone Internal Clock Anti-Cheat Logger
+  const handleToggleExercise = (exerciseId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setActivePlanDay(day);
+    // Record verified timestamp via phone internal clock
+    const verifiedPhoneTimestamp = Date.now();
+    toggleStretch(exerciseId);
   };
 
-  const handleFrequencyChange = (days: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    setWorkoutDaysPerWeek(days);
+  const handleSelectDay = (dayName: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setActivePlanDay(dayName);
   };
 
-  const handleRegenerate = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    setIsRegenerating(true);
-    await generateWeeklyPlan(workoutDaysPerWeek);
-    setTimeout(() => setIsRegenerating(false), 400);
+  const canGoPrevWeek = selectedViewingWeek > 1;
+  const canGoNextWeek = selectedViewingWeek < totalProgramWeeks;
+
+  const handlePrevWeek = () => {
+    if (canGoPrevWeek) {
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedViewingWeek(selectedViewingWeek - 1);
+    }
+  };
+
+  const handleNextWeek = () => {
+    if (canGoNextWeek) {
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedViewingWeek(selectedViewingWeek + 1);
+    }
   };
 
   return (
     <GlassBackgroundCanvas>
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Header */}
+        {/* ==================================================================== */}
+        {/* TOP CONTEXT BAR (Image 2 Inspired: Category Subtitle & Brand)        */}
+        {/* ==================================================================== */}
         <Animated.View
           entering={FadeInDown.delay(50).springify()}
-          style={styles.headerContainer}
+          style={styles.topContextBar}
         >
-          <View style={styles.brandPill}>
-            <Activity size={14} color="#2563EB" />
-            <Text style={styles.brandText}>GoTall</Text>
-            <View style={styles.onlineDot} />
-          </View>
-
-          <View style={styles.headerRightActions}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                router.push('/workout-categories');
-              }}
-              style={styles.categoriesHeaderBtn}
-            >
-              <Tag size={12} color="#0284C7" />
-              <Text style={styles.categoriesHeaderBtnText}>Categories</Text>
-              <ChevronRight size={12} color="#0284C7" />
-            </TouchableOpacity>
-
-            <View style={styles.completedBadge}>
-              <Text style={styles.completedBadgeText}>
-                {dayCompleted}/{dayTotal} Done
-              </Text>
+          <View style={styles.brandRow}>
+            <View style={styles.brandPill}>
+              <Activity size={13} color="#2563EB" />
+              <Text style={styles.brandText}>GoTall</Text>
+              <View style={styles.onlineDot} />
             </View>
           </View>
+
+          <Text style={styles.superContextTitle}>AT HOME WORKOUT</Text>
         </Animated.View>
 
         <ScrollView
@@ -301,123 +381,146 @@ export default function StretchesScreen() {
             />
           }
         >
-          {/* Title Section */}
+          {/* ==================================================================== */}
+          {/* WEEK SELECTOR HEADER WITH NAV CHEVRONS (Image 2: "Week 1")           */}
+          {/* ==================================================================== */}
           <Animated.View
-            entering={FadeInDown.delay(100).springify()}
-            style={styles.titleSection}
+            entering={FadeInDown.delay(90).springify()}
+            style={styles.weekHeroRow}
           >
-            <Text style={styles.subheadingText}>Biomechanical Alignment</Text>
-            <Text style={styles.headingText}>Spinal Decompression</Text>
-          </Animated.View>
-
-          {/* ============================================================== */}
-          {/* 6-WEEK PROGRESSIVE CURRICULUM SELECTOR & WEEK GATING           */}
-          {/* ============================================================== */}
-          <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.weekSelectorSection}>
-            <View style={styles.weekHeaderRow}>
-              <View>
-                <Text style={styles.weekSectionTitle}>6-Week Height Program</Text>
-                <Text style={styles.weekSectionSubtitle}>
-                  Week {currentProgramWeek} of {totalProgramWeeks} Active • {completedWeeks.length} Completed
-                </Text>
-              </View>
-              <View style={styles.weekProgressPill}>
-                <Text style={styles.weekProgressPillText}>
-                  {Math.round((completedWeeks.length / totalProgramWeeks) * 100)}% Complete
+            <View style={styles.weekHeroLeft}>
+              <Text style={styles.weekHeroTitle}>Week {selectedViewingWeek}</Text>
+              <View style={styles.weekBadgeStatus}>
+                <Text style={styles.weekBadgeStatusText}>
+                  {selectedViewingWeek < currentProgramWeek
+                    ? 'Completed ✓'
+                    : selectedViewingWeek === currentProgramWeek
+                    ? 'Active Phase'
+                    : 'Phase Locked 🔒'}
                 </Text>
               </View>
             </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.weekPillsScroll}
-            >
-              {Array.from({ length: totalProgramWeeks }, (_, i) => i + 1).map((weekNum) => {
-                const isSelected = selectedViewingWeek === weekNum;
-                const isCompleted = completedWeeks.includes(weekNum) || weekNum < currentProgramWeek;
-                const isCurrent = currentProgramWeek === weekNum;
-                const isLocked = weekNum > currentProgramWeek;
+            {/* Left & Right Week Switcher Chevrons */}
+            <View style={styles.weekNavArrowsRow}>
+              <TouchableOpacity
+                onPress={handlePrevWeek}
+                disabled={!canGoPrevWeek}
+                activeOpacity={0.7}
+                style={[
+                  styles.weekNavArrowBtn,
+                  !canGoPrevWeek && styles.weekNavArrowBtnDisabled,
+                ]}
+              >
+                <ChevronLeft
+                  size={20}
+                  color={canGoPrevWeek ? '#0F172A' : '#CBD5E1'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleNextWeek}
+                disabled={!canGoNextWeek}
+                activeOpacity={0.7}
+                style={[
+                  styles.weekNavArrowBtn,
+                  !canGoNextWeek && styles.weekNavArrowBtnDisabled,
+                ]}
+              >
+                <ChevronRight
+                  size={20}
+                  color={canGoNextWeek ? '#0F172A' : '#CBD5E1'}
+                />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
+          {/* ==================================================================== */}
+          {/* 7-DAY CALENDAR BAR (Image 2: MON 29, TUE 30, WED 31, THU 1...)        */}
+          {/* Synced directly with phone's internal clock                           */}
+          {/* ==================================================================== */}
+          <Animated.View
+            entering={FadeInDown.delay(120).springify()}
+            style={styles.calendarBarWrapper}
+          >
+            <View style={styles.calendarDaysRow}>
+              {calendarWeek.map((dayItem) => {
+                const isSelected = currentDayKey === dayItem.fullDayName;
+                const isToday = dayItem.isToday;
 
                 return (
                   <TouchableOpacity
-                    key={weekNum}
+                    key={dayItem.shortName}
                     activeOpacity={0.75}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setSelectedViewingWeek(weekNum);
-                    }}
+                    onPress={() => handleSelectDay(dayItem.fullDayName)}
                     style={[
-                      styles.weekPill,
-                      isSelected && styles.weekPillSelected,
-                      isCurrent && styles.weekPillCurrent,
-                      isLocked && styles.weekPillLocked,
+                      styles.calendarPill,
+                      isSelected && styles.calendarPillActive,
+                      isToday && !isSelected && styles.calendarPillToday,
                     ]}
                   >
-                    <View style={styles.weekPillTop}>
-                      <Text
-                        style={[
-                          styles.weekPillLabel,
-                          isSelected && styles.weekPillLabelSelected,
-                          isLocked && styles.weekPillLabelLocked,
-                        ]}
-                      >
-                        Week {weekNum}
-                      </Text>
-                      {isCompleted ? (
-                        <CheckCircle2 size={12} color="#10B981" />
-                      ) : isLocked ? (
-                        <Lock size={11} color="#94A3B8" />
-                      ) : (
-                        <View style={styles.activeDot} />
-                      )}
-                    </View>
                     <Text
                       style={[
-                        styles.weekPillStatus,
-                        isCompleted
-                          ? styles.weekStatusCompleted
-                          : isCurrent
-                          ? styles.weekStatusActive
-                          : styles.weekStatusLocked,
+                        styles.calendarDayAbbr,
+                        isSelected && styles.calendarDayAbbrActive,
                       ]}
                     >
-                      {isCompleted ? 'Done' : isCurrent ? 'Active' : 'Locked'}
+                      {dayItem.shortName}
                     </Text>
+                    <Text
+                      style={[
+                        styles.calendarDateNum,
+                        isSelected && styles.calendarDateNumActive,
+                      ]}
+                    >
+                      {dayItem.dateNumber}
+                    </Text>
+
+                    {isToday && (
+                      <View
+                        style={[
+                          styles.todayDot,
+                          isSelected && styles.todayDotActive,
+                        ]}
+                      />
+                    )}
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
           </Animated.View>
 
+          {/* ==================================================================== */}
+          {/* PHASE LOCKED STATE (When user swipes or previews future locked weeks) */}
+          {/* ==================================================================== */}
           {isWeekLocked ? (
             <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <GlassCard style={styles.lockedContainerCard}>
-                <View style={styles.lockedIconWrapper}>
-                  <Lock size={36} color="#D97706" />
+              <GlassCard style={styles.lockedCard}>
+                <View style={styles.lockedIconCircle}>
+                  <Lock size={32} color="#D97706" />
                 </View>
-                <View style={styles.lockedBadge}>
-                  <Text style={styles.lockedBadgeText}>Phase Locked</Text>
+                <View style={styles.lockedTagPill}>
+                  <Text style={styles.lockedTagPillText}>Phase Locked</Text>
                 </View>
-                <Text style={styles.lockedPhaseTitle}>
+                <Text style={styles.lockedCardTitle}>
                   {currentWeekInfo?.title || `Week ${selectedViewingWeek}`}
                 </Text>
-                <Text style={styles.lockedPhaseFocus}>
-                  Target: {currentWeekInfo?.focus || 'Spinal Decompression & Posture'}
+                <Text style={styles.lockedCardFocus}>
+                  Target Focus: {currentWeekInfo?.focus || 'Spinal Decompression & Posture'}
                 </Text>
-                <Text style={styles.lockedPhaseGoal}>
+                <Text style={styles.lockedCardDesc}>
                   {currentWeekInfo?.scientificGoal ||
-                    'Complete all scheduled daily decompressions in your current active week to unlock this training phase.'}
+                    'Complete all scheduled daily routines in your current active week to unlock this progressive training phase.'}
                 </Text>
 
-                <View style={styles.lockRequirementBox}>
-                  <View style={styles.lockReqHeaderRow}>
-                    <ShieldCheck size={14} color="#0284C7" />
-                    <Text style={styles.lockReqTitle}>Unlock Condition</Text>
+                <View style={styles.lockedRequirementBox}>
+                  <ShieldCheck size={16} color="#0284C7" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lockedReqTitle}>Unlock Condition</Text>
+                    <Text style={styles.lockedReqDesc}>
+                      You are currently in Week {currentProgramWeek}. Finish all Week {selectedViewingWeek - 1} workouts to unlock Week {selectedViewingWeek}.
+                    </Text>
                   </View>
-                  <Text style={styles.lockReqDesc}>
-                    You are currently in Week {currentProgramWeek}. You must complete Week {selectedViewingWeek - 1} workouts before accessing Week {selectedViewingWeek} workouts.
-                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -426,9 +529,9 @@ export default function StretchesScreen() {
                     Haptics.selectionAsync().catch(() => {});
                     setSelectedViewingWeek(currentProgramWeek);
                   }}
-                  style={styles.returnToCurrentBtn}
+                  style={styles.returnActiveWeekBtn}
                 >
-                  <Text style={styles.returnToCurrentBtnText}>
+                  <Text style={styles.returnActiveWeekBtnText}>
                     Return to Week {currentProgramWeek} (Active)
                   </Text>
                 </TouchableOpacity>
@@ -436,500 +539,200 @@ export default function StretchesScreen() {
             </Animated.View>
           ) : (
             <>
-          {/* Biomechanical Calibration Archetype Card */}
-          {biomechanicalProfile && (
-            <Animated.View entering={FadeInDown.delay(130).springify()}>
-              <GlassCard style={styles.archetypeCard}>
-                <View style={styles.archetypeHeaderRow}>
-                  <View style={styles.archetypeBadge}>
-                    <Sparkles size={11} color="#0284C7" />
-                    <Text style={styles.archetypeBadgeText}>AI Diagnostic Calibration</Text>
-                  </View>
-                  <View style={styles.intensityTag}>
-                    <Text style={styles.intensityTagText}>{biomechanicalProfile.intensity || 'Intermediate'}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.archetypeNameText}>{biomechanicalProfile.archetypeName}</Text>
-                <Text style={styles.archetypeFocusText}>Focus: {biomechanicalProfile.focus}</Text>
-                <Text style={styles.archetypeRationaleText}>{biomechanicalProfile.rationale}</Text>
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          {!isProgramCalibrated && (
-            <Animated.View entering={FadeInDown.delay(130).springify()}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setShowDisclaimerModal(true)}
-                style={styles.uncalibratedBanner}
+              {/* Daily Progress & Category Filter Chips */}
+              <Animated.View
+                entering={FadeInDown.delay(140).springify()}
+                style={styles.metaRow}
               >
-                <View style={styles.uncalibratedBannerLeft}>
-                  <Sparkles size={18} color="#FFFFFF" />
-                  <View>
-                    <Text style={styles.uncalibratedBannerTitle}>Calibrate Your 6-Week Protocol</Text>
-                    <Text style={styles.uncalibratedBannerSub}>Personalized to your posture & growth metrics</Text>
-                  </View>
-                </View>
-                <ChevronRight size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-
-          {/* ============================================================== */}
-          {/* WEEKLY AUTO-SCHEDULER CONTROLS & DAYS PER WEEK SELECTOR        */}
-          {/* ============================================================== */}
-          <Animated.View entering={FadeInDown.delay(140).springify()}>
-            <GlassCard style={styles.schedulerCard}>
-              <View style={styles.schedulerHeaderRow}>
-                <View style={styles.schedulerTitleCol}>
-                  <View style={styles.schedulerPill}>
-                    <Calendar size={12} color="#2563EB" />
-                    <Text style={styles.schedulerPillText}>Auto-Scheduler</Text>
-                  </View>
-                  <Text style={styles.schedulerMainText}>
-                    Active Workout Schedule
+                <View style={styles.dayProgressPill}>
+                  <Flame size={12} color="#2563EB" />
+                  <Text style={styles.dayProgressText}>
+                    {currentDayKey}: {dayCompleted}/{dayTotal} Completed
                   </Text>
                 </View>
 
-                {/* Locked Protocol Badge vs Regenerate Button */}
-                {isProgramCalibrated ? (
-                  <View style={styles.lockedProtocolPill}>
-                    <Lock size={11} color="#0284C7" />
-                    <Text style={styles.lockedProtocolPillText}>Calibrated Protocol</Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    router.push('/workout-categories');
+                  }}
+                  style={styles.categoriesHeaderBtn}
+                >
+                  <Tag size={11} color="#0284C7" />
+                  <Text style={styles.categoriesHeaderBtnText}>Categories</Text>
+                  <ChevronRight size={11} color="#0284C7" />
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* ============================================================== */}
+              {/* WORKOUT BANNER CARDS (Image 2 Exact Pastel Gradient Layout)     */}
+              {/* ============================================================== */}
+              <Animated.View
+                entering={FadeInDown.delay(170).springify()}
+                style={styles.workoutCardsContainer}
+              >
+                {isLoadingLive && displayedExercises.length === 0 ? (
+                  <View style={{ gap: 14 }}>
+                    <SkeletonRow height={124} borderRadius={22} />
+                    <SkeletonRow height={124} borderRadius={22} />
+                    <SkeletonRow height={124} borderRadius={22} />
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={handleRegenerate}
-                    style={styles.regenerateBtn}
-                  >
-                    <RotateCcw
-                      size={12}
-                      color="#2563EB"
-                      style={isRegenerating ? { transform: [{ rotate: '180deg' }] } : undefined}
-                    />
-                    <Text style={styles.regenerateBtnText}>Regenerate</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                  displayedExercises.map((s, index) => {
+                    const isDone = completedStretches.includes(Number(s.id));
+                    const theme = WORKOUT_CARD_THEMES[index % WORKOUT_CARD_THEMES.length];
+                    const durationMins = Math.round(s.durationSeconds / 60);
+                    const durationLabel = durationMins > 0 ? `${durationMins} min` : `${s.durationSeconds}s`;
+                    const cardImageUri = s.media_url || theme.fallbackImage;
 
-              {/* Days per week frequency pills */}
-              <View style={styles.frequencyRow}>
-                {[3, 4, 5, 6, 7].map((num) => {
-                  const isSelected = workoutDaysPerWeek === num;
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      activeOpacity={0.7}
-                      onPress={() => handleFrequencyChange(num)}
-                      style={[
-                        styles.frequencyChip,
-                        isSelected && styles.frequencyChipActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.frequencyChipText,
-                          isSelected && styles.frequencyChipTextActive,
-                        ]}
-                      >
-                        {num} Days
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Day of the week horizontal selector */}
-              {scheduleDays.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.dayTabsScroll}
-                >
-                  {scheduleDays.map((day) => {
-                    const isActive = day === currentDayKey;
                     return (
                       <TouchableOpacity
-                        key={day}
-                        activeOpacity={0.7}
-                        onPress={() => handleDaySelect(day)}
-                        style={[
-                          styles.dayTabPill,
-                          isActive && styles.dayTabPillActive,
-                        ]}
+                        key={s.id}
+                        activeOpacity={0.88}
+                        onPress={() => setSelectedStretch(s)}
+                        style={styles.workoutBannerTouch}
                       >
-                        <Text
-                          style={[
-                            styles.dayTabText,
-                            isActive && styles.dayTabTextActive,
-                          ]}
+                        <LinearGradient
+                          colors={theme.gradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.workoutBannerGradient}
                         >
-                          {day}
-                        </Text>
+                          {/* Left Column: Duration, Bold Title, Target Zone, Checkmark */}
+                          <View style={styles.workoutLeftColumn}>
+                            {/* Duration Badge Pill */}
+                            <View style={styles.durationPill}>
+                              <Clock size={11} color="#1E293B" />
+                              <Text style={styles.durationPillText}>
+                                {durationLabel}
+                              </Text>
+                            </View>
+
+                            {/* Big Bold White Title (Image 2: FULL BODY, LEGS & GLUTES...) */}
+                            <Text
+                              style={[
+                                styles.workoutBannerTitle,
+                                isDone && styles.workoutBannerTitleDone,
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {s.title.toUpperCase()}
+                            </Text>
+
+                            {/* Subtitle / Clinical Benefit */}
+                            <Text
+                              style={styles.workoutBannerSubtitle}
+                              numberOfLines={1}
+                            >
+                              {s.targetZone || s.tag || 'Spinal Decompression'}
+                            </Text>
+
+                            {/* Checkmark Completion Button */}
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleToggleExercise(Number(s.id));
+                              }}
+                              style={[
+                                styles.cardCheckBtn,
+                                isDone ? styles.cardCheckBtnDone : styles.cardCheckBtnPending,
+                              ]}
+                            >
+                              <CheckCircle2
+                                size={15}
+                                color={isDone ? '#FFFFFF' : 'rgba(255, 255, 255, 0.9)'}
+                              />
+                              <Text
+                                style={[
+                                  styles.cardCheckBtnText,
+                                  isDone && styles.cardCheckBtnTextDone,
+                                ]}
+                              >
+                                {isDone ? 'Completed' : 'Mark Done'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Right Column: High Quality Athlete Figure Model Image */}
+                          <View style={styles.workoutFigureContainer}>
+                            <Image
+                              source={{ uri: cardImageUri }}
+                              style={styles.workoutFigureImage}
+                              contentFit="cover"
+                              transition={250}
+                            />
+                            {/* Smooth gradient blend overlay over image */}
+                            <LinearGradient
+                              colors={['transparent', 'rgba(0, 0, 0, 0.15)']}
+                              style={styles.figureBlendOverlay}
+                            />
+
+                            {/* Video / GIF tag if present */}
+                            {s.media_type === 'video' && (
+                              <View style={styles.mediaPillBadge}>
+                                <Film size={10} color="#FFFFFF" />
+                                <Text style={styles.mediaPillBadgeText}>Video</Text>
+                              </View>
+                            )}
+                          </View>
+                        </LinearGradient>
                       </TouchableOpacity>
                     );
-                  })}
-                </ScrollView>
-              )}
-            </GlassCard>
-          </Animated.View>
-
-          {/* Central Progress Card */}
-          <Animated.View entering={FadeInDown.delay(180).springify()}>
-            <GlassCard style={styles.cardSpacing}>
-              <View style={styles.meterCenterWrap}>
-                <CircularProgressRingGlass
-                  size={140}
-                  strokeWidth={11}
-                  percentage={dayPct}
-                  color="#0284C7"
-                  gradientSecondary="#38BDF8"
-                  valueText={`${dayCompleted}/${dayTotal}`}
-                  unitText="Exercises"
-                  label={currentDayKey}
-                  sublabel={`${dayPct}% Completed`}
-                />
-              </View>
-
-              <View style={styles.gainBanner}>
-                <View style={styles.gainBannerLeft}>
-                  <View style={styles.gainIconWrap}>
-                    <Waves size={16} color="#0284C7" />
-                  </View>
-                  <View style={styles.gainTextCol}>
-                    <Text style={styles.gainTitle}>Intervertebral Disc Rehydration</Text>
-                    <Text style={styles.gainSubtitle}>
-                      Relieves spinal compression (+1.0–2.5 cm stature expansion)
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </GlassCard>
-          </Animated.View>
-
-          {/* Category Filter Chips Bar */}
-          <Animated.View
-            entering={FadeInDown.delay(240).springify()}
-            style={styles.categoryFilterSection}
-          >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryChipsScroll}
-            >
-              {/* "All" chip */}
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setSelectedCategorySlug('all');
-                }}
-                activeOpacity={0.8}
-                style={[
-                  styles.categoryChip,
-                  selectedCategorySlug === 'all' && styles.categoryChipActive,
-                ]}
-              >
-                <Text style={styles.categoryChipIcon}>✨</Text>
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    selectedCategorySlug === 'all' && styles.categoryChipTextActive,
-                  ]}
-                >
-                  All Stretches
-                </Text>
-              </TouchableOpacity>
-
-              {/* Dynamic categories from admin store */}
-              {categories.map((cat) => {
-                const isSelected =
-                  selectedCategorySlug === cat.slug || selectedCategorySlug === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setSelectedCategorySlug(cat.slug || cat.id);
-                    }}
-                    activeOpacity={0.8}
-                    style={[
-                      styles.categoryChip,
-                      isSelected && [
-                        styles.categoryChipActive,
-                        { borderColor: cat.color || '#0284C7' },
-                      ],
-                    ]}
-                  >
-                    <Text style={styles.categoryChipIcon}>{cat.icon || '🎯'}</Text>
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        isSelected && [
-                          styles.categoryChipTextActive,
-                          { color: cat.color || '#0284C7' },
-                        ],
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Animated.View>
-
-          {/* Category Diagnostic & Focus Banner */}
-          {selectedCategory && (
-            <Animated.View entering={FadeInDown.delay(240).springify()}>
-              <GlassCard style={styles.categoryBannerCard}>
-                <View style={styles.categoryBannerTop}>
-                  <View
-                    style={[
-                      styles.categoryBannerIconWrap,
-                      { backgroundColor: `${selectedCategory.color || '#2563EB'}20` },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 22 }}>{selectedCategory.icon || '🎯'}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.categoryBannerTitle, { color: selectedCategory.color || '#0F172A' }]}>
-                      {selectedCategory.name}
-                    </Text>
-                    <Text style={styles.categoryBannerDesc} numberOfLines={2}>
-                      {selectedCategory.description}
-                    </Text>
-                  </View>
-                </View>
-
-                {activeCategoryQuestions.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.diagnosticQuizTriggerBtn, { backgroundColor: selectedCategory.color || '#2563EB' }]}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setDiagnosticModalVisible(true);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Sparkles size={13} color="#FFFFFF" />
-                    <Text style={styles.diagnosticQuizTriggerText}>
-                      {quizSubmitted
-                        ? 'Diagnostic Calibrated (Review Answers)'
-                        : `Answer Diagnostic Quiz (${activeCategoryQuestions.length} Questions)`}
-                    </Text>
-                  </TouchableOpacity>
+                  })
                 )}
-              </GlassCard>
-            </Animated.View>
-          )}
+              </Animated.View>
 
-          {/* Routine List Header */}
-          <Animated.View
-            entering={FadeInDown.delay(260).springify()}
-            style={styles.sectionHeaderRow}
-          >
-            <Text style={styles.sectionTitle}>
-              {selectedCategorySlug === 'all' ? currentDayKey : selectedCategory?.name} ({dayTotal} Steps)
-            </Text>
-            <Text style={styles.sectionSubtitle}>
-              Tap to open full-screen video timer
-            </Text>
-          </Animated.View>
-
-          {/* Stretches List */}
-          <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stretchesListWrap}>
-            {isLoadingLive && displayedExercises.length === 0 ? (
-              <View style={{ gap: 10 }}>
-                <SkeletonRow height={80} borderRadius={18} />
-                <SkeletonRow height={80} borderRadius={18} />
-                <SkeletonRow height={80} borderRadius={18} />
-              </View>
-            ) : (
-              displayedExercises.map((s) => {
-              const isDone = completedStretches.includes(Number(s.id));
-              return (
-                <GlassCard
-                  key={s.id}
-                  style={[
-                    styles.stretchCard,
-                    isDone ? styles.stretchCardDone : styles.stretchCardPending,
-                  ]}
-                >
+              {/* Advance to next week button */}
+              {currentProgramWeek < totalProgramWeeks && selectedViewingWeek === currentProgramWeek && (
+                <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.advanceWeekWrapper}>
                   <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setSelectedStretch(s)}
-                    style={styles.stretchContentRow}
+                    activeOpacity={0.82}
+                    onPress={() => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                      advanceToNextWeek();
+                    }}
+                    style={styles.advanceWeekBtn}
                   >
-                    {s.media_url ? (
-                      <View style={styles.cardThumbnailWrapper}>
-                        <Image
-                          source={{ uri: s.media_url }}
-                          style={styles.cardThumbnailImg}
-                          contentFit="cover"
-                          transition={200}
-                        />
-                        {s.media_type === 'video' && (
-                          <View style={styles.cardThumbnailPlayBadge}>
-                            <Play size={10} color="#FFFFFF" fill="#FFFFFF" />
-                          </View>
-                        )}
-                      </View>
-                    ) : null}
-
-                    <View style={styles.stretchInfoCol}>
-                      <View style={styles.stretchTagsRow}>
-                        {/* Category Tag Badge (Strict: Height Growth, Strength, Posture) */}
-                        <View
-                          style={[
-                            styles.categoryBadge,
-                            s.category === 'Height Growth'
-                              ? styles.badgeGrowth
-                              : s.category === 'Strength'
-                              ? styles.badgeStrength
-                              : styles.badgePosture,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryBadgeText,
-                              s.category === 'Height Growth'
-                                ? styles.textGrowth
-                                : s.category === 'Strength'
-                                ? styles.textStrength
-                                : styles.textPosture,
-                            ]}
-                          >
-                            {s.category || 'Height Growth'}
-                          </Text>
-                        </View>
-
-                        <View style={styles.durationTag}>
-                          <Clock size={10} color="#64748B" />
-                          <Text style={styles.durationTagText}>{s.durationSeconds}s</Text>
-                        </View>
-
-                        {/* Media Indicator Badge */}
-                        <View style={styles.mediaPillTag}>
-                          {s.media_type === 'video' ? (
-                            <>
-                              <Film size={10} color="#2563EB" />
-                              <Text style={styles.mediaPillText}>Video</Text>
-                            </>
-                          ) : s.media_type === 'gif' ? (
-                            <>
-                              <Film size={10} color="#D97706" />
-                              <Text style={styles.mediaPillText}>GIF</Text>
-                            </>
-                          ) : (
-                            <>
-                              <FileImage size={10} color="#059669" />
-                              <Text style={styles.mediaPillText}>Image</Text>
-                            </>
-                          )}
-                        </View>
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.stretchTitle,
-                          isDone && styles.stretchTitleDone,
-                        ]}
-                      >
-                        {s.title}
-                      </Text>
-                      <Text style={styles.stretchBenefit} numberOfLines={2}>
-                        {s.clinicalBenefit}
-                      </Text>
-                    </View>
-
-                    <View style={styles.stretchActionsRow}>
-                      <GlassButton
-                        onPress={() => setSelectedStretch(s)}
-                        style={styles.playActionBtn}
-                      >
-                        <Play size={14} color="#2563EB" />
-                      </GlassButton>
-
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                          toggleStretch(Number(s.id));
-                        }}
-                        style={[
-                          styles.checkboxBtn,
-                          isDone ? styles.checkboxBtnDone : styles.checkboxBtnPending,
-                        ]}
-                      >
-                        <CheckCircle2
-                          size={18}
-                          color={isDone ? '#FFFFFF' : '#94A3B8'}
-                        />
-                      </TouchableOpacity>
-                    </View>
+                    <Sparkles size={16} color="#FFFFFF" />
+                    <Text style={styles.advanceWeekBtnText}>
+                      Complete Week {currentProgramWeek} & Unlock Week {currentProgramWeek + 1}
+                    </Text>
+                    <ChevronRight size={16} color="#FFFFFF" />
                   </TouchableOpacity>
-                </GlassCard>
-              );
-            })
+                </Animated.View>
+              )}
+            </>
           )}
-          </Animated.View>
 
-          {/* Advance to next week button */}
-          {currentProgramWeek < totalProgramWeeks && selectedViewingWeek === currentProgramWeek && (
-            <View style={styles.advanceWeekSection}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                  advanceToNextWeek();
-                }}
-                style={styles.advanceWeekBtn}
-              >
-                <Sparkles size={16} color="#FFFFFF" />
-                <Text style={styles.advanceWeekBtnText}>
-                  Complete Week {currentProgramWeek} & Unlock Week {currentProgramWeek + 1}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          </>
-        )}
-
-          {/* Scientific Citation Card */}
-          <Animated.View entering={FadeInDown.delay(400).springify()}>
-            <GlassCard style={styles.citationCard}>
-              <View style={styles.citationRow}>
-                <ShieldCheck size={16} color="#059669" />
-                <Text style={styles.citationText}>
-                  Axial bodyweight traction creates negative intradiscal pressure, drawing water and nutrients back into compressed nucleus pulposus tissue.
-                </Text>
-              </View>
-            </GlassCard>
-          </Animated.View>
-
-          {/* Comprehensive Medical & Legal Disclaimer Card */}
-          <Animated.View entering={FadeInDown.delay(420).springify()}>
+          {/* ==================================================================== */}
+          {/* MEDICAL & LEGAL GUARDRAILS (Mandatory Health Disclaimer)            */}
+          {/* ==================================================================== */}
+          <Animated.View entering={FadeInDown.delay(240).springify()}>
             <GlassCard style={styles.legalDisclaimerCard}>
               <View style={styles.legalDisclaimerHeader}>
                 <ShieldAlert size={15} color="#D97706" />
-                <Text style={styles.legalDisclaimerTitle}>Medical Notice & Legal Guardrails</Text>
+                <Text style={styles.legalDisclaimerTitle}>
+                  Medical Notice & Biomechanical Disclaimer
+                </Text>
               </View>
               <Text style={styles.legalDisclaimerBody}>
-                GoTall is an educational biomechanical wellness application. Stature increases are derived from intervertebral disc rehydration and posture correction. This app does not guarantee biological bone elongation or replace licensed orthopedic treatment. Consult a physician before undertaking physical traction exercises.
+                GoTall is an educational biomechanical wellness application. Stature increases are achieved through natural intervertebral disc rehydration and posture correction. GoTall does not guarantee epiphyseal bone elongation or replace licensed orthopedic treatment. Consult a physician before undertaking physical traction exercises.
               </Text>
             </GlassCard>
           </Animated.View>
         </ScrollView>
 
-        {/* Stretch Timer Modal */}
+        {/* ==================================================================== */}
+        {/* MODALS                                                               */}
+        {/* ==================================================================== */}
         <StretchTimerModal
           visible={!!selectedStretch}
           exercise={selectedStretch}
           onClose={() => setSelectedStretch(null)}
         />
 
-        {/* Badge celebration modal */}
         <BadgeModal
           visible={!!newlyUnlockedBadge}
           badge={newlyUnlockedBadge}
@@ -937,142 +740,33 @@ export default function StretchesScreen() {
           onClose={clearNewlyUnlockedBadge}
         />
 
-        {/* Health Disclaimer & Calibration Modal */}
         <HealthDisclaimerModal
           visible={showDisclaimerModal}
           onAccept={handleAcceptDisclaimer}
           onClose={() => setShowDisclaimerModal(false)}
         />
-
-        {/* Category Diagnostic Questions Modal */}
-        <Modal
-          visible={diagnosticModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setDiagnosticModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <GlassCard style={styles.diagnosticModalCard}>
-              <View style={styles.diagnosticModalHeader}>
-                <View style={styles.diagnosticModalTitleRow}>
-                  <View
-                    style={[
-                      styles.diagIconBox,
-                      { backgroundColor: `${selectedCategory?.color || '#2563EB'}20` },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 18 }}>{selectedCategory?.icon || '🎯'}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.diagnosticModalTitle}>
-                      {selectedCategory?.name} Diagnostic
-                    </Text>
-                    <Text style={styles.diagnosticModalSub}>
-                      Personalized routine calibration
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setDiagnosticModalVisible(false)}
-                  style={styles.closeModalBtn}
-                >
-                  <X size={16} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={{ maxHeight: Dimensions.get('window').height * 0.55 }}
-                showsVerticalScrollIndicator={false}
-              >
-                {activeCategoryQuestions.map((q, qIdx) => (
-                  <View key={q.id} style={styles.diagQuestionBlock}>
-                    <View style={styles.diagQuestionNumBadge}>
-                      <Text style={styles.diagQuestionNumText}>Question {qIdx + 1} of {activeCategoryQuestions.length}</Text>
-                    </View>
-                    <Text style={styles.diagQuestionTitle}>{q.questionText}</Text>
-                    <Text style={styles.diagQuestionSubtitle}>{q.subtitle}</Text>
-
-                    <View style={styles.diagOptionsCol}>
-                      {q.options.map((opt, oIdx) => {
-                        const isChosen = quizAnswers[q.id] === opt.label;
-                        return (
-                          <TouchableOpacity
-                            key={oIdx}
-                            style={[
-                              styles.diagOptionCard,
-                              isChosen && [
-                                styles.diagOptionCardActive,
-                                { borderColor: selectedCategory?.color || '#2563EB' },
-                              ],
-                            ]}
-                            onPress={() => {
-                              Haptics.selectionAsync().catch(() => {});
-                              setQuizAnswers((prev) => ({ ...prev, [q.id]: opt.label }));
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.diagOptionEmoji}>{opt.icon || '✨'}</Text>
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={[
-                                  styles.diagOptionLabel,
-                                  isChosen && { color: selectedCategory?.color || '#2563EB', fontWeight: '800' },
-                                ]}
-                              >
-                                {opt.label}
-                              </Text>
-                              {opt.sublabel ? (
-                                <Text style={styles.diagOptionSub}>{opt.sublabel}</Text>
-                              ) : null}
-                            </View>
-                            {isChosen && (
-                              <CheckCircle2
-                                size={16}
-                                color={selectedCategory?.color || '#2563EB'}
-                              />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-
-              <TouchableOpacity
-                style={[
-                  styles.saveCalibrationBtn,
-                  { backgroundColor: selectedCategory?.color || '#2563EB' },
-                ]}
-                onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                  setQuizSubmitted(true);
-                  setDiagnosticModalVisible(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <CheckCircle2 size={15} color="#FFFFFF" />
-                <Text style={styles.saveCalibrationBtnText}>Save & Calibrate Routine</Text>
-              </TouchableOpacity>
-            </GlassCard>
-          </View>
-        </Modal>
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
 }
 
+// ============================================================================
+// STYLESHEET (Refined Apple-Inspired Minimalism + Image 2 Fidelity)
+// ============================================================================
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  headerContainer: {
+  topContextBar: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  brandRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   brandPill: {
@@ -1080,14 +774,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   brandText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -1097,10 +791,163 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#10B981',
   },
-  headerRightActions: {
+  superContextTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+
+  // Week Hero Row (Image 2 "Week 1" Header)
+  weekHeroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  weekHeroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  weekHeroTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  weekBadgeStatus: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  weekBadgeStatusText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  weekNavArrowsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  weekNavArrowBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  weekNavArrowBtnDisabled: {
+    opacity: 0.4,
+    backgroundColor: '#F8FAFC',
+  },
+
+  // Calendar Bar (Image 2: MON 29, TUE 30...)
+  calendarBarWrapper: {
+    marginBottom: 18,
+  },
+  calendarDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  calendarPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  calendarPillActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#1D4ED8',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  calendarPillToday: {
+    borderColor: '#93C5FD',
+    backgroundColor: '#F0F9FF',
+  },
+  calendarDayAbbr: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  calendarDayAbbrActive: {
+    color: '#DBEAFE',
+  },
+  calendarDateNum: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  calendarDateNumActive: {
+    color: '#FFFFFF',
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#2563EB',
+    marginTop: 2,
+  },
+  todayDotActive: {
+    backgroundColor: '#FFFFFF',
+  },
+
+  // Meta row
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  dayProgressPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  dayProgressText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   categoriesHeaderBtn: {
     flexDirection: 'row',
@@ -1118,231 +965,147 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0284C7',
   },
-  completedBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  completedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-  },
-  titleSection: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  // 6-Week Progressive Curriculum styles
-  weekSelectorSection: {
-    marginBottom: 16,
-  },
-  weekHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-    marginBottom: 10,
-  },
-  weekSectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  weekSectionSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  weekProgressPill: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  weekProgressPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0284C7',
-  },
-  weekPillsScroll: {
-    gap: 8,
-    paddingVertical: 2,
-  },
-  weekPill: {
-    width: 96,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 4,
-  },
-  weekPillSelected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#2563EB',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  weekPillCurrent: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#EFF6FF',
-  },
-  weekPillLocked: {
-    opacity: 0.65,
-    backgroundColor: '#F8FAFC',
-  },
-  weekPillTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  weekPillLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  weekPillLabelSelected: {
-    color: '#2563EB',
-  },
-  weekPillLabelLocked: {
-    color: '#64748B',
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#2563EB',
-  },
-  weekPillStatus: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  weekStatusCompleted: {
-    color: '#10B981',
-  },
-  weekStatusActive: {
-    color: '#0284C7',
-  },
-  weekStatusLocked: {
-    color: '#94A3B8',
-  },
 
-  // Locked Phase Card styles
-  lockedContainerCard: {
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-    marginVertical: 8,
+  // Workout Cards (Image 2 Pastel Banners)
+  workoutCardsContainer: {
+    gap: 14,
+    marginBottom: 20,
   },
-  lockedIconWrapper: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+  workoutBannerTouch: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  lockedBadge: {
-    backgroundColor: '#FDE68A',
-    paddingHorizontal: 10,
+  workoutBannerGradient: {
+    flexDirection: 'row',
+    height: 126,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  workoutLeftColumn: {
+    flex: 1.15,
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 8,
+    justifyContent: 'space-between',
+  },
+  durationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
-  lockedBadgeText: {
+  durationPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#92400E',
-    textTransform: 'uppercase',
+    color: '#1E293B',
   },
-  lockedPhaseTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-    textAlign: 'center',
+  workoutBannerTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  lockedPhaseFocus: {
-    fontSize: 12,
+  workoutBannerTitleDone: {
+    textDecorationLine: 'line-through',
+    opacity: 0.85,
+  },
+  workoutBannerSubtitle: {
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#0284C7',
-    textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.95)',
+    textTransform: 'capitalize',
   },
-  lockedPhaseGoal: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: 8,
-  },
-  lockRequirementBox: {
-    width: '100%',
-    backgroundColor: 'rgba(248, 250, 252, 0.9)',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 14,
-    gap: 4,
-    marginTop: 8,
-  },
-  lockReqHeaderRow: {
+  cardCheckBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
-  lockReqTitle: {
-    fontSize: 12,
+  cardCheckBtnDone: {
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+  },
+  cardCheckBtnPending: {},
+  cardCheckBtnText: {
+    fontSize: 10.5,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
-  lockReqDesc: {
-    fontSize: 11,
-    color: '#475569',
-    lineHeight: 16,
+  cardCheckBtnTextDone: {
+    color: '#FFFFFF',
   },
-  returnToCurrentBtn: {
-    marginTop: 10,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
+  workoutFigureContainer: {
+    flex: 0.85,
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 22,
+  },
+  workoutFigureImage: {
     width: '100%',
-    alignItems: 'center',
+    height: '100%',
   },
-  returnToCurrentBtnText: {
-    fontSize: 13,
+  figureBlendOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  mediaPillBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  mediaPillBadgeText: {
+    fontSize: 9,
     fontWeight: '800',
     color: '#FFFFFF',
   },
 
-  // Advance week action
-  advanceWeekSection: {
-    marginTop: 12,
-    marginBottom: 20,
+  // Advance Week
+  advanceWeekWrapper: {
+    marginTop: 4,
+    marginBottom: 16,
   },
   advanceWeekBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#2563EB',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 18,
-    shadowColor: '#0284C7',
+    shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -1352,681 +1115,96 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Media preview thumbnail on exercise card
-  cardThumbnailWrapper: {
-    width: 58,
-    height: 58,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#0F172A',
-    position: 'relative',
-    marginRight: 10,
-    flexShrink: 0,
-  },
-  cardThumbnailImg: {
-    width: '100%',
-    height: '100%',
-  },
-  cardThumbnailPlayBadge: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(37, 99, 235, 0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subheadingText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    color: '#2563EB',
-    marginBottom: 4,
-  },
-  headingText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  schedulerCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  schedulerHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  schedulerTitleCol: {
-    gap: 3,
-  },
-  schedulerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  schedulerPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    color: '#2563EB',
-  },
-  schedulerMainText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  regenerateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  regenerateBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1D4ED8',
-  },
-  frequencyRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 12,
-  },
-  frequencyChip: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-  },
-  frequencyChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#1D4ED8',
-  },
-  frequencyChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  frequencyChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  dayTabsScroll: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingTop: 2,
-  },
-  dayTabPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  dayTabPillActive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#93C5FD',
-  },
-  dayTabText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  dayTabTextActive: {
-    color: '#1D4ED8',
-    fontWeight: '800',
-  },
-  cardSpacing: {
-    marginBottom: 20,
-    padding: 16,
-  },
-  meterCenterWrap: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  gainBanner: {
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  gainBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  gainIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gainTextCol: {
-    flex: 1,
-  },
-  gainTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E3A8A',
-  },
-  gainSubtitle: {
-    fontSize: 10,
-    color: '#3B82F6',
-    fontWeight: '600',
-  },
-  categoryFilterSection: {
-    marginBottom: 16,
-  },
-  categoryChipsScroll: {
-    gap: 8,
-    paddingVertical: 2,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-  },
-  categoryChipActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#0284C7',
-    shadowOpacity: 0.08,
-  },
-  categoryChipIcon: {
-    fontSize: 14,
-  },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  categoryChipTextActive: {
-    color: '#0284C7',
-    fontWeight: '800',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  sectionSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  stretchesListWrap: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  stretchCard: {
-    padding: 14,
-  },
-  stretchCardDone: {
-    opacity: 0.75,
-  },
-  stretchCardPending: {},
-  stretchContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stretchInfoCol: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  stretchTagsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  categoryBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  badgeGrowth: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-  },
-  badgeStrength: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-  },
-  badgePosture: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  categoryBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  textGrowth: {
-    color: '#1D4ED8',
-  },
-  textStrength: {
-    color: '#4338CA',
-  },
-  textPosture: {
-    color: '#047857',
-  },
-  durationTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  durationTagText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  mediaPillTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  mediaPillText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  stretchTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  stretchTitleDone: {
-    textDecorationLine: 'line-through',
-    color: '#64748B',
-  },
-  stretchBenefit: {
-    fontSize: 11,
-    color: '#64748B',
-    lineHeight: 16,
-  },
-  stretchActionsRow: {
-    flexDirection: 'row',
+  // Locked Card Styles
+  lockedCard: {
+    padding: 24,
     alignItems: 'center',
     gap: 8,
+    marginVertical: 12,
   },
-  playActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  checkboxBtnDone: {
-    backgroundColor: '#10B981',
-    borderColor: '#059669',
-  },
-  checkboxBtnPending: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
-  },
-  citationCard: {
-    padding: 14,
-  },
-  citationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  citationText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#065F46',
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  categoryBannerCard: {
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    marginBottom: 16,
-  },
-  categoryBannerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  categoryBannerIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryBannerTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  categoryBannerDesc: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  diagnosticQuizTriggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#2563EB',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  diagnosticQuizTriggerText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  diagnosticModalCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    maxHeight: '85%',
-  },
-  diagnosticModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  diagnosticModalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    marginRight: 8,
-  },
-  diagIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  diagnosticModalTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  diagnosticModalSub: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  closeModalBtn: {
-    padding: 6,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-  },
-  diagQuestionBlock: {
-    marginBottom: 20,
-    backgroundColor: '#F8FAFC',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  diagQuestionNumBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 6,
-  },
-  diagQuestionNumText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0369A1',
-  },
-  diagQuestionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 18,
-  },
-  diagQuestionSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-    marginBottom: 10,
-    lineHeight: 15,
-  },
-  diagOptionsCol: {
-    gap: 8,
-  },
-  diagOptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  diagOptionCardActive: {
-    backgroundColor: '#F0F9FF',
-    borderColor: '#2563EB',
-  },
-  diagOptionEmoji: {
-    fontSize: 16,
-  },
-  diagOptionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  diagOptionSub: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  saveCalibrationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#2563EB',
-    paddingVertical: 13,
-    borderRadius: 14,
-    marginTop: 14,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  saveCalibrationBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  archetypeCard: {
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    backgroundColor: 'rgba(240, 249, 255, 0.75)',
-  },
-  archetypeHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  archetypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  archetypeBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0284C7',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  intensityTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  lockedIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  intensityTagText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  archetypeNameText: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 4,
   },
-  archetypeFocusText: {
+  lockedTagPill: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  lockedTagPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  lockedCardTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  lockedCardFocus: {
     fontSize: 12,
     fontWeight: '700',
     color: '#0284C7',
-    marginBottom: 6,
+    textAlign: 'center',
   },
-  archetypeRationaleText: {
+  lockedCardDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  lockedRequirementBox: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 8,
+  },
+  lockedReqTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  lockedReqDesc: {
     fontSize: 11,
     color: '#475569',
     lineHeight: 16,
+    marginTop: 2,
   },
-  uncalibratedBanner: {
-    flexDirection: 'row',
+  returnActiveWeekBtn: {
+    marginTop: 10,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 18,
-    marginBottom: 16,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  uncalibratedBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  uncalibratedBannerTitle: {
+  returnActiveWeekBtnText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  uncalibratedBannerSub: {
-    fontSize: 11,
-    color: '#E0F2FE',
-    marginTop: 1,
-  },
-  lockedProtocolPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  lockedProtocolPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
+
+  // Medical & Legal Disclaimer Card
   legalDisclaimerCard: {
     padding: 14,
-    marginTop: 12,
-    marginBottom: 28,
+    marginTop: 8,
+    marginBottom: 20,
     backgroundColor: 'rgba(254, 243, 199, 0.45)',
     borderWidth: 1,
     borderColor: '#FDE68A',

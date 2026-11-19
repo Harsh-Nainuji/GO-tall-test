@@ -83,7 +83,7 @@ export default function ForgotPasswordScreen() {
                 <Dna size={28} color="#FFFFFF" strokeWidth={2.2} />
               </LinearGradient>
             </View>
-            <Text style={styles.wordmark}>Tollgram</Text>
+            <Text style={styles.wordmark}>GoTall</Text>
           </View>
 
           <View style={styles.titleSection}>

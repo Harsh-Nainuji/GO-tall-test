@@ -91,7 +91,7 @@ export default function SignInScreen() {
                 <Dna size={32} color="#FFFFFF" strokeWidth={2.2} />
               </LinearGradient>
             </View>
-            <Text style={styles.wordmark}>Tollgram</Text>
+            <Text style={styles.wordmark}>GoTall</Text>
           </View>
 
           {/* Headline */}
@@ -167,7 +167,7 @@ export default function SignInScreen() {
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.ctaText}>Sign in to Tollgram</Text>
+                  <Text style={styles.ctaText}>Sign in to GoTall</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
@@ -200,7 +200,7 @@ export default function SignInScreen() {
 
           {/* Footer */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>New to Tollgram?</Text>
+            <Text style={styles.footerText}>New to GoTall?</Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/sign-up' as any)}>
               <Text style={styles.footerLink}>Create account</Text>
             </TouchableOpacity>

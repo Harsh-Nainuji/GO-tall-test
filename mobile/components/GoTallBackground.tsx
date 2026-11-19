@@ -20,7 +20,7 @@ export default function GoTallBackground({
   children,
   variant = 'pattern',
   style,
-  patternOpacity = 0.045,
+  patternOpacity = 0.07,
 }: GoTallBackgroundProps) {
   return (
     <View style={[styles.container, style]}>
@@ -38,10 +38,16 @@ export default function GoTallBackground({
         <MotivationalPatternWallpaper opacity={patternOpacity} />
       )}
 
-      {/* 3. Luminous Bottom-Edge Blue Ambient Effect */}
+      {/* 3. Luminous Bottom-Edge Blue Ambient Effect (Vibrant & Atmospheric, inspired by Image 3) */}
       <LinearGradient
-        colors={['transparent', 'rgba(239, 246, 255, 0.25)', 'rgba(191, 219, 254, 0.45)']}
-        locations={[0.45, 0.75, 1.0]}
+        colors={[
+          'transparent',
+          'rgba(224, 242, 254, 0.18)',
+          'rgba(147, 197, 253, 0.38)',
+          'rgba(59, 130, 246, 0.48)',
+          'rgba(37, 99, 235, 0.58)',
+        ]}
+        locations={[0.0, 0.38, 0.68, 0.88, 1.0]}
         start={{ x: 0.5, y: 0.0 }}
         end={{ x: 0.5, y: 1.0 }}
         style={styles.ambientBottomGlow}
@@ -65,6 +71,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '42%',
+    height: '52%',
   },
 });
