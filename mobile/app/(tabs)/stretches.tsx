@@ -359,7 +359,7 @@ export default function StretchesScreen() {
           <View style={styles.brandRow}>
             <View style={styles.brandPill}>
               <Activity size={13} color="#2563EB" />
-              <Text style={styles.brandText}>GoTall</Text>
+              <Text style={styles.brandText}>Tallgrame</Text>
               <View style={styles.onlineDot} />
             </View>
           </View>
@@ -718,7 +718,7 @@ export default function StretchesScreen() {
                 </Text>
               </View>
               <Text style={styles.legalDisclaimerBody}>
-                GoTall is an educational biomechanical wellness application. Stature increases are achieved through natural intervertebral disc rehydration and posture correction. GoTall does not guarantee epiphyseal bone elongation or replace licensed orthopedic treatment. Consult a physician before undertaking physical traction exercises.
+                Tallgrame is an educational biomechanical wellness application. Stature increases are achieved through natural intervertebral disc rehydration and posture correction. Tallgrame does not guarantee epiphyseal bone elongation or replace licensed orthopedic treatment. Consult a physician before undertaking physical traction exercises.
               </Text>
             </GlassCard>
           </Animated.View>

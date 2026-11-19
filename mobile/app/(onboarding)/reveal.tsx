@@ -78,7 +78,7 @@ export default function RevealScreen() {
 
           <View style={styles.headerBadge}>
             <Activity size={14} color="#0284C7" />
-            <Text style={styles.headerBadgeText}>GoTall Biometric Model</Text>
+            <Text style={styles.headerBadgeText}>Tallgrame Biometric Model</Text>
             <View style={styles.headerDot} />
           </View>
 

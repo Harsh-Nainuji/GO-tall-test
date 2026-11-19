@@ -102,7 +102,7 @@ export default function SignUpScreen() {
                 <Dna size={32} color="#FFFFFF" strokeWidth={2.2} />
               </LinearGradient>
             </View>
-            <Text style={styles.wordmark}>GoTall</Text>
+            <Text style={styles.wordmark}>Tallgrame</Text>
           </View>
 
           {/* Headline */}
@@ -208,7 +208,7 @@ export default function SignUpScreen() {
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.ctaText}>Start your GoTall journey</Text>
+                  <Text style={styles.ctaText}>Start your Tallgrame journey</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>

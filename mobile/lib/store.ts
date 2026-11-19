@@ -31,7 +31,7 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  provider: 'email' | 'google' | 'apple';
+  provider: 'email' | 'google' | 'apple' | 'supabase';
   avatarUrl?: string;
   isLoggedIn: boolean;
 }

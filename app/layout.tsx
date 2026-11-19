@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'GoTall — Healthy growth, one habit at a time',
-  description: 'Track your height, nutrition, sleep, and daily stretches with GoTall.',
+  title: 'Tallgrame — Clinical Growth & Posture Protocol',
+  description: 'Track your stature trajectory, nutrition, sleep, and daily stretches with Tallgrame.',
   generator: 'v0.app',
   icons: {
     icon: [

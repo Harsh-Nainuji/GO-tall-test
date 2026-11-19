@@ -11,7 +11,7 @@ export interface BilingualText {
 
 export const ADMIN_COPY = {
   brand: {
-    title: { en: 'GoTall', gu: 'ગોટૉલ' },
+    title: { en: 'Tallgrame', gu: 'ટોલગ્રામ' },
     badge: { en: 'Manager', gu: 'મેનેજર' },
     tagline: { en: 'Simple Control Center', gu: 'સરળ નિયંત્રણ કેન્દ્ર' },
   },
@@ -34,9 +34,9 @@ export const ADMIN_COPY = {
       label: { en: 'Rewards & Badges', gu: 'ઇનામ અને બેજ' },
       sublabel: { en: 'Trophies & points', gu: 'ટ્રોફી અને પોઇન્ટ્સ' },
     },
-    aiPrompts: {
-      label: { en: 'AI Helper', gu: 'એઆઈ મદદનીશ' },
-      sublabel: { en: 'Instant answer buttons', gu: 'ઝડપી જવાબો' },
+    storage: {
+      label: { en: 'Database & Storage', gu: 'ડેટાબેઝ અને સ્ટોરેજ' },
+      sublabel: { en: 'Usage, tables & media files', gu: 'વપરાશ, ટેબલ અને મીડિયા ફાઇલો' },
     },
     users: {
       label: { en: 'App Members', gu: 'સભ્યો' },
@@ -80,13 +80,12 @@ export const ADMIN_COPY = {
       },
       addBtn: { en: '+ Add Reward', gu: '+ ઇનામ ઉમેરો' },
     },
-    aiPrompts: {
-      title: { en: 'AI Helper Quick Question Chips', gu: 'એઆઈ ઝડપી પ્રશ્નો' },
+    storage: {
+      title: { en: 'Database & Cloud Storage', gu: 'ડેટાબેઝ અને ક્લાઉડ સ્ટોરેજ' },
       subtitle: {
-        en: '1-tap question buttons and safe pre-written replies for Dr. Jack.',
-        gu: 'ડૉ. જેક માટે ૧-ટૅપ પ્રશ્ન બટનો અને સુરક્ષિત જવાબો.',
+        en: 'Inspect live database row counts, storage buckets, media files, and capacity limits.',
+        gu: 'લાઈવ ડેટાબેઝ રો કાઉન્ટ, સ્ટોરેજ બકેટ, મીડિયા ફાઇલો અને ક્ષમતા મર્યાદા જુઓ.',
       },
-      addBtn: { en: '+ Add Question', gu: '+ પ્રશ્ન ઉમેરો' },
     },
     users: {
       title: { en: 'App Members & Accounts', gu: 'એપ સભ્યો અને ખાતાઓ' },

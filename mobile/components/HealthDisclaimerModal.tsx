@@ -69,7 +69,7 @@ export default function HealthDisclaimerModal({
                 <Text style={styles.clauseTitle}>1. No Biological Bone Elongation Guarantee</Text>
               </View>
               <Text style={styles.clauseBody}>
-                Long-bone biological growth is strictly governed by genetics, endocrinology, and the ossification of epiphyseal growth plates. GoTall does NOT promise, warrant, or guarantee impossible stature increases. Stature gains achieved through decompression (typically 1.0–2.5 cm) reflect the rehydration of compressed intervertebral spinal discs and pelvic-thoracic alignment, not new bone length.
+                Long-bone biological growth is strictly governed by genetics, endocrinology, and the ossification of epiphyseal growth plates. Tallgrame does NOT promise, warrant, or guarantee impossible stature increases. Stature gains achieved through decompression (typically 1.0–2.5 cm) reflect the rehydration of compressed intervertebral spinal discs and pelvic-thoracic alignment, not new bone length.
               </Text>
             </View>
 
@@ -80,7 +80,7 @@ export default function HealthDisclaimerModal({
                 <Text style={styles.clauseTitle}>2. Educational & Wellness Tool Only</Text>
               </View>
               <Text style={styles.clauseBody}>
-                The GoTall mobile application, auto-scheduler, and clinical AI advisor provide educational biomechanical guidelines. This application is NOT a medical device, hospital service, or licensed physical therapy clinic. Nothing within this app constitutes medical advice, clinical diagnosis, or prescriptive therapy.
+                The Tallgrame mobile application, auto-scheduler, and clinical AI advisor provide educational biomechanical guidelines. This application is NOT a medical device, hospital service, or licensed physical therapy clinic. Nothing within this app constitutes medical advice, clinical diagnosis, or prescriptive therapy.
               </Text>
             </View>
 

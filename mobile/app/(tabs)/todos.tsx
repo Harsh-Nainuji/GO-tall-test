@@ -139,7 +139,7 @@ export default function TodosScreen() {
         <Animated.View entering={FadeInDown.delay(50).springify()} style={styles.headerContainer}>
           <View style={styles.brandPill}>
             <Activity size={13} color="#2563EB" />
-            <Text style={styles.brandText}>GoTall Protocol</Text>
+            <Text style={styles.brandText}>Tallgrame Protocol</Text>
             <View style={styles.onlineDot} />
           </View>
 

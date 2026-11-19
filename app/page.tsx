@@ -9,7 +9,7 @@ import { BadgesCMS } from '@/components/admin/BadgesCMS'
 import { StretchesCMS } from '@/components/admin/StretchesCMS'
 import { NutritionCMS } from '@/components/admin/NutritionCMS'
 import { UsersCRM } from '@/components/admin/UsersCRM'
-import { AiPromptsCMS } from '@/components/admin/AiPromptsCMS'
+import { DatabaseStorageInspector } from '@/components/admin/DatabaseStorageInspector'
 import { AdminSpotlightTour } from '@/components/admin/AdminSpotlightTour'
 import { AdminAuthGate } from '@/components/admin/AdminAuthGate'
 import { useAdminData } from '@/lib/admin-store'
@@ -67,11 +67,11 @@ export default function AdminPortalPage() {
           subtitle: `${ADMIN_COPY.pages.badges.subtitle.en} • ${ADMIN_COPY.pages.badges.subtitle.gu}`,
           quickActionLabel: ADMIN_COPY.pages.badges.addBtn.en,
         }
-      case 'ai-prompts':
+      case 'storage':
         return {
-          title: `${ADMIN_COPY.pages.aiPrompts.title.en} / ${ADMIN_COPY.pages.aiPrompts.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.aiPrompts.subtitle.en} • ${ADMIN_COPY.pages.aiPrompts.subtitle.gu}`,
-          quickActionLabel: ADMIN_COPY.pages.aiPrompts.addBtn.en,
+          title: `${ADMIN_COPY.pages.storage.title.en} / ${ADMIN_COPY.pages.storage.title.gu}`,
+          subtitle: `${ADMIN_COPY.pages.storage.subtitle.en} • ${ADMIN_COPY.pages.storage.subtitle.gu}`,
+          quickActionLabel: undefined,
         }
       case 'users':
         return {
@@ -134,7 +134,7 @@ export default function AdminPortalPage() {
               <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
                 <div className="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm font-bold text-slate-300">
-                  Connecting to live GoTall database... / કનેક્ટ થઈ રહ્યું છે...
+                  Connecting to live Tallgrame database... / કનેક્ટ થઈ રહ્યું છે...
                 </span>
               </div>
             ) : (
@@ -182,8 +182,8 @@ export default function AdminPortalPage() {
                     <UsersCRM users={users} onUpdateUsers={setUsers} />
                   )}
 
-                  {currentTab === 'ai-prompts' && (
-                    <AiPromptsCMS chips={aiChips} onUpdateChips={setAiChips} />
+                  {currentTab === 'storage' && (
+                    <DatabaseStorageInspector />
                   )}
                 </motion.div>
               </AnimatePresence>

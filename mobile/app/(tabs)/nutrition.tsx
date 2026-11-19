@@ -157,7 +157,7 @@ export default function NutritionScreen() {
         >
           <View style={styles.brandPill}>
             <Activity size={14} color="#2563EB" />
-            <Text style={styles.brandText}>GoTall</Text>
+            <Text style={styles.brandText}>Tallgrame</Text>
             <View style={styles.onlineDot} />
           </View>
         </Animated.View>

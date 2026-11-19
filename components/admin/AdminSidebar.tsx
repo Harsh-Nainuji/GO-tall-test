@@ -8,14 +8,14 @@ import {
   Activity,
   Utensils,
   Users,
-  Bot,
+  Database,
   RotateCcw,
   CheckCircle2,
   Plus,
 } from 'lucide-react'
 import { ADMIN_COPY } from '@/lib/admin-copy'
 
-export type AdminTab = 'overview' | 'badges' | 'stretches' | 'nutrition' | 'users' | 'ai-prompts'
+export type AdminTab = 'overview' | 'badges' | 'stretches' | 'nutrition' | 'users' | 'storage'
 
 interface AdminSidebarProps {
   currentTab: AdminTab
@@ -78,13 +78,13 @@ export function AdminSidebar({
       badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     },
     {
-      id: 'ai-prompts' as AdminTab,
-      labelEn: ADMIN_COPY.nav.aiPrompts.label.en,
-      labelGu: ADMIN_COPY.nav.aiPrompts.label.gu,
-      sublabelEn: ADMIN_COPY.nav.aiPrompts.sublabel.en,
-      icon: Bot,
-      countBadge: String(aiChipsCount),
-      badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+      id: 'storage' as AdminTab,
+      labelEn: ADMIN_COPY.nav.storage.label.en,
+      labelGu: ADMIN_COPY.nav.storage.label.gu,
+      sublabelEn: ADMIN_COPY.nav.storage.sublabel.en,
+      icon: Database,
+      countBadge: 'Cloud',
+      badgeColor: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
     },
     {
       id: 'users' as AdminTab,
@@ -103,7 +103,7 @@ export function AdminSidebar({
       <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-slate-950 font-black text-2xl shadow-md shadow-cyan-500/25">
-            G
+            T
           </div>
           <div>
             <div className="flex items-center gap-2">

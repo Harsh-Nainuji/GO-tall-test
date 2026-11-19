@@ -341,9 +341,42 @@ export async function DELETE(request: Request) {
       case 'badges':
         tableName = 'achievements'
         break
-      case 'users':
-        tableName = 'profiles'
-        break
+      case 'users': {
+        // Cascade delete all child records and auth user
+        // 1. Fetch user profile to get user_id and profile id
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, user_id')
+          .or(`id.eq.${id},user_id.eq.${id}`)
+          .maybeSingle()
+
+        const profileId = profile?.id || id
+        const authUserId = profile?.user_id || (id.length === 36 ? id : null)
+
+        // 2. Cascade delete records from all user-related tables
+        await Promise.allSettled([
+          authUserId ? supabase.from('user_achievements').delete().eq('user_id', authUserId) : Promise.resolve(),
+          profileId ? supabase.from('user_achievements').delete().eq('user_id', profileId) : Promise.resolve(),
+          authUserId ? supabase.from('meals').delete().eq('user_id', authUserId) : Promise.resolve(),
+          profileId ? supabase.from('meals').delete().eq('user_id', profileId) : Promise.resolve(),
+          authUserId ? supabase.from('sleep_logs').delete().eq('user_id', authUserId) : Promise.resolve(),
+          profileId ? supabase.from('sleep_logs').delete().eq('user_id', profileId) : Promise.resolve(),
+          authUserId ? supabase.from('daily_logs').delete().eq('user_id', authUserId) : Promise.resolve(),
+          profileId ? supabase.from('daily_logs').delete().eq('user_id', profileId) : Promise.resolve(),
+          supabase.from('profiles').delete().or(`id.eq.${profileId}${authUserId ? `,user_id.eq.${authUserId}` : ''}`),
+        ])
+
+        // 3. Delete from Supabase Auth admin so the user is completely eradicated
+        if (authUserId) {
+          try {
+            await supabase.auth.admin.deleteUser(authUserId)
+          } catch (authErr) {
+            console.warn('[Sync API] Could not delete from auth.users (user may not be an auth UUID):', authErr)
+          }
+        }
+
+        return NextResponse.json({ success: true, deleted: id, purgedCascade: true })
+      }
       default:
         return NextResponse.json({ error: 'Unsupported entity' }, { status: 400 })
     }

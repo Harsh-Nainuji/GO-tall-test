@@ -162,7 +162,7 @@ export default function ProfileScreen() {
       const badgesUnlocked: string[] = data.unlockedBadgeIds || data.unlocked_badge_ids || [];
 
       const lines: string[] = [
-        'GOTALL — BIOMETRIC DATA EXPORT',
+        'TALLGRAME — BIOMETRIC DATA EXPORT',
         `Generated: ${dateStr}`,
         '==============================',
         '',
@@ -209,12 +209,12 @@ export default function ProfileScreen() {
       }
 
       lines.push('==============================');
-      lines.push('Exported from GoTall. For personal use only.');
+      lines.push('Exported from Tallgrame. For personal use only.');
 
       const formattedText = lines.join('\n');
 
       await Share.share({
-        title: 'GoTall_BiometricExport.txt',
+        title: 'Tallgrame_BiometricExport.txt',
         message: formattedText,
       });
 
@@ -279,7 +279,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.brandPill}>
             <Activity size={14} color="#2563EB" />
-            <Text style={styles.brandText}>GoTall</Text>
+            <Text style={styles.brandText}>Tallgrame</Text>
             <View style={styles.onlineDot} />
           </View>
 
@@ -699,7 +699,7 @@ export default function ProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.tourReplayTitle}>Interactive Guided Tour</Text>
                   <Text style={styles.tourReplaySub}>
-                    Highlights and explains every feature of GoTall step by step.
+                    Highlights and explains every feature of Tallgrame step by step.
                   </Text>
                 </View>
               </View>
@@ -772,7 +772,7 @@ export default function ProfileScreen() {
                     <View>
                       <Text style={styles.deleteAccountBtnText}>Delete Account & Data</Text>
                       <Text style={styles.deleteAccountBtnSub}>
-                        Permanently erases all records from the GoTall cloud database
+                        Permanently erases all records from the Tallgrame cloud database
                       </Text>
                     </View>
                   </View>

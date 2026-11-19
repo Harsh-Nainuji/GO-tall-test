@@ -247,7 +247,7 @@ export default function ChatScreen() {
             style={styles.wordmarkPill}
           >
             <Sparkles size={13} color="#FFFFFF" />
-            <Text style={styles.wordmarkText}>GoTall AI</Text>
+            <Text style={styles.wordmarkText}>Tallgrame AI</Text>
           </LinearGradient>
           <Text style={styles.headerSubtitle}>Powered by Gemini</Text>
         </View>
@@ -295,7 +295,7 @@ export default function ChatScreen() {
                 >
                   <Sparkles size={22} color="#FFFFFF" />
                 </LinearGradient>
-                <Text style={styles.welcomeTitle}>Ask GoTall AI</Text>
+                <Text style={styles.welcomeTitle}>Ask Tallgrame AI</Text>
                 <Text style={styles.welcomeBody}>
                   Evidence-based guidance on growth plates, sleep, nutrition, and spinal biomechanics.
                 </Text>

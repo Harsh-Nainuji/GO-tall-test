@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "Tollgram",
-    "slug": "tollgram",
+    "name": "Tallgrame",
+    "slug": "tallgrame",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "tollgram",
+    "scheme": "tallgrame",
     "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "newArchEnabled": true,
     "privacy": "unlisted",
     "platforms": ["ios", "android", "web"],
@@ -18,21 +19,22 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.tollgram.app",
+      "bundleIdentifier": "com.tallgrame.app",
       "buildNumber": "2",
-      "associatedDomains": ["applinks:tollgram.app"],
+      "jsEngine": "hermes",
+      "associatedDomains": ["applinks:tallgrame.app"],
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Tollgram uses speech features to read personalized clinical stature guidance aloud.",
-        "NSMicrophoneUsageDescription": "Tollgram uses microphone access for stature inquiry interactions.",
-        "NSCameraUsageDescription": "Tollgram may use your camera to track posture alignment and spinal decompression.",
-        "NSPhotoLibraryUsageDescription": "Tollgram accesses your photo library to save and track growth milestone progress.",
-        "NSUserNotificationUsageDescription": "Tollgram sends reminders for your sleep and stretch routines.",
-        "NSHealthShareUsageDescription": "Tollgram reads health data to personalize your growth plan.",
-        "NSHealthUpdateUsageDescription": "Tollgram writes workout and sleep data to Apple Health.",
-        "NSFaceIDUsageDescription": "Tollgram uses Face ID for secure sign-in.",
+        "NSSpeechRecognitionUsageDescription": "Tallgrame uses speech features to read personalized clinical stature guidance aloud.",
+        "NSMicrophoneUsageDescription": "Tallgrame uses microphone access for stature inquiry interactions.",
+        "NSCameraUsageDescription": "Tallgrame may use your camera to track posture alignment and spinal decompression.",
+        "NSPhotoLibraryUsageDescription": "Tallgrame accesses your photo library to save and track growth milestone progress.",
+        "NSUserNotificationUsageDescription": "Tallgrame sends reminders for your sleep and stretch routines.",
+        "NSHealthShareUsageDescription": "Tallgrame reads health data to personalize your growth plan.",
+        "NSHealthUpdateUsageDescription": "Tallgrame writes workout and sleep data to Apple Health.",
+        "NSFaceIDUsageDescription": "Tallgrame uses Face ID for secure sign-in.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
@@ -40,8 +42,9 @@
       }
     },
     "android": {
-      "package": "com.tollgram.app",
+      "package": "com.tallgrame.app",
       "versionCode": 2,
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -62,7 +65,7 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "tollgram"
+              "scheme": "tallgrame"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -73,7 +76,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "tollgram.app"
+              "host": "tallgrame.app"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
