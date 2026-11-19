@@ -176,7 +176,6 @@ export default function StretchesScreen() {
 
   const [selectedStretch, setSelectedStretch] = useState<StretchExercise | null>(null);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('all');
-  const [categorySheetVisible, setCategorySheetVisible] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [diagnosticModalVisible, setDiagnosticModalVisible] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
@@ -224,9 +223,9 @@ export default function StretchesScreen() {
   useEffect(() => {
     setIsLoadingLive(true);
     loadLiveStretches();
-    useAppStore.getState().fetchLiveContent().catch(() => {});
+    useAppStore.getState().fetchLiveContent().catch(() => { });
     if (hasAcceptedHealthDisclaimer && !isProgramCalibrated) {
-      calibratePersonalizedProgram().catch(() => {});
+      calibratePersonalizedProgram().catch(() => { });
     }
   }, [hasAcceptedHealthDisclaimer, isProgramCalibrated]);
 
@@ -246,8 +245,8 @@ export default function StretchesScreen() {
   const baseExercises: StretchExercise[] = scheduledForDay.length > 0
     ? scheduledForDay
     : (weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0)
-    ? weeklyPlan[currentDayKey]
-    : CLINICAL_STRETCHES;
+      ? weeklyPlan[currentDayKey]
+      : CLINICAL_STRETCHES;
 
   const dailyExercises: StretchExercise[] = baseExercises;
 
@@ -319,14 +318,14 @@ export default function StretchesScreen() {
 
   // Phone Internal Clock Anti-Cheat Logger
   const handleToggleExercise = (exerciseId: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     // Record verified timestamp via phone internal clock
     const verifiedPhoneTimestamp = Date.now();
     toggleStretch(exerciseId);
   };
 
   const handleSelectDay = (dayName: string) => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     setActivePlanDay(dayName);
   };
 
@@ -335,14 +334,14 @@ export default function StretchesScreen() {
 
   const handlePrevWeek = () => {
     if (canGoPrevWeek) {
-      Haptics.selectionAsync().catch(() => {});
+      Haptics.selectionAsync().catch(() => { });
       setSelectedViewingWeek(selectedViewingWeek - 1);
     }
   };
 
   const handleNextWeek = () => {
     if (canGoNextWeek) {
-      Haptics.selectionAsync().catch(() => {});
+      Haptics.selectionAsync().catch(() => { });
       setSelectedViewingWeek(selectedViewingWeek + 1);
     }
   };
@@ -396,8 +395,8 @@ export default function StretchesScreen() {
                   {selectedViewingWeek < currentProgramWeek
                     ? 'Completed ✓'
                     : selectedViewingWeek === currentProgramWeek
-                    ? 'Active Phase'
-                    : 'Phase Locked 🔒'}
+                      ? 'Active Phase'
+                      : 'Phase Locked 🔒'}
                 </Text>
               </View>
             </View>
@@ -527,7 +526,7 @@ export default function StretchesScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
+                    Haptics.selectionAsync().catch(() => { });
                     setSelectedViewingWeek(currentProgramWeek);
                   }}
                   style={styles.returnActiveWeekBtn}
@@ -555,25 +554,14 @@ export default function StretchesScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setCategorySheetVisible(true);
+                    Haptics.selectionAsync().catch(() => { });
+                    router.push('/workout-categories');
                   }}
-                  style={[
-                    styles.categoriesHeaderBtn,
-                    selectedCategorySlug !== 'all' && styles.categoriesHeaderBtnActive,
-                  ]}
+                  style={styles.categoriesHeaderBtn}
                 >
-                  <Tag size={11} color={selectedCategorySlug !== 'all' ? '#1D4ED8' : '#0284C7'} />
-                  <Text
-                    style={[
-                      styles.categoriesHeaderBtnText,
-                      selectedCategorySlug !== 'all' && styles.categoriesHeaderBtnTextActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {selectedCategory ? selectedCategory.name : 'Categories'}
-                  </Text>
-                  <ChevronRight size={11} color={selectedCategorySlug !== 'all' ? '#1D4ED8' : '#0284C7'} />
+                  <Tag size={11} color="#0284C7" />
+                  <Text style={styles.categoriesHeaderBtnText}>Categories</Text>
+                  <ChevronRight size={11} color="#0284C7" />
                 </TouchableOpacity>
               </Animated.View>
 
@@ -696,7 +684,7 @@ export default function StretchesScreen() {
                 )}
               </Animated.View>
 
-              {/* Clean Minimal Week Unlock Status Text */}
+              {/* Clean Minimal Week Status Text */}
               <View style={styles.weekInfoTextWrapper}>
                 <Text style={styles.weekInfoText}>
                   {currentProgramWeek >= totalProgramWeeks
@@ -746,95 +734,6 @@ export default function StretchesScreen() {
           onAccept={handleAcceptDisclaimer}
           onClose={() => setShowDisclaimerModal(false)}
         />
-
-        {/* Category Filter Bottom Sheet / Modal */}
-        <Modal
-          visible={categorySheetVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setCategorySheetVisible(false)}
-        >
-          <View style={styles.categoryModalOverlay}>
-            <GlassCard style={styles.categoryModalCard}>
-              <View style={styles.categoryModalHeader}>
-                <View>
-                  <Text style={styles.categoryModalTitle}>Workout Categories</Text>
-                  <Text style={styles.categoryModalSub}>Filter stretches by biomechanical focus</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setCategorySheetVisible(false)}
-                  style={styles.categoryModalClose}
-                >
-                  <X size={18} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-                <View style={styles.categoryOptionsList}>
-                  {/* All Categories Option */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setSelectedCategorySlug('all');
-                      setCategorySheetVisible(false);
-                    }}
-                    style={[
-                      styles.categoryOptionItem,
-                      selectedCategorySlug === 'all' && styles.categoryOptionItemActive,
-                    ]}
-                  >
-                    <View style={styles.categoryOptionLeft}>
-                      <View style={[styles.catIconPill, { backgroundColor: '#EFF6FF' }]}>
-                        <Text style={styles.catEmojiText}>⚡</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.catOptionTitle}>All Routine Stretches</Text>
-                        <Text style={styles.catOptionSub}>Full daily prescribed sequence</Text>
-                      </View>
-                    </View>
-                    {selectedCategorySlug === 'all' && (
-                      <CheckCircle2 size={16} color="#2563EB" />
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Individual Categories */}
-                  {categories.map((cat) => {
-                    const isSelected = selectedCategorySlug === cat.slug || selectedCategorySlug === cat.id;
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          Haptics.selectionAsync().catch(() => {});
-                          setSelectedCategorySlug(cat.slug || cat.id);
-                          setCategorySheetVisible(false);
-                        }}
-                        style={[
-                          styles.categoryOptionItem,
-                          isSelected && styles.categoryOptionItemActive,
-                        ]}
-                      >
-                        <View style={styles.categoryOptionLeft}>
-                          <View style={[styles.catIconPill, { backgroundColor: `${cat.color || '#0284C7'}18` }]}>
-                            <Text style={styles.catEmojiText}>{cat.icon || '🌱'}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.catOptionTitle}>{cat.name}</Text>
-                            <Text style={styles.catOptionSub} numberOfLines={1}>{cat.description}</Text>
-                          </View>
-                        </View>
-                        {isSelected && (
-                          <CheckCircle2 size={16} color="#2563EB" />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </GlassCard>
-          </View>
-        </Modal>
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -1050,107 +949,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BAE6FD',
   },
-  categoriesHeaderBtnActive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#3B82F6',
-  },
   categoriesHeaderBtnText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#0284C7',
-    maxWidth: 120,
-  },
-  categoriesHeaderBtnTextActive: {
-    color: '#1D4ED8',
-  },
-
-  // Category Selector Modal Styles
-  categoryModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
-    padding: 16,
-    paddingBottom: 24,
-  },
-  categoryModalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  categoryModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingBottom: 4,
-  },
-  categoryModalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  categoryModalSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  categoryModalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryOptionsList: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  categoryOptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  categoryOptionItemActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  categoryOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    marginRight: 10,
-  },
-  catIconPill: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  catEmojiText: {
-    fontSize: 16,
-  },
-  catOptionTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  catOptionSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
   },
 
   // Workout Cards (Image 2 Pastel Banners)

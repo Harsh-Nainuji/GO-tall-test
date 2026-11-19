@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               id: data.user.id,
               user_id: data.user.id,
               email: data.user.email,
-              name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
+              name: name?.trim() || data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
               gender: 'Male',
               age: 16,
               current_height: 170,

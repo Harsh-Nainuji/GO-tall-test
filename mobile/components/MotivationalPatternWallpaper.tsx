@@ -9,7 +9,7 @@ interface MotivationalPatternWallpaperProps {
 }
 
 export default function MotivationalPatternWallpaper({
-  opacity = 0.28,
+  opacity = 0.22,
   color,
 }: MotivationalPatternWallpaperProps) {
   const gender = useAppStore((state) => state.quizData?.gender);

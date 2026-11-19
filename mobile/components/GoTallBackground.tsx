@@ -21,14 +21,14 @@ export default function GoTallBackground({
   children,
   variant = 'pattern',
   style,
-  patternOpacity = 0.28,
+  patternOpacity = 0.20,
 }: GoTallBackgroundProps) {
   const gender = useAppStore((state) => state.quizData?.gender);
   const isFemale = gender === 'female';
 
   const baseColors = isFemale
-    ? (['#FFF1F2', '#FFF5F7', '#FFFFFF'] as const)
-    : (['#EBF5FF', '#F8FAFC', '#FFFFFF'] as const);
+    ? (['#FFFFFF', '#FFF1F2', '#FFE4E6'] as const)
+    : (['#FFFFFF', '#F8FAFC', '#F0F7FF'] as const);
 
   const glowColors = isFemale
     ? ([

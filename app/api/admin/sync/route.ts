@@ -62,8 +62,8 @@ export async function GET(request: Request) {
           instructions: Array.isArray(s.instructions)
             ? s.instructions
             : typeof s.instructions === 'string'
-            ? [s.instructions]
-            : [],
+              ? [s.instructions]
+              : [],
           contraindications: s.contraindications || undefined,
           active: s.active ?? true,
           order: s.sort_order || 1,
