@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
 import {
@@ -60,6 +61,21 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
+  }
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const [modalError, setModalError] = useState<string | null>(null)
+
+  const scrollToTopOrForm = () => {
+    if (typeof document !== 'undefined') {
+      const scroller = document.querySelector('.smooth-scroll-container')
+      if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   // Bulk Upload State
@@ -472,7 +488,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   // SINGLE ITEM MODAL HANDLERS
   // -------------------------------------------------------------
   const openCreateModal = () => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
+    setModalError(null)
     setEditingFood(null)
     setFormName('')
     setFormServing('100g')
@@ -484,7 +501,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormCalcium(150)
     setFormZinc(1.5)
     setFormVitaminD3(0)
-    setFormRationale('')
+    setFormRationale('Provides essential micronutrients for bone mineralization and chondrocyte proliferation.')
     setFormActive(true)
     setMediaPreviewUrl(null)
     setMediaFile(null)
@@ -492,7 +509,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   }
 
   const openEditModal = (food: FoodItem) => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
+    setModalError(null)
     setEditingFood(food)
     setFormName(food.name)
     setFormServing(food.servingSize)
@@ -504,38 +522,50 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormCalcium(food.calcium)
     setFormZinc(food.zinc)
     setFormVitaminD3(food.vitaminD3)
-    setFormRationale(food.clinicalRationale)
+    setFormRationale(food.clinicalRationale || 'Provides essential micronutrients for bone mineralization and chondrocyte proliferation.')
     setFormActive(food.active)
-    setMediaPreviewUrl(null)
+    setMediaPreviewUrl(food.image_url || null)
     setMediaFile(null)
     setIsModalOpen(true)
   }
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formName.trim()) return
-    if (!formRationale.trim()) {
-      showToast('Please enter a clinical rationale (required)', 'error')
+    setModalError(null)
+
+    const finalName = formName.trim()
+    if (!finalName) {
+      setModalError('Food name is required / નામ જરૂરી છે')
+      showToast('Please enter food name', 'error')
       return
     }
+
+    if (isUploadingMedia) {
+      setModalError('Media is still uploading. Please wait...')
+      return
+    }
+
+    const finalRationale = formRationale.trim() || 'Provides essential micronutrients for bone mineralization and chondrocyte proliferation.'
+    const finalServing = formServing.trim() || '100g'
 
     if (editingFood) {
       const updated = foods.map((f) =>
         f.id === editingFood.id
           ? {
             ...f,
-            name: formName,
-            servingSize: formServing,
+            name: finalName,
+            servingSize: finalServing,
             category: formCategory,
-            calories: Number(formCalories),
-            protein: Number(formProtein),
-            carbs: Number(formCarbs),
-            fat: Number(formFat),
-            calcium: Number(formCalcium),
-            zinc: Number(formZinc),
-            vitaminD3: Number(formVitaminD3),
-            clinicalRationale: formRationale,
+            calories: Number(formCalories) || 0,
+            protein: Number(formProtein) || 0,
+            carbs: Number(formCarbs) || 0,
+            fat: Number(formFat) || 0,
+            calcium: Number(formCalcium) || 0,
+            zinc: Number(formZinc) || 0,
+            vitaminD3: Number(formVitaminD3) || 0,
+            clinicalRationale: finalRationale,
             active: formActive,
+            image_url: mediaPreviewUrl || f.image_url,
           }
           : f
       )
@@ -544,18 +574,19 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     } else {
       const newFood: FoodItem = {
         id: `food-${Date.now()}`,
-        name: formName,
-        servingSize: formServing,
+        name: finalName,
+        servingSize: finalServing,
         category: formCategory,
-        calories: Number(formCalories),
-        protein: Number(formProtein),
-        carbs: Number(formCarbs),
-        fat: Number(formFat),
-        calcium: Number(formCalcium),
-        zinc: Number(formZinc),
-        vitaminD3: Number(formVitaminD3),
-        clinicalRationale: formRationale,
+        calories: Number(formCalories) || 0,
+        protein: Number(formProtein) || 0,
+        carbs: Number(formCarbs) || 0,
+        fat: Number(formFat) || 0,
+        calcium: Number(formCalcium) || 0,
+        zinc: Number(formZinc) || 0,
+        vitaminD3: Number(formVitaminD3) || 0,
+        clinicalRationale: finalRationale,
         active: formActive,
+        image_url: mediaPreviewUrl || undefined,
       }
       onUpdateFoods([newFood, ...foods])
       showToast('New clinical food added to database!', 'success')
@@ -886,6 +917,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
       {/* ============================================================== */}
       {/* MODAL 1: FOOD BULK UPLOAD MODAL WITH 100% SCHEMA VALIDATION    */}
       {/* ============================================================== */}
+      {mounted && typeof document !== 'undefined' ? createPortal(
+      <>
       <AnimatePresence>
         {isBulkModalOpen && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -1225,6 +1258,11 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
               </div>
 
               <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden text-xs">
+                {modalError && (
+                  <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500 text-rose-300 font-bold">
+                    {modalError}
+                  </div>
+                )}
                 <div className="p-6 space-y-4 overflow-y-auto flex-1">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1459,6 +1497,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
           </div>
         )}
       </AnimatePresence>
+      </>, document.body) : null}
     </div>
   )
 }

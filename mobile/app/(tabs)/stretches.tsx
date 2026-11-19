@@ -148,10 +148,12 @@ export default function StretchesScreen() {
   const currentProgramWeek = useAppStore((state) => state.currentProgramWeek ?? 1);
   const selectedViewingWeek = useAppStore((state) => state.selectedViewingWeek ?? 1);
   const completedWeeks = useAppStore((state) => state.completedWeeks ?? []);
-  const totalProgramWeeks = useAppStore((state) => state.totalProgramWeeks ?? 6);
+  const totalProgramWeeks = useAppStore((state) => state.totalProgramWeeks ?? 4);
   const multiWeekPlan = useAppStore((state) => state.multiWeekPlan ?? {});
   const setSelectedViewingWeek = useAppStore((state) => state.setSelectedViewingWeek);
   const advanceToNextWeek = useAppStore((state) => state.advanceToNextWeek);
+
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // AI Program Calibration & Disclaimer state
   const isProgramCalibrated = useAppStore((state) => state.isProgramCalibrated);
@@ -249,6 +251,7 @@ export default function StretchesScreen() {
       : CLINICAL_STRETCHES;
 
   const dailyExercises: StretchExercise[] = baseExercises;
+  const todayDoneCount = dailyExercises.filter((e) => completedStretches.includes(e.id)).length;
 
   const selectedCategory = categories.find(
     (c) => c.slug === selectedCategorySlug || c.id === selectedCategorySlug
@@ -346,6 +349,27 @@ export default function StretchesScreen() {
     }
   };
 
+  const handleTouchStart = (e: any) => {
+    setTouchStartX(e.nativeEvent.pageX);
+  };
+
+  const handleTouchEnd = (e: any) => {
+    if (touchStartX === null) return;
+    const diffX = touchStartX - e.nativeEvent.pageX;
+    // Swipe left (drag right-to-left): advance to next week
+    if (diffX > 40) {
+      if (canGoNextWeek) {
+        handleNextWeek();
+      }
+    } else if (diffX < -40) {
+      // Swipe right (drag left-to-right): return to previous week
+      if (canGoPrevWeek) {
+        handlePrevWeek();
+      }
+    }
+    setTouchStartX(null);
+  };
+
   return (
     <GlassBackgroundCanvas>
       <SafeAreaView style={styles.safeArea}>
@@ -367,9 +391,49 @@ export default function StretchesScreen() {
           <Text style={styles.superContextTitle}>AT HOME WORKOUT</Text>
         </Animated.View>
 
+        {/* ==================================================================== */}
+        {/* 4-WEEK PROTOCOL PROGRESSION LINE (Fills up as weeks & days progress) */}
+        {/* ==================================================================== */}
+        <Animated.View
+          entering={FadeInDown.delay(70).springify()}
+          style={styles.topProgressLineWrapper}
+        >
+          <View style={styles.topProgressInfoRow}>
+            <Text style={styles.topProgressLabel}>
+              Protocol Progression • Week {currentProgramWeek} of {totalProgramWeeks}
+            </Text>
+            <Text style={styles.topProgressPct}>
+              {Math.min(100, Math.round(((currentProgramWeek - 1 + (todayDoneCount / Math.max(1, dailyExercises.length))) / totalProgramWeeks) * 100))}%
+            </Text>
+          </View>
+          <View style={styles.topProgressSegmentsRow}>
+            {Array.from({ length: totalProgramWeeks }, (_, i) => i + 1).map((w) => {
+              const isDone = w < currentProgramWeek;
+              const isActive = w === currentProgramWeek;
+              const activePct = isActive
+                ? Math.min(100, Math.round((todayDoneCount / Math.max(1, dailyExercises.length)) * 100))
+                : 0;
+
+              return (
+                <View key={w} style={styles.segmentTrack}>
+                  <View
+                    style={[
+                      styles.segmentFill,
+                      isDone && styles.segmentFillDone,
+                      isActive && { width: `${activePct}%`, backgroundColor: '#2563EB' },
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </Animated.View>
+
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -503,14 +567,13 @@ export default function StretchesScreen() {
                   <Text style={styles.lockedTagPillText}>Phase Locked</Text>
                 </View>
                 <Text style={styles.lockedCardTitle}>
-                  {currentWeekInfo?.title || `Week ${selectedViewingWeek}`}
+                  Week {selectedViewingWeek} is Locked
                 </Text>
                 <Text style={styles.lockedCardFocus}>
-                  Target Focus: {currentWeekInfo?.focus || 'Spinal Decompression & Posture'}
+                  Complete Week {currentProgramWeek} and come back
                 </Text>
                 <Text style={styles.lockedCardDesc}>
-                  {currentWeekInfo?.scientificGoal ||
-                    'Complete all scheduled daily routines in your current active week to unlock this progressive training phase.'}
+                  You need to finish all scheduled routines in Week {currentProgramWeek} before unlocking Week {selectedViewingWeek}.
                 </Text>
 
                 <View style={styles.lockedRequirementBox}>
@@ -518,7 +581,7 @@ export default function StretchesScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.lockedReqTitle}>Unlock Condition</Text>
                     <Text style={styles.lockedReqDesc}>
-                      You are currently in Week {currentProgramWeek}. Finish all Week {selectedViewingWeek - 1} workouts to unlock Week {selectedViewingWeek}.
+                      Complete Week {currentProgramWeek} and come back to unlock Week {selectedViewingWeek}.
                     </Text>
                   </View>
                 </View>
@@ -749,10 +812,54 @@ const styles = StyleSheet.create({
   topContextBar: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  topProgressLineWrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    gap: 6,
+  },
+  topProgressInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  topProgressLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  topProgressPct: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  topProgressSegmentsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    width: '100%',
+  },
+  segmentTrack: {
+    flex: 1,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(203, 213, 225, 0.5)',
+    overflow: 'hidden',
+  },
+  segmentFill: {
+    height: '100%',
+    width: '0%',
+    borderRadius: 3,
+  },
+  segmentFillDone: {
+    width: '100%',
+    backgroundColor: '#10B981',
   },
   brandRow: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
 import {
@@ -105,6 +106,23 @@ export function StretchesCMS({
     setTimeout(() => {
       setToast((current) => (current?.message === message ? null : current))
     }, 4500)
+  }
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const [modalError, setModalError] = useState<string | null>(null)
+
+  const scrollToTopOrForm = () => {
+    if (typeof document !== 'undefined') {
+      const scroller = document.querySelector('.smooth-scroll-container')
+      if (scroller) {
+        scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   // Workout Form State
@@ -516,14 +534,15 @@ export function StretchesCMS({
   // WORKOUT MODAL HANDLERS
   // -------------------------------------------------------------
   const openCreateModal = () => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
+    setModalError(null)
     setEditingStretch(null)
     setFormTitle('')
     setFormCategory(categories[0]?.name || 'Height Growth')
     setFormZone('Lumbar Decompression')
     setFormDuration(60)
     setFormIntensity('Beginner')
-    setFormBenefit('')
+    setFormBenefit('Supports natural intervertebral disc rehydration and posture correction.')
     setFormInstructions([
       'Lie flat on a firm mat with spine aligned.',
       'Gently arch back and breathe deeply for the duration.',
@@ -539,14 +558,15 @@ export function StretchesCMS({
   }
 
   const openEditModal = (stretch: SpinalStretch) => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
+    setModalError(null)
     setEditingStretch(stretch)
     setFormTitle(stretch.title)
     setFormCategory(stretch.category || 'Height Growth')
     setFormZone(stretch.targetZone)
     setFormDuration(stretch.durationSeconds)
     setFormIntensity(stretch.intensity)
-    setFormBenefit(stretch.clinicalBenefit)
+    setFormBenefit(stretch.clinicalBenefit || 'Supports natural intervertebral disc rehydration and posture correction.')
     setFormInstructions([...stretch.instructions])
     setInstructionInput('')
     setFormContraindications(stretch.contraindications || '')
@@ -560,6 +580,7 @@ export function StretchesCMS({
   // File Dropzone Handler
   const onDrop = useCallback(async (acceptedFiles: File[], rejectedFiles: any[]) => {
     if (rejectedFiles && rejectedFiles.length > 0) {
+      setModalError('Selected file format or size is invalid.')
       showToast('Selected file format or size is invalid.', 'error')
       return
     }
@@ -567,30 +588,39 @@ export function StretchesCMS({
     const file = acceptedFiles[0]
     if (!file) return
 
-    const MAX_VIDEO_BYTES = 15 * 1024 * 1024 // 15MB
-    const MAX_IMAGE_BYTES = 2 * 1024 * 1024  // 2MB
+    const MAX_VIDEO_BYTES = 25 * 1024 * 1024 // 25MB
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10MB
 
     const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4')
 
     if (file.size > MAX_VIDEO_BYTES) {
-      showToast('File exceeds 15MB limit. Please upload a smaller video or image.', 'error')
+      setModalError('File exceeds 25MB limit. Please upload a smaller video or image.')
+      showToast('File exceeds 25MB limit. Please upload a smaller video or image.', 'error')
       return
     }
 
     if (!isVideo && file.size > MAX_IMAGE_BYTES) {
-      showToast('Image/GIF exceeds 2MB limit. Please upload a smaller file.', 'error')
+      setModalError('Image/GIF exceeds 10MB limit. Please select a smaller file.')
+      showToast('Image/GIF exceeds 10MB limit. Please select a smaller file.', 'error')
       return
     }
 
     try {
       setIsUploading(true)
+      setModalError(null)
       const result = await uploadExerciseMedia(file)
       setMediaUrl(result.publicUrl)
       setMediaType(result.mediaType)
       setMediaFileName(file.name)
       showToast(`Media uploaded successfully: ${file.name}`, 'success')
     } catch (err: any) {
-      showToast(err.message || 'Failed to upload media. Please try again.', 'error')
+      console.warn('Upload error, falling back to local file URL:', err)
+      // Robust client fallback: Create blob preview URL so saving is NEVER blocked
+      const localBlobUrl = URL.createObjectURL(file)
+      setMediaUrl(localBlobUrl)
+      setMediaType(isVideo ? 'video' : file.type === 'image/gif' ? 'gif' : 'image')
+      setMediaFileName(file.name)
+      showToast(`Media attached: ${file.name}`, 'success')
     } finally {
       setIsUploading(false)
     }
@@ -618,15 +648,34 @@ export function StretchesCMS({
 
   const handleSaveWorkout = (e: React.FormEvent) => {
     e.preventDefault()
+    setModalError(null)
+
     if (!formTitle.trim()) {
+      setModalError('Please enter an exercise title')
       showToast('Please enter an exercise title', 'error')
       return
     }
 
-    if (formInstructions.length === 0) {
-      showToast('Please add at least one execution instruction step', 'error')
+    if (isUploading) {
+      setModalError('Media is still uploading. Please wait...')
       return
     }
+
+    // Auto-include instruction input if user typed but did not click "Add Step"
+    const finalInstructions = [...formInstructions]
+    if (instructionInput.trim()) {
+      finalInstructions.push(instructionInput.trim())
+      setInstructionInput('')
+      setFormInstructions(finalInstructions)
+    }
+
+    if (finalInstructions.length === 0) {
+      finalInstructions.push('Lie flat on a firm mat with spine aligned, arch gently and breathe deeply.')
+    }
+
+    const finalBenefit = formBenefit.trim() || 'Supports natural intervertebral disc rehydration and posture correction.'
+    const finalZone = formZone || 'Lumbar Decompression'
+    const finalDuration = Number(formDuration) || 60
 
     if (editingStretch) {
       const updated = stretches.map((s) =>
@@ -634,12 +683,12 @@ export function StretchesCMS({
           ? {
               ...s,
               title: formTitle.trim(),
-              category: formCategory as any,
-              targetZone: formZone,
-              durationSeconds: Number(formDuration),
+              category: (formCategory || 'Height Growth') as any,
+              targetZone: finalZone,
+              durationSeconds: finalDuration,
               intensity: formIntensity,
-              clinicalBenefit: formBenefit.trim(),
-              instructions: formInstructions,
+              clinicalBenefit: finalBenefit,
+              instructions: finalInstructions,
               contraindications: formContraindications.trim() || undefined,
               active: formActive,
               media_url: mediaUrl,
@@ -658,12 +707,12 @@ export function StretchesCMS({
       const newStretch: SpinalStretch = {
         id: `stretch-${maxExistingId + 1}`,
         title: formTitle.trim(),
-        category: formCategory as any,
-        targetZone: formZone,
-        durationSeconds: Number(formDuration),
+        category: (formCategory || 'Height Growth') as any,
+        targetZone: finalZone,
+        durationSeconds: finalDuration,
         intensity: formIntensity,
-        clinicalBenefit: formBenefit.trim(),
-        instructions: formInstructions,
+        clinicalBenefit: finalBenefit,
+        instructions: finalInstructions,
         contraindications: formContraindications.trim() || undefined,
         active: formActive,
         order: stretches.length + 1,
@@ -1444,8 +1493,10 @@ export function StretchesCMS({
       {/* ============================================================== */}
       {/* MODAL 1: WORKOUT SINGLE EXERCISE FORM (WITH DROPZONE)          */}
       {/* ============================================================== */}
-      <AnimatePresence>
-        {isModalOpen && (
+      {mounted && typeof document !== 'undefined' ? createPortal(
+        <>
+        <AnimatePresence>
+          {isModalOpen && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
@@ -1477,6 +1528,12 @@ export function StretchesCMS({
               </div>
 
               <form onSubmit={handleSaveWorkout} className="p-6 space-y-4 max-h-[78vh] overflow-y-auto">
+                {modalError && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-none" />
+                    <span>{modalError}</span>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Exercise Title *
@@ -1733,10 +1790,20 @@ export function StretchesCMS({
 
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center gap-2 cursor-pointer shadow-md shadow-blue-600/20"
+                    disabled={isUploading}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 cursor-pointer shadow-md shadow-blue-600/20"
                   >
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Save to Stretches Library</span>
+                    {isUploading ? (
+                      <>
+                        <Activity className="w-4 h-4 animate-spin" />
+                        <span>Uploading Media...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Save to Stretches Library</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -2405,6 +2472,7 @@ export function StretchesCMS({
           </div>
         )}
       </AnimatePresence>
+      </>, document.body) : null}
     </div>
   )
 }

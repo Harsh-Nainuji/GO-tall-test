@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Award,
   Plus,
@@ -66,6 +67,19 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
   const [bulkInput, setBulkInput] = useState('')
   const [editingBadge, setEditingBadge] = useState<AchievementBadge | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const scrollToTopOrForm = () => {
+    if (typeof document !== 'undefined') {
+      const scroller = document.querySelector('.smooth-scroll-container')
+      if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
 
   // Form State
   const [formTitle, setFormTitle] = useState('')
@@ -191,14 +205,14 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
   }
 
   const openCreateModal = () => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
     setEditingBadge(null)
     resetForm()
     setIsModalOpen(true)
   }
 
   const openEditModal = (badge: AchievementBadge) => {
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    scrollToTopOrForm()
     setEditingBadge(badge)
     setFormTitle(badge.title)
     setFormDescription(badge.description)
@@ -216,21 +230,32 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
   }
 
   const handleSave = () => {
-    if (!formTitle.trim()) { showToast('Badge title is required', false); return }
-    if (!formDescription.trim()) { showToast('Description is required', false); return }
+    const finalTitle = formTitle.trim()
+    if (!finalTitle) {
+      setUploadError('Badge title is required')
+      showToast('Badge title is required', false)
+      return
+    }
+
+    if (isUploading) {
+      setUploadError('Badge image is still uploading. Please wait...')
+      return
+    }
+
+    const finalDesc = formDescription.trim() || `Milestone unlocked: ${finalTitle}`
 
     if (editingBadge) {
       onUpdateBadges(badges.map((b) =>
         b.id === editingBadge.id
-          ? { ...b, title: formTitle, description: formDescription, icon: formIcon, icon_url: formIconUrl || undefined, category: formCategory, metricTrigger: formTrigger, targetValue: Number(formTarget), xpReward: Number(formXp), tier: formTier, active: formActive }
+          ? { ...b, title: finalTitle, description: finalDesc, icon: formIcon, icon_url: formIconUrl || undefined, category: formCategory, metricTrigger: formTrigger, targetValue: Number(formTarget), xpReward: Number(formXp), tier: formTier, active: formActive }
           : b
       ))
-      showToast(`Updated "${formTitle}"`)
+      showToast(`Updated "${finalTitle}"`)
     } else {
       onUpdateBadges([...badges, {
         id: `badge-${Date.now()}`,
-        title: formTitle,
-        description: formDescription,
+        title: finalTitle,
+        description: finalDesc,
         icon: formIcon,
         icon_url: formIconUrl || undefined,
         category: formCategory,
@@ -241,7 +266,7 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
         active: formActive,
         unlockedCount: 0,
       }])
-      showToast(`Created "${formTitle}"`)
+      showToast(`Created "${finalTitle}"`)
     }
     setIsModalOpen(false)
   }
@@ -436,6 +461,8 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
       {/* ═══════════════════════════════════════════════════════════
           REDESIGNED MODAL — 3-Step Wizard
       ════════════════════════════════════════════════════════════ */}
+      {mounted && typeof document !== 'undefined' ? createPortal(
+      <>
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(12px)', backgroundColor: 'rgba(2,6,23,0.75)' }}>
@@ -900,6 +927,7 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
           </div>
         )}
       </AnimatePresence>
+      </>, document.body) : null}
     </div>
   )
 }

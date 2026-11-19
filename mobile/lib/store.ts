@@ -1018,13 +1018,14 @@ export const useAppStore = create<AppState>()(
       currentProgramWeek: 1,
       selectedViewingWeek: 1,
       completedWeeks: [],
-      totalProgramWeeks: 6,
+      totalProgramWeeks: 4,
       multiWeekPlan: initialMultiWeekPlan,
       setSelectedViewingWeek: (week: number) => set({ selectedViewingWeek: week }),
       advanceToNextWeek: () => {
         const current = get().currentProgramWeek;
+        const maxWeeks = get().totalProgramWeeks || 4;
         const completed = get().completedWeeks;
-        const next = Math.min(6, current + 1);
+        const next = Math.min(maxWeeks, current + 1);
         const newCompleted = completed.includes(current) ? completed : [...completed, current];
         set({
           currentProgramWeek: next,

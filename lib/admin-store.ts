@@ -74,6 +74,7 @@ export interface FoodItem {
   vitaminD3: number
   clinicalRationale: string
   active: boolean
+  image_url?: string
 }
 
 export interface UserBiometricProfile {
