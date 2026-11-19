@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Image as ImageIcon,
   CheckCircle2,
+  CheckCheck,
 } from 'lucide-react'
 import { FoodItem } from '@/lib/admin-store'
 import { uploadExerciseMedia } from '@/lib/supabase'
@@ -50,6 +51,7 @@ interface ValidatedFoodRow {
 export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedFoodIds, setSelectedFoodIds] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null)
 
@@ -470,6 +472,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   // SINGLE ITEM MODAL HANDLERS
   // -------------------------------------------------------------
   const openCreateModal = () => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingFood(null)
     setFormName('')
     setFormServing('100g')
@@ -489,6 +492,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   }
 
   const openEditModal = (food: FoodItem) => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingFood(food)
     setFormName(food.name)
     setFormServing(food.servingSize)
@@ -569,6 +573,43 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
         method: 'DELETE',
         headers: { 'x-admin-token': token },
       }).catch((err) => console.warn('Failed deleting meal from Supabase:', err))
+    }
+  }
+
+  // Multi-Select Deletion Handlers
+  const toggleSelectAllFoods = () => {
+    if (selectedFoodIds.size === filteredFoods.length && filteredFoods.length > 0) {
+      setSelectedFoodIds(new Set())
+    } else {
+      setSelectedFoodIds(new Set(filteredFoods.map((f) => f.id)))
+    }
+  }
+
+  const toggleSelectOneFood = (id: string) => {
+    const next = new Set(selectedFoodIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedFoodIds(next)
+  }
+
+  const handleDeleteSelectedFoods = () => {
+    if (selectedFoodIds.size === 0) return
+    if (!confirm(`Are you sure you want to permanently delete ${selectedFoodIds.size} selected foods?`)) return
+
+    const idsToDelete = Array.from(selectedFoodIds)
+    onUpdateFoods(foods.filter((f) => !selectedFoodIds.has(f.id)))
+    setSelectedFoodIds(new Set())
+    showToast(`Deleted ${idsToDelete.length} food items successfully!`, 'success')
+
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    for (const id of idsToDelete) {
+      fetch(`/api/admin/meals?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': token },
+      }).catch(() => {})
     }
   }
 
@@ -659,7 +700,10 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
           {/* Bulk Upload Foods Button */}
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={() => setIsBulkModalOpen(true)}
+            onClick={() => {
+              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+              setIsBulkModalOpen(true)
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <UploadCloud className="w-4 h-4 text-cyan-400" />
@@ -684,13 +728,47 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
         </div>
       </div>
 
+      {/* Multi-Select Action Bar */}
+      {filteredFoods.length > 0 && (
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+          <label className="flex items-center gap-2.5 text-xs font-bold text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedFoodIds.size > 0 && selectedFoodIds.size === filteredFoods.length}
+              onChange={toggleSelectAllFoods}
+              className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+            />
+            <span>Select All ({selectedFoodIds.size} of {filteredFoods.length} selected)</span>
+          </label>
+
+          {selectedFoodIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelectedFoods}
+              className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedFoodIds.size})</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Foods Table with Sleek Glassmorphism */}
       <div className="rounded-3xl glass overflow-hidden transition-all duration-300">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-300 font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3.5 px-5">Food Item &amp; Serving</th>
+                <th className="py-3.5 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedFoodIds.size > 0 && selectedFoodIds.size === filteredFoods.length}
+                    onChange={toggleSelectAllFoods}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                  />
+                </th>
+                <th className="py-3.5 px-4">Food Item &amp; Serving</th>
                 <th className="py-3.5 px-4">Category</th>
                 <th className="py-3.5 px-4">Calories</th>
                 <th className="py-3.5 px-4">Macros (P / C / F)</th>
@@ -702,7 +780,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
             <tbody className="divide-y divide-slate-800 text-slate-200">
               {filteredFoods.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Utensils className="w-8 h-8 mx-auto mb-2 opacity-40 text-cyan-400" />
                     <p className="font-bold text-slate-200 text-sm">No foods match the filter / કોઈ ખોરાક મળ્યો નથી</p>
                     <p className="text-xs text-slate-400 mt-0.5">Use Add Food or Add many foods to add verified clinical items.</p>
@@ -715,7 +793,15 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                     className={`hover:bg-slate-800/40 transition-colors ${!food.active ? 'opacity-60 bg-slate-950/40' : ''
                       }`}
                   >
-                    <td className="py-3.5 px-5">
+                    <td className="py-3.5 px-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedFoodIds.has(food.id)}
+                        onChange={() => toggleSelectOneFood(food.id)}
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-100 text-sm">{food.name}</div>
                       <div className="text-[11px] text-slate-400 font-medium">{food.servingSize}</div>
                     </td>
@@ -868,6 +954,67 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                       <span>Download JSON Template</span>
                       <Download className="w-3 h-3 text-slate-400 ml-0.5" />
                     </button>
+                  </div>
+                </div>
+
+                {/* AI Prompts Box (Prompt 1: Manual Media, Prompt 2: Open Source URLs) */}
+                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-1.5 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>AI Bulk Prompts (Paste into ChatGPT / Claude)</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Use these prompts in any AI chatbot to generate an instant clinical nutrition table for bulk upload.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Prompt 1 */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 1: Custom Media (Upload Yourself)
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI generates food items with macronutrients leaving media URLs empty for manual upload later.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a clinical sports pediatric nutritionist. Generate 10 verified height growth foods in valid JSON format.\nSchema:\n[\n  {\n    "name": "Greek Yogurt 0%",\n    "servingSize": "1 cup (200g)",\n    "category": "High Protein",\n    "calories": 130,\n    "protein": 22,\n    "carbs": 8,\n    "fat": 0,\n    "calcium": 250,\n    "zinc": 1.5,\n    "vitaminD3": 0,\n    "clinicalRationale": "Concentrated biological casein matrix supports nocturnal somatotropin pulse."\n  }\n]\nValid categories: "High Protein", "Bone Mineralization", "Bedtime Anabolic", "Growth Micronutrients". Output ONLY valid JSON.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Food Prompt 1 to clipboard!', 'success')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 1</span>
+                      </button>
+                    </div>
+
+                    {/* Prompt 2 */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 2: With Open Source Food URLs
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI includes high-resolution royalty-free Unsplash healthy food images in the curriculum.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a clinical sports pediatric nutritionist. Generate 10 verified height growth foods in valid JSON format with open-source healthy food image links from Unsplash.\nSchema:\n[\n  {\n    "name": "Greek Yogurt 0%",\n    "servingSize": "1 cup (200g)",\n    "category": "High Protein",\n    "calories": 130,\n    "protein": 22,\n    "carbs": 8,\n    "fat": 0,\n    "calcium": 250,\n    "zinc": 1.5,\n    "vitaminD3": 0,\n    "clinicalRationale": "Concentrated biological casein matrix supports nocturnal somatotropin pulse.",\n    "media_url": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80"\n  }\n]\nValid categories: "High Protein", "Bone Mineralization", "Bedtime Anabolic", "Growth Micronutrients". Output ONLY valid JSON with real working Unsplash image links.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Food Prompt 2 to clipboard!', 'success')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 2</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1158,6 +1305,15 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                           <p className="text-[10px] text-slate-500 mt-0.5">Stored in Supabase 'exercise-media/foods' bucket</p>
                         </>
                       )}
+                    </div>
+                    <div className="mt-2.5">
+                      <input
+                        type="url"
+                        placeholder="Or paste direct food image URL (https://...)"
+                        value={mediaPreviewUrl || ''}
+                        onChange={(e) => setMediaPreviewUrl(e.target.value.trim() || null)}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
                     </div>
                   </div>
 

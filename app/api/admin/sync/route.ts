@@ -140,37 +140,84 @@ export async function GET(request: Request) {
       }
     }
 
-    // Users CRM / Profiles
+    // Users CRM / Profiles & Supabase Auth Accounts
     if (!entity || entity === 'users') {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const [profilesRes, authUsersRes] = await Promise.allSettled([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.auth.admin.listUsers({ page: 1, perPage: 200 }).catch(() => ({ data: { users: [] } })),
+      ])
 
-      if (data && data.length > 0) {
-        results.users = data.map((u: any) => ({
-          id: u.id || u.user_id,
-          name: u.name || 'Anonymous User',
-          email: u.email || 'user@gotall.app',
-          gender: u.gender || 'Male',
-          age: Number(u.age) || 16,
-          currentHeight: Number(u.current_height) || 170,
-          predictedHeight: Number(u.predicted_height) || 178,
-          potentialGain: Number(u.potential_gain) || 8,
-          growthPlateStatus: u.growth_plate_status || 'Open (Accelerated)',
-          tannerStage: Number(u.tanner_stage) || 2,
-          fatherHeight: Number(u.father_height) || 175,
-          motherHeight: Number(u.mother_height) || 162,
-          midParentalTarget: Math.round(((Number(u.father_height) || 175) + (Number(u.mother_height) || 162)) / 2),
-          streakDays: Number(u.streak_days) || 0,
-          stretchesCompleted: Number(u.stretches_completed) || 0,
-          nutritionLoggedCount: 0,
-          unlockedBadgesCount: 0,
-          subscriptionTier: u.subscription_status === 'pro_annual' ? 'Pro Annual' : u.subscription_status === 'pro_monthly' ? 'Pro Monthly' : 'Free',
-          joinDate: u.created_at ? new Date(u.created_at).toISOString().split('T')[0] : '2026-01-01',
-          lastActive: 'Today',
-          recentActivity: 'Synced profile',
-        }))
+      const profilesData = profilesRes.status === 'fulfilled' ? (profilesRes.value as any)?.data : []
+      const profiles = (profilesData && Array.isArray(profilesData)) ? profilesData : []
+      const authUsers = (authUsersRes.status === 'fulfilled' && (authUsersRes.value as any)?.data?.users)
+        ? (authUsersRes.value as any).data.users
+        : []
+
+      const userMap = new Map<string, any>()
+
+      // 1. First add from profiles
+      for (const u of profiles) {
+        const key = u.id || u.user_id || u.email
+        if (key) {
+          userMap.set(key, {
+            id: u.id || u.user_id,
+            name: u.name || 'Anonymous User',
+            email: u.email || 'user@tallgrame.app',
+            gender: u.gender || 'Male',
+            age: Number(u.age) || 16,
+            currentHeight: Number(u.current_height) || 170,
+            predictedHeight: Number(u.predicted_height) || 178,
+            potentialGain: Number(u.potential_gain) || 8,
+            growthPlateStatus: u.growth_plate_status || 'Open (Accelerated)',
+            tannerStage: Number(u.tanner_stage) || 2,
+            fatherHeight: Number(u.father_height) || 175,
+            motherHeight: Number(u.mother_height) || 162,
+            midParentalTarget: Math.round(((Number(u.father_height) || 175) + (Number(u.mother_height) || 162)) / 2),
+            streakDays: Number(u.streak_days) || 0,
+            stretchesCompleted: Number(u.stretches_completed) || 0,
+            nutritionLoggedCount: 0,
+            unlockedBadgesCount: 0,
+            subscriptionTier: u.subscription_tier || (u.subscription_status === 'pro_annual' ? 'Pro Annual' : u.subscription_status === 'pro_monthly' ? 'Pro Monthly' : 'Free'),
+            joinDate: u.created_at ? new Date(u.created_at).toISOString().split('T')[0] : '2026-01-01',
+            lastActive: 'Active today',
+            recentActivity: 'Synced profile',
+          })
+        }
+      }
+
+      // 2. Then merge from auth users (captures anyone signed up via Auth before profile creation)
+      for (const au of authUsers) {
+        const key = au.id
+        const existing = userMap.get(key) || userMap.get(au.email)
+        if (!existing) {
+          userMap.set(key, {
+            id: au.id,
+            name: au.user_metadata?.display_name || au.user_metadata?.name || au.email?.split('@')[0] || 'App Member',
+            email: au.email || 'user@tallgrame.app',
+            gender: au.user_metadata?.gender || 'Male',
+            age: Number(au.user_metadata?.age) || 16,
+            currentHeight: Number(au.user_metadata?.current_height) || 170,
+            predictedHeight: Number(au.user_metadata?.predicted_height) || 178,
+            potentialGain: Number(au.user_metadata?.potential_gain) || 8,
+            growthPlateStatus: 'Open (Accelerated)',
+            tannerStage: 3,
+            fatherHeight: 175,
+            motherHeight: 162,
+            midParentalTarget: 168.5,
+            streakDays: 1,
+            stretchesCompleted: 0,
+            nutritionLoggedCount: 0,
+            unlockedBadgesCount: 0,
+            subscriptionTier: au.user_metadata?.subscription_tier || 'Free',
+            joinDate: au.created_at ? new Date(au.created_at).toISOString().split('T')[0] : '2026-01-01',
+            lastActive: 'Registered account',
+            recentActivity: 'Signed up in mobile app',
+          })
+        }
+      }
+
+      if (userMap.size > 0) {
+        results.users = Array.from(userMap.values())
       }
     }
 

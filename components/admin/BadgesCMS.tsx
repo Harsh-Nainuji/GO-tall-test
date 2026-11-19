@@ -17,6 +17,8 @@ import {
   Trophy,
   Target,
   Lock,
+  UploadCloud,
+  CheckCheck,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AchievementBadge } from '@/lib/admin-store'
@@ -58,7 +60,10 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedTier, setSelectedTier] = useState<string>('all')
+  const [selectedBadgeIds, setSelectedBadgeIds] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [bulkInput, setBulkInput] = useState('')
   const [editingBadge, setEditingBadge] = useState<AchievementBadge | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
@@ -116,13 +121,84 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
     setActiveStep(1)
   }
 
+  // Multi-Select Deletion Handlers
+  const toggleSelectAllBadges = () => {
+    if (selectedBadgeIds.size === filteredBadges.length && filteredBadges.length > 0) {
+      setSelectedBadgeIds(new Set())
+    } else {
+      setSelectedBadgeIds(new Set(filteredBadges.map((b) => b.id)))
+    }
+  }
+
+  const toggleSelectOneBadge = (id: string) => {
+    const next = new Set(selectedBadgeIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedBadgeIds(next)
+  }
+
+  const handleDeleteSelectedBadges = () => {
+    if (selectedBadgeIds.size === 0) return
+    if (!confirm(`Are you sure you want to permanently delete ${selectedBadgeIds.size} selected badges?`)) return
+
+    const idsToDelete = Array.from(selectedBadgeIds)
+    onUpdateBadges(badges.filter((b) => !selectedBadgeIds.has(b.id)))
+    setSelectedBadgeIds(new Set())
+    showToast(`Deleted ${idsToDelete.length} badges successfully!`)
+
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    for (const id of idsToDelete) {
+      fetch(`/api/admin/sync?entity=badges&id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': token },
+      }).catch(() => {})
+    }
+  }
+
+  const handleCommitBulkBadges = () => {
+    try {
+      const parsed = JSON.parse(bulkInput)
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        showToast('Please provide a valid JSON array of badges', false)
+        return
+      }
+
+      const newBadges: AchievementBadge[] = parsed.map((item, idx) => ({
+        id: item.id || `badge-${Date.now()}-${idx}`,
+        title: item.title || `Achievement ${idx + 1}`,
+        description: item.description || '',
+        icon: item.icon || '🏆',
+        icon_url: item.icon_url || undefined,
+        category: item.category || 'streak',
+        metricTrigger: item.metricTrigger || 'streak_days',
+        targetValue: Number(item.targetValue) || 7,
+        xpReward: Number(item.xpReward) || 100,
+        tier: item.tier || 'bronze',
+        active: item.active !== false,
+        unlockedCount: 0,
+      }))
+
+      onUpdateBadges([...badges, ...newBadges])
+      showToast(`Imported ${newBadges.length} badges successfully!`)
+      setIsBulkModalOpen(false)
+      setBulkInput('')
+    } catch {
+      showToast('Invalid JSON syntax. Please check formatting.', false)
+    }
+  }
+
   const openCreateModal = () => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingBadge(null)
     resetForm()
     setIsModalOpen(true)
   }
 
   const openEditModal = (badge: AchievementBadge) => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingBadge(badge)
     setFormTitle(badge.title)
     setFormDescription(badge.description)
@@ -237,12 +313,51 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
             ))}
           </select>
         </div>
-        <button onClick={openCreateModal}
-          className="glow-button text-slate-950 font-black px-5 py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md rounded-2xl">
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>New Badge</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+              setIsBulkModalOpen(true)
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-700/60 hover:bg-slate-800 text-cyan-300 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Bulk Upload</span>
+          </button>
+          <button onClick={openCreateModal}
+            className="glow-button text-slate-950 font-black px-5 py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md rounded-2xl">
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>New Badge</span>
+          </button>
+        </div>
       </div>
+
+      {/* Multi-Select Action Bar */}
+      {filteredBadges.length > 0 && (
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+          <label className="flex items-center gap-2.5 text-xs font-bold text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedBadgeIds.size > 0 && selectedBadgeIds.size === filteredBadges.length}
+              onChange={toggleSelectAllBadges}
+              className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+            />
+            <span>Select All ({selectedBadgeIds.size} of {filteredBadges.length} selected)</span>
+          </label>
+
+          {selectedBadgeIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelectedBadges}
+              className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedBadgeIds.size})</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -254,10 +369,18 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
               className={`glass rounded-3xl p-5 flex flex-col gap-3 border transition-all ${!badge.active ? 'opacity-45' : ''} ${tc.border}`}>
               {/* Top row */}
               <div className="flex items-start justify-between">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tc.gradient} flex items-center justify-center text-2xl shadow-lg ${tc.glow} overflow-hidden`}>
-                  {badge.icon_url
-                    ? <img src={badge.icon_url} alt={badge.title} className="w-10 h-10 object-contain" />
-                    : badge.icon}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedBadgeIds.has(badge.id)}
+                    onChange={() => toggleSelectOneBadge(badge.id)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                  />
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tc.gradient} flex items-center justify-center text-2xl shadow-lg ${tc.glow} overflow-hidden`}>
+                    {badge.icon_url
+                      ? <img src={badge.icon_url} alt={badge.title} className="w-10 h-10 object-contain" />
+                      : badge.icon}
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${tc.bg} ${tc.text} ${tc.border}`}>
@@ -641,6 +764,137 @@ export function BadgesCMS({ badges, onUpdateBadges }: BadgesCMSProps) {
                     </button>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Upload Modal for Badges */}
+      <AnimatePresence>
+        {isBulkModalOpen && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              className="bg-slate-900 rounded-3xl shadow-2xl border border-slate-700/80 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100"
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+                    <UploadCloud className="w-5 h-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-100">Bulk Upload Achievement Badges</h3>
+                    <p className="text-xs text-slate-400 font-medium">Add multiple gamified badges via standard JSON</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                {/* AI Generation Prompts */}
+                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>AI Bulk Prompts (Paste into ChatGPT / Claude)</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Copy either prompt into any AI to generate a complete badge set ready to paste below.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Prompt 1 */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 1: Custom Media (Emojis / Manual)
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI generates badges with emojis, leaving image URLs empty for manual upload later.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a gamification designer for a posture and height growth app. Generate 8 achievement badges in valid JSON format.\nSchema:\n[\n  {\n    "title": "Badge Name",\n    "description": "Short unlocking description",\n    "icon": "🏆",\n    "category": "streak",\n    "metricTrigger": "streak_days",\n    "targetValue": 7,\n    "xpReward": 200,\n    "tier": "bronze",\n    "active": true\n  }\n]\nOutput ONLY valid JSON.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Badge Prompt 1 to clipboard!')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 1</span>
+                      </button>
+                    </div>
+
+                    {/* Prompt 2 */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 2: Open Source Icon URLs
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI includes direct public open-source trophy / medal image URLs in icon_url.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a gamification designer for a posture and height growth app. Generate 8 achievement badges in valid JSON format with open-source icon URLs.\nSchema:\n[\n  {\n    "title": "Badge Name",\n    "description": "Short unlocking description",\n    "icon": "🏆",\n    "icon_url": "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=300&q=80",\n    "category": "streak",\n    "metricTrigger": "streak_days",\n    "targetValue": 7,\n    "xpReward": 200,\n    "tier": "bronze",\n    "active": true\n  }\n]\nOutput ONLY valid JSON with real working image links.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Badge Prompt 2 to clipboard!')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 2</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Paste Area */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Paste Badges JSON Array
+                  </label>
+                  <textarea
+                    rows={8}
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder='[\n  {\n    "title": "Week 1 Master",\n    "description": "Completed all Week 1 stretches",\n    "icon": "🧘",\n    "category": "stretches",\n    "metricTrigger": "stretches_completed",\n    "targetValue": 7,\n    "xpReward": 150,\n    "tier": "bronze"\n  }\n]'
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCommitBulkBadges}
+                  className="px-5 py-2 glow-button text-slate-950 font-black text-xs cursor-pointer rounded-xl shadow-md flex items-center gap-2"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Import Badges</span>
+                </button>
               </div>
             </motion.div>
           </div>

@@ -12,6 +12,7 @@ import {
   Download,
   Mail,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { UserBiometricProfile } from '@/lib/admin-store'
 import { ADMIN_COPY } from '@/lib/admin-copy'
@@ -27,6 +28,30 @@ export function UsersCRM({ users, onUpdateUsers }: UsersCRMProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedTier, setSelectedTier] = useState<string>('all')
   const [selectedUser, setSelectedUser] = useState<UserBiometricProfile | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefreshMembers = async () => {
+    setIsRefreshing(true)
+    try {
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+      const res = await fetch('/api/admin/sync?entity=users', {
+        headers: { 'x-admin-token': token },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.users && Array.isArray(data.users)) {
+          onUpdateUsers(data.users)
+          try {
+            localStorage.setItem('gotall_admin_users', JSON.stringify(data.users))
+          } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.warn('Failed refreshing live members:', err)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -160,9 +185,20 @@ export function UsersCRM({ users, onUpdateUsers }: UsersCRMProps) {
           </select>
         </div>
 
-        <div className="text-xs text-slate-400 font-medium self-end md:self-center">
-          Showing <strong className="text-slate-100">{filteredUsers.length}</strong> of{' '}
-          {users.length} Members / સભ્યો
+        <div className="flex items-center gap-3 self-end md:self-center">
+          <button
+            type="button"
+            onClick={handleRefreshMembers}
+            disabled={isRefreshing}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700/80 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Syncing...' : 'Refresh Members'}</span>
+          </button>
+          <div className="text-xs text-slate-400 font-medium">
+            Showing <strong className="text-slate-100">{filteredUsers.length}</strong> of{' '}
+            {users.length} Members
+          </div>
         </div>
       </div>
 

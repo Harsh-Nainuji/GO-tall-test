@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -181,6 +182,7 @@ export default function QuizScreen() {
             <View
               style={[
                 styles.progressBarFill,
+                gender === 'female' && { backgroundColor: '#F43F5E' },
                 { width: `${progressPercent}%` },
               ]}
             />
@@ -218,16 +220,13 @@ export default function QuizScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.optionLeft}>
-                    {/* Modern 3D Glass Badge Icon for Male */}
-                    <View style={styles.modernBadgeMale}>
-                      <LinearGradient
-                        colors={['#38BDF8', '#0284C7']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.badgeGradientFill}
-                      >
-                        <Text style={styles.modernBadgeSymbol}>♂</Text>
-                      </LinearGradient>
+                    {/* Official Male Icon */}
+                    <View style={styles.genderIconContainer}>
+                      <Image
+                        source={require('../../assets/male-icon-test.png')}
+                        style={styles.genderIconImg}
+                        resizeMode="contain"
+                      />
                     </View>
 
                     <View>
@@ -260,7 +259,7 @@ export default function QuizScreen() {
                   key="opt-female"
                   style={[
                     styles.optionCard,
-                    gender === 'female' ? styles.optionCardActive : styles.optionCardInactive,
+                    gender === 'female' ? styles.optionCardActivePink : styles.optionCardInactive,
                   ]}
                   onPress={() => {
                     setGender('female');
@@ -269,23 +268,20 @@ export default function QuizScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.optionLeft}>
-                    {/* Modern 3D Glass Badge Icon for Female */}
-                    <View style={styles.modernBadgeFemale}>
-                      <LinearGradient
-                        colors={['#F472B6', '#A855F7']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.badgeGradientFill}
-                      >
-                        <Text style={styles.modernBadgeSymbol}>♀</Text>
-                      </LinearGradient>
+                    {/* Official Female Icon */}
+                    <View style={styles.genderIconContainerPink}>
+                      <Image
+                        source={require('../../assets/female-icon-test.png')}
+                        style={styles.genderIconImg}
+                        resizeMode="contain"
+                      />
                     </View>
 
                     <View>
                       <View style={styles.optionTitleRow}>
                         <Text style={styles.optionTitle}>Female</Text>
-                        <View style={styles.karyotypeChipPurple}>
-                          <Text style={styles.karyotypeChipPurpleText}>46, XX</Text>
+                        <View style={styles.karyotypeChipPink}>
+                          <Text style={styles.karyotypeChipPinkText}>46, XX</Text>
                         </View>
                       </View>
                       <Text style={styles.optionDescription}>
@@ -297,7 +293,7 @@ export default function QuizScreen() {
                   <View
                     style={[
                       styles.checkCircle,
-                      gender === 'female' && styles.checkCircleActive,
+                      gender === 'female' && styles.checkCircleActivePink,
                     ]}
                   >
                     {gender === 'female' && (
@@ -1060,7 +1056,7 @@ export default function QuizScreen() {
               style={styles.continueButton}
             >
               <LinearGradient
-                colors={['#0284C7', '#2563EB']}
+                colors={gender === 'female' ? ['#FB7185', '#E11D48'] : ['#0284C7', '#2563EB']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFill}
@@ -1257,6 +1253,56 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   // Modern 3D Glass Badges for Question 1
+  genderIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(2, 132, 199, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  genderIconContainerPink: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  genderIconImg: {
+    width: 36,
+    height: 36,
+  },
+  optionCardActivePink: {
+    borderColor: '#F43F5E',
+    backgroundColor: 'rgba(255, 241, 242, 0.85)',
+    shadowColor: '#F43F5E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  karyotypeChipPink: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+  },
+  karyotypeChipPinkText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#E11D48',
+  },
+  checkCircleActivePink: {
+    backgroundColor: '#F43F5E',
+    borderColor: '#F43F5E',
+  },
   modernBadgeMale: {
     width: 44,
     height: 44,

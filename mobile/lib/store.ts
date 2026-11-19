@@ -877,6 +877,8 @@ const initialMultiWeekPlan = buildMultiWeekProgramSchedule(CLINICAL_STRETCHES, 4
 interface AppState {
   quizData: QuizData | null;
   isPremium: boolean;
+  subscriptionTier: string;
+  setSubscriptionTier: (tier: string) => void;
   streakDays: number;
   completedStretches: number[];
   meals: LoggedMeal[];
@@ -1000,6 +1002,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       quizData: null,
       isPremium: false,
+      subscriptionTier: 'Free',
       streakDays: 0,
       completedStretches: [],
       paymentOrderId: null,
@@ -1186,7 +1189,22 @@ export const useAppStore = create<AppState>()(
       ],
 
       setQuizData: (data) => set({ quizData: data }),
-      setPremium: (status) => set({ isPremium: status }),
+      setPremium: (status) => set({ isPremium: status, subscriptionTier: status ? 'Pro Monthly' : 'Free' }),
+      setSubscriptionTier: (tier) => {
+        const isPrem = tier !== 'Free';
+        set({ subscriptionTier: tier, isPremium: isPrem });
+        const user = get().user;
+        if (user?.id && isSupabaseConfigured()) {
+          void supabase
+            .from('profiles')
+            .update({
+              subscription_tier: tier,
+              is_premium: isPrem,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+        }
+      },
       setPaymentOrderId: (orderId) => set({ paymentOrderId: orderId }),
       setHasSeenAppTour: (seen) => set({ hasSeenAppTour: seen }),
 
@@ -1784,6 +1802,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         quizData: state.quizData,
         isPremium: state.isPremium,
+        subscriptionTier: state.subscriptionTier,
         streakDays: state.streakDays,
         completedStretches: state.completedStretches,
         meals: state.meals,

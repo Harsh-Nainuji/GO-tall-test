@@ -64,8 +64,9 @@ export default function SignUpScreen() {
       return;
     }
 
+    const authUser = useAuthStore.getState().user;
     setUser({
-      id: `user-${Date.now()}`,
+      id: authUser?.id || `user-${Date.now()}`,
       name: name.trim(),
       email,
       provider: 'email',

@@ -4,12 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://placeholder.supabase.co';
+  'https://xoxhmugmtzscmjlbpfuj.supabase.co';
 
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'placeholder-anon-key';
+  'sb_publishable_MES0Zue0EHAlgPF0pB2SVQ_49cOcmcg';
 
 export const isSupabaseConfigured = (): boolean => {
   return (

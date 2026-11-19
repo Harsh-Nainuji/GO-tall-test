@@ -69,6 +69,7 @@ export function StretchesCMS({
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedZone, setSelectedZone] = useState<string>('all')
   const [selectedIntensity, setSelectedIntensity] = useState<string>('all')
+  const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<Set<string>>(new Set())
 
   // Workout Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -477,10 +478,45 @@ export function StretchesCMS({
     setBulkFileName('')
   }
 
+  // Multi-Select Deletion Handlers
+  const toggleSelectAllWorkouts = () => {
+    if (selectedWorkoutIds.size === filteredStretches.length && filteredStretches.length > 0) {
+      setSelectedWorkoutIds(new Set())
+    } else {
+      setSelectedWorkoutIds(new Set(filteredStretches.map((s) => String(s.id))))
+    }
+  }
+
+  const toggleSelectOneWorkout = (id: string) => {
+    const next = new Set(selectedWorkoutIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedWorkoutIds(next)
+  }
+
+  const handleDeleteSelectedWorkouts = () => {
+    if (selectedWorkoutIds.size === 0) return
+    if (!confirm(`Are you sure you want to permanently delete ${selectedWorkoutIds.size} selected exercises?`)) return
+
+    const idsToDelete = Array.from(selectedWorkoutIds)
+    const remaining = stretches.filter((s) => !selectedWorkoutIds.has(String(s.id)))
+    onUpdateStretches(remaining)
+    setSelectedWorkoutIds(new Set())
+    showToast(`Deleted ${idsToDelete.length} exercises successfully!`, 'success')
+
+    for (const id of idsToDelete) {
+      sendDeleteSync('stretches', id)
+    }
+  }
+
   // -------------------------------------------------------------
   // WORKOUT MODAL HANDLERS
   // -------------------------------------------------------------
   const openCreateModal = () => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingStretch(null)
     setFormTitle('')
     setFormCategory(categories[0]?.name || 'Height Growth')
@@ -503,6 +539,7 @@ export function StretchesCMS({
   }
 
   const openEditModal = (stretch: SpinalStretch) => {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     setEditingStretch(stretch)
     setFormTitle(stretch.title)
     setFormCategory(stretch.category || 'Height Growth')
@@ -1005,6 +1042,32 @@ export function StretchesCMS({
             </div>
           </div>
 
+          {/* Multi-Select Action Bar */}
+          {filteredStretches.length > 0 && (
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+              <label className="flex items-center gap-2.5 text-xs font-bold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedWorkoutIds.size > 0 && selectedWorkoutIds.size === filteredStretches.length}
+                  onChange={toggleSelectAllWorkouts}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                />
+                <span>Select All ({selectedWorkoutIds.size} of {filteredStretches.length} selected)</span>
+              </label>
+
+              {selectedWorkoutIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedWorkouts}
+                  className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Selected ({selectedWorkoutIds.size})</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Grid of Exercises */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredStretches.length === 0 ? (
@@ -1085,21 +1148,29 @@ export function StretchesCMS({
 
                   {/* Card Header & Status */}
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-100 leading-snug">
-                        {stretch.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-cyan-500/10 text-cyan-300 border-cyan-500/25 uppercase tracking-wider">
-                          {stretch.category || 'Height Growth'}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
-                          {stretch.targetZone}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5 text-slate-500" />
-                          {stretch.durationSeconds}s
-                        </span>
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedWorkoutIds.has(String(stretch.id))}
+                        onChange={() => toggleSelectOneWorkout(String(stretch.id))}
+                        className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer flex-none"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-slate-100 leading-snug">
+                          {stretch.title}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-cyan-500/10 text-cyan-300 border-cyan-500/25 uppercase tracking-wider">
+                            {stretch.category || 'Height Growth'}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
+                            {stretch.targetZone}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5 text-slate-500" />
+                            {stretch.durationSeconds}s
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -2101,6 +2172,67 @@ export function StretchesCMS({
                       <span>Download JSON Template</span>
                       <Download className="w-3 h-3 text-slate-500 ml-0.5" />
                     </button>
+                  </div>
+                </div>
+
+                {/* AI Prompts Box (Prompt 1: Manual Media, Prompt 2: Open Source URLs) */}
+                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>AI Bulk Generation Prompts (Paste into ChatGPT / Claude)</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Copy either prompt into ChatGPT, Claude, or Gemini to automatically generate bulk exercises.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Prompt 1: Custom / Manual Media */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 1: Custom Media (Upload Yourself)
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI outputs all exercises leaving media URLs empty for manual upload later.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a sports biomechanist and spinal elongation specialist. Generate 10 clinical height growth and posture decompression exercises in valid JSON format.\nEach exercise must strictly follow this JSON schema:\n[\n  {\n    "title": "Exercise Name",\n    "category": "Height Growth",\n    "targetZone": "Lumbar Lordosis",\n    "durationSeconds": 60,\n    "intensity": "Beginner",\n    "clinicalBenefit": "Scientific description of decompression, intervertebral rehydration, or posture benefit",\n    "instructions": ["Step 1...", "Step 2...", "Step 3...", "Step 4..."],\n    "media_type": "image",\n    "media_url": ""\n  }\n]\nOutput ONLY valid JSON.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Template 1 (Manual Media) prompt to clipboard!', 'success')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 1</span>
+                      </button>
+                    </div>
+
+                    {/* Prompt 2: Open Source URLs */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-slate-200 text-xs font-bold block">
+                          Template 2: With Open Source Image URLs
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          AI includes high-resolution royalty-free Unsplash stretching photos directly in the curriculum.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prompt = `Act as a sports biomechanist and spinal elongation specialist. Generate 10 clinical height growth and posture decompression exercises in valid JSON format with vetted high-resolution open-source athlete/stretching image URLs from Unsplash.\nEach exercise must strictly follow this JSON schema:\n[\n  {\n    "title": "Exercise Name",\n    "category": "Height Growth",\n    "targetZone": "Lumbar Lordosis",\n    "durationSeconds": 60,\n    "intensity": "Beginner",\n    "clinicalBenefit": "Scientific description of decompression, intervertebral rehydration, or posture benefit",\n    "instructions": ["Step 1...", "Step 2...", "Step 3...", "Step 4..."],\n    "media_type": "image",\n    "media_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80"\n  }\n]\nOutput ONLY valid JSON with real, working Unsplash image links.`
+                          navigator.clipboard.writeText(prompt)
+                          showToast('Copied Template 2 (Open Source URLs) prompt to clipboard!', 'success')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Copy AI Prompt 2</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

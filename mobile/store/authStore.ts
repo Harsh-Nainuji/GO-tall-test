@@ -65,6 +65,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({ session: data.session, user: data.user, isLoading: false });
+
+      // Automatically ensure corresponding profile row in Supabase
+      if (data.user) {
+        try {
+          await supabase.from('profiles').upsert(
+            {
+              id: data.user.id,
+              user_id: data.user.id,
+              email: data.user.email,
+              name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
+              gender: 'Male',
+              age: 16,
+              current_height: 170,
+              predicted_height: 180,
+              potential_gain: 10,
+              growth_plate_status: 'Open (Accelerated)',
+              subscription_tier: 'Free',
+            },
+            { onConflict: 'id' }
+          );
+        } catch (profileErr) {
+          console.warn('Could not auto-create profile row:', profileErr);
+        }
+      }
+
       return { success: true };
     } catch (err: any) {
       const message = err?.message || 'Sign in failed';
@@ -97,6 +122,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({ session: data.session, user: data.user, isLoading: false });
+
+      // Automatically ensure corresponding profile row in Supabase
+      if (data.user) {
+        try {
+          await supabase.from('profiles').upsert(
+            {
+              id: data.user.id,
+              user_id: data.user.id,
+              email: data.user.email,
+              name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
+              gender: 'Male',
+              age: 16,
+              current_height: 170,
+              predicted_height: 180,
+              potential_gain: 10,
+              growth_plate_status: 'Open (Accelerated)',
+              subscription_tier: 'Free',
+            },
+            { onConflict: 'id' }
+          );
+        } catch (profileErr) {
+          console.warn('Could not auto-create profile row:', profileErr);
+        }
+      }
+
       return { success: true };
     } catch (err: any) {
       const message = err?.message || 'Sign up failed';

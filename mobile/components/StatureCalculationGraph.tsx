@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import Svg, {
   Path,
   Defs,
@@ -176,6 +176,13 @@ export default function StatureCalculationGraph({
     opacity: 0.8 / pulseScale.value,
   }));
 
+  const isFemale = gender === 'female';
+  const primaryStroke = isFemale ? '#E11D48' : '#1D4ED8';
+  const pulseColor = isFemale ? '#F43F5E' : '#2563EB';
+  const charImg = isFemale
+    ? require('../assets/female-at-end-of-graph.png')
+    : require('../assets/male-at-end-of-graph.png');
+
   // Y-axis grid ticks
   const yTicks = [minStature + 2, Math.round((minStature + maxStature) / 2), maxStature - 2];
   // X-axis grid ticks (Ages)
@@ -213,15 +220,27 @@ export default function StatureCalculationGraph({
           <Defs>
             {/* Smooth Translucent Gradient Area */}
             <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#2563EB" stopOpacity="0.32" />
-              <Stop offset="65%" stopColor="#3B82F6" stopOpacity="0.10" />
-              <Stop offset="100%" stopColor="#EEF2FF" stopOpacity="0.0" />
+              <Stop
+                offset="0%"
+                stopColor={isFemale ? '#FB7185' : '#2563EB'}
+                stopOpacity="0.32"
+              />
+              <Stop
+                offset="65%"
+                stopColor={isFemale ? '#F43F5E' : '#3B82F6'}
+                stopOpacity="0.10"
+              />
+              <Stop
+                offset="100%"
+                stopColor={isFemale ? '#FFF1F2' : '#EEF2FF'}
+                stopOpacity="0.0"
+              />
             </LinearGradient>
 
             <LinearGradient id="strokeGradient" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0%" stopColor="#93C5FD" />
-              <Stop offset="50%" stopColor="#3B82F6" />
-              <Stop offset="100%" stopColor="#1D4ED8" />
+              <Stop offset="0%" stopColor={isFemale ? '#FDA4AF' : '#93C5FD'} />
+              <Stop offset="50%" stopColor={isFemale ? '#FB7185' : '#3B82F6'} />
+              <Stop offset="100%" stopColor={isFemale ? '#E11D48' : '#1D4ED8'} />
             </LinearGradient>
           </Defs>
 
@@ -285,7 +304,7 @@ export default function StatureCalculationGraph({
             cy={p1.y}
             r="4.5"
             fill="#FFFFFF"
-            stroke="#2563EB"
+            stroke={primaryStroke}
             strokeWidth="2.5"
           />
 
@@ -293,7 +312,7 @@ export default function StatureCalculationGraph({
           <AnimatedCircle
             cx={p3.x}
             cy={p3.y}
-            fill="#2563EB"
+            fill={pulseColor}
             animatedProps={animatedPulseProps}
           />
 
@@ -303,10 +322,28 @@ export default function StatureCalculationGraph({
             cy={p3.y}
             r="5"
             fill="#FFFFFF"
-            stroke="#1D4ED8"
+            stroke={primaryStroke}
             strokeWidth="3"
           />
         </Svg>
+
+        {/* Character Silhouette Ending at Crown of Head */}
+        <View
+          style={[
+            styles.characterSilhouetteWrap,
+            {
+              top: Math.max(8, p3.y - 4),
+              left: Math.min(chartWidth - 52, Math.max(paddingLeft, p3.x - 22)),
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Image
+            source={charImg}
+            style={styles.characterSilhouetteImg}
+            resizeMode="contain"
+          />
+        </View>
 
         {/* X-Axis Age Labels */}
         <View style={[styles.xAxisRow, { paddingLeft, paddingRight }]}>
@@ -406,6 +443,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     marginVertical: 4,
+  },
+  characterSilhouetteWrap: {
+    position: 'absolute',
+    width: 44,
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    zIndex: 10,
+  },
+  characterSilhouetteImg: {
+    width: 40,
+    height: 80,
   },
   xAxisRow: {
     flexDirection: 'row',

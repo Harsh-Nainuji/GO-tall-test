@@ -1,28 +1,25 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Path, Circle, Rect, G, Text as SvgText } from 'react-native-svg';
+import { useAppStore } from '../lib/store';
 
 interface MotivationalPatternWallpaperProps {
   opacity?: number;
+  color?: string;
 }
 
-/**
- * Motivational Line-Art Fitness & Spine Pattern Wallpaper (WhatsApp-inspired)
- * Subtle line-art illustrations + motivational quotes:
- * - Vertebral spine alignment & posture arcs
- * - Pull-up bars & dumbbells
- * - Crescent moons & circadian stars
- * - Water droplets & protein hexagons
- * - Centimeter measurement ruler marks
- * - Prominent motivational typography: "REACH HIGHER", "STAND TALL", "ALIGN YOUR SPINE", "DECOMPRESS & GROW", "POSTURE IS POWER"
- */
 export default function MotivationalPatternWallpaper({
-  opacity = 0.075,
+  opacity = 0.28,
+  color,
 }: MotivationalPatternWallpaperProps) {
+  const gender = useAppStore((state) => state.quizData?.gender);
+  const isFemale = gender === 'female';
+  const themeColor = color || (isFemale ? '#F43F5E' : '#2563EB');
+
   return (
     <View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 360 640">
-        <G stroke="#2563EB" strokeWidth="0.9" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <G stroke={themeColor} strokeWidth="1.1" fill="none" strokeLinecap="round" strokeLinejoin="round">
           {/* Tile 1: Vertebral Column & Spine alignment (Top Left) */}
           <Path d="M 40 30 Q 38 45 42 60 Q 38 75 40 90" />
           <Circle cx="40" cy="35" r="3" />
@@ -30,29 +27,43 @@ export default function MotivationalPatternWallpaper({
           <Circle cx="39" cy="65" r="3.2" />
           <Circle cx="40" cy="80" r="3" />
 
+          {/* Motivational Quote 0: DISCIPLINE EQUALS GROWTH (Top) */}
+          <SvgText
+            x="90"
+            y="42"
+            fill={themeColor}
+            fontSize="10"
+            fontWeight="900"
+            letterSpacing="3"
+            stroke="none"
+            opacity="0.8"
+          >
+            DISCIPLINE EQUALS GROWTH
+          </SvgText>
+
           {/* Tile 2: Crescent Moon & Sleep Stars (Top Right) */}
           <Path d="M 300 45 A 12 12 0 1 0 312 57 A 9 9 0 0 1 300 45 Z" />
-          <Path d="M 324 38 L 326 42 L 330 44 L 326 46 L 324 50 L 322 46 L 318 44 L 322 42 Z" strokeWidth="0.6" />
-          <Circle cx="285" cy="70" r="1" fill="#2563EB" />
+          <Path d="M 324 38 L 326 42 L 330 44 L 326 46 L 324 50 L 322 46 L 318 44 L 322 42 Z" strokeWidth="0.8" />
+          <Circle cx="285" cy="70" r="1.5" fill={themeColor} />
 
           {/* Tile 3: Pull-up Bar & Traction Figure (Upper Mid Right) */}
-          <Path d="M 230 110 L 290 110" strokeWidth="1.2" />
+          <Path d="M 230 110 L 290 110" strokeWidth="1.4" />
           <Circle cx="260" cy="120" r="4" />
           <Path d="M 260 124 L 260 142 M 255 128 L 245 112 M 265 128 L 275 112 M 260 142 L 253 160 M 260 142 L 267 160" />
 
           {/* Motivational Quote 1: REACH HIGHER */}
           <SvgText
-            x="130"
-            y="140"
-            fill="#2563EB"
-            fontSize="10"
-            fontWeight="800"
+            x="115"
+            y="135"
+            fill={themeColor}
+            fontSize="11"
+            fontWeight="900"
             letterSpacing="3"
             stroke="none"
-            opacity="0.45"
-            transform="rotate(-12, 130, 140)"
+            opacity="0.85"
+            transform="rotate(-10, 115, 135)"
           >
-            REACH HIGHER
+            REACH HIGHER • STAND TALL
           </SvgText>
 
           {/* Tile 4: Water Droplet (Left Mid) */}
@@ -72,12 +83,12 @@ export default function MotivationalPatternWallpaper({
           <SvgText
             x="30"
             y="265"
-            fill="#2563EB"
-            fontSize="9"
-            fontWeight="800"
+            fill={themeColor}
+            fontSize="10"
+            fontWeight="900"
             letterSpacing="2.5"
             stroke="none"
-            opacity="0.45"
+            opacity="0.8"
             transform="rotate(-6, 30, 265)"
           >
             ALIGN YOUR SPINE
@@ -87,19 +98,19 @@ export default function MotivationalPatternWallpaper({
           <Path d="M 45 330 L 55 324 L 65 330 L 65 342 L 55 348 L 45 342 Z" />
           <Path d="M 65 342 L 75 336 L 85 342 L 85 354 L 75 360 L 65 354 Z" />
 
-          {/* Motivational Quote 3: STAND TALL */}
+          {/* Motivational Quote 3: CONSISTENCY OVER INTENSITY */}
           <SvgText
-            x="190"
+            x="160"
             y="335"
-            fill="#2563EB"
+            fill={themeColor}
             fontSize="11"
             fontWeight="900"
-            letterSpacing="3.5"
+            letterSpacing="3"
             stroke="none"
-            opacity="0.45"
-            transform="rotate(8, 190, 335)"
+            opacity="0.85"
+            transform="rotate(6, 160, 335)"
           >
-            STAND TALL
+            CONSISTENCY OVER INTENSITY
           </SvgText>
 
           {/* Tile 8: Yoga Decompression Silhouette (Lower Center) */}
@@ -111,15 +122,15 @@ export default function MotivationalPatternWallpaper({
 
           {/* Motivational Quote 4: DECOMPRESS & GROW */}
           <SvgText
-            x="40"
+            x="30"
             y="435"
-            fill="#2563EB"
-            fontSize="10"
-            fontWeight="800"
-            letterSpacing="3"
+            fill={themeColor}
+            fontSize="10.5"
+            fontWeight="900"
+            letterSpacing="2.5"
             stroke="none"
-            opacity="0.55"
-            transform="rotate(-10, 40, 435)"
+            opacity="0.8"
+            transform="rotate(-8, 30, 435)"
           >
             DECOMPRESS & GROW
           </SvgText>
@@ -134,42 +145,42 @@ export default function MotivationalPatternWallpaper({
           <Circle cx="290" cy="530" r="12" />
           <Path d="M 290 522 L 290 530 L 296 534" />
 
-          {/* Motivational Quote 5: POSTURE IS POWER (Lower prominent in the blue) */}
+          {/* Motivational Quote 5: POSTURE IS POWER */}
           <SvgText
-            x="150"
+            x="130"
             y="515"
-            fill="#2563EB"
-            fontSize="11"
+            fill={themeColor}
+            fontSize="12"
             fontWeight="900"
             letterSpacing="3.5"
             stroke="none"
-            opacity="0.6"
-            transform="rotate(6, 150, 515)"
+            opacity="0.85"
+            transform="rotate(4, 130, 515)"
           >
             POSTURE IS POWER
           </SvgText>
 
           {/* Motivational Quote 6: DISC HYDRATION */}
           <SvgText
-            x="70"
-            y="600"
-            fill="#2563EB"
-            fontSize="10"
-            fontWeight="800"
+            x="50"
+            y="595"
+            fill={themeColor}
+            fontSize="10.5"
+            fontWeight="900"
             letterSpacing="3"
             stroke="none"
-            opacity="0.65"
+            opacity="0.85"
           >
             DISC HYDRATION • GROW DAILY
           </SvgText>
 
           {/* Subtle Ambient Dots */}
-          <Circle cx="120" cy="80" r="1" fill="#2563EB" />
-          <Circle cx="210" cy="50" r="1.2" fill="#2563EB" />
-          <Circle cx="110" cy="270" r="1.5" fill="#2563EB" />
-          <Circle cx="230" cy="320" r="1" fill="#2563EB" />
-          <Circle cx="130" cy="470" r="1.2" fill="#2563EB" />
-          <Circle cx="240" cy="490" r="1" fill="#2563EB" />
+          <Circle cx="120" cy="80" r="1.5" fill={themeColor} />
+          <Circle cx="210" cy="50" r="1.5" fill={themeColor} />
+          <Circle cx="110" cy="270" r="1.5" fill={themeColor} />
+          <Circle cx="230" cy="320" r="1.5" fill={themeColor} />
+          <Circle cx="130" cy="470" r="1.5" fill={themeColor} />
+          <Circle cx="240" cy="490" r="1.5" fill={themeColor} />
         </G>
       </Svg>
     </View>

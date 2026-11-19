@@ -37,6 +37,9 @@ import {
   X,
   Users,
   Dna,
+  CreditCard,
+  Crown,
+  Check,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -60,6 +63,9 @@ export default function ProfileScreen() {
   const unlockedBadgeIds = useAppStore((state) => state.unlockedBadgeIds);
   const streakDays = useAppStore((state) => state.streakDays);
   const user = useAppStore((state) => state.user);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const subscriptionTier = useAppStore((state) => state.subscriptionTier) || (isPremium ? 'Pro Monthly' : 'Free');
+  const setSubscriptionTier = useAppStore((state) => state.setSubscriptionTier);
   const signOut = useAppStore((state) => state.signOut);
   const deleteAccount = useAppStore((state) => state.deleteAccount);
   const downloadAllUserData = useAppStore((state) => state.downloadAllUserData);
@@ -69,6 +75,8 @@ export default function ProfileScreen() {
   const [authDefaultMode, setAuthDefaultMode] = useState<'signin' | 'signup'>('signup');
   const [tourVisible, setTourVisible] = useState<boolean>(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState<boolean>(false);
+  const [planModalVisible, setPlanModalVisible] = useState<boolean>(false);
+  const [planUpdateMsg, setPlanUpdateMsg] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -103,6 +111,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadLiveBadges();
   }, []);
+
+  const handleSelectPlan = (tier: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setSubscriptionTier(tier);
+    setPlanUpdateMsg(`Plan updated to ${tier}!`);
+    setTimeout(() => {
+      setPlanModalVisible(false);
+      setPlanUpdateMsg(null);
+    }, 900);
+  };
 
   const safeData = quizData || {
     gender: 'male' as const,
@@ -413,6 +431,59 @@ export default function ProfileScreen() {
                   </View>
                 </View>
               )}
+            </GlassCard>
+          </Animated.View>
+
+          {/* ============================================================== */}
+          {/* MEMBERSHIP PLAN & UPGRADE / DOWNGRADE                         */}
+          {/* ============================================================== */}
+          <Animated.View entering={FadeInDown.delay(140).springify()}>
+            <GlassCard style={styles.planCard}>
+              <View style={styles.planCardHeader}>
+                <View style={styles.planIconWrapper}>
+                  <Crown size={20} color={isPremium ? '#D97706' : '#64748B'} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.planBadgeRow}>
+                    <Text style={styles.planCardTitle}>Current Plan</Text>
+                    <View
+                      style={[
+                        styles.planTierBadge,
+                        isPremium ? styles.planTierBadgePro : styles.planTierBadgeFree,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.planTierBadgeText,
+                          isPremium ? styles.planTierBadgeTextPro : styles.planTierBadgeTextFree,
+                        ]}
+                      >
+                        {subscriptionTier.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.planCardSubtitle}>
+                    {isPremium
+                      ? 'Full clinical protocol, Tanner projection & daily tracking unlocked'
+                      : 'Basic access. Upgrade for full 6-week protocol & AI calibration.'}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.planUpgradeBtn}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPlanModalVisible(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <CreditCard size={15} color="#FFFFFF" />
+                <Text style={styles.planUpgradeBtnText}>
+                  {isPremium ? 'Change / Manage Plan' : 'Upgrade to Pro'}
+                </Text>
+                <ChevronRight size={15} color="#FFFFFF" />
+              </TouchableOpacity>
             </GlassCard>
           </Animated.View>
 
@@ -877,6 +948,131 @@ export default function ProfileScreen() {
             </GlassCard>
           </View>
         </Modal>
+
+        {/* ============================================================== */}
+        {/* MEMBERSHIP PLAN SELECTION MODAL                                */}
+        {/* ============================================================== */}
+        <Modal
+          visible={planModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPlanModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <GlassCard style={styles.planModalCard}>
+              <View style={styles.planModalHeader}>
+                <View style={styles.planModalTitleGroup}>
+                  <Text style={styles.planModalTitle}>Select Membership Plan</Text>
+                  <Text style={styles.planModalSub}>
+                    Switch between subscription tiers with instant activation
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setPlanModalVisible(false)}
+                  style={styles.closeModalBtn}
+                >
+                  <X size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {planUpdateMsg && (
+                <View style={styles.planSuccessBanner}>
+                  <CheckCircle2 size={16} color="#10B981" />
+                  <Text style={styles.planSuccessText}>{planUpdateMsg}</Text>
+                </View>
+              )}
+
+              <View style={styles.planOptionsList}>
+                {/* 1. Free Tier */}
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectPlan('Free')}
+                  style={[
+                    styles.planOptionItem,
+                    subscriptionTier === 'Free' && styles.planOptionItemActive,
+                  ]}
+                >
+                  <View style={styles.planOptionLeft}>
+                    <View style={styles.planOptionRadio}>
+                      {subscriptionTier === 'Free' && <View style={styles.planOptionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.planOptionName}>Free Starter</Text>
+                      <Text style={styles.planOptionDesc}>Standard height calculator & basic stretch logs</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.planOptionPrice}>$0 / mo</Text>
+                </TouchableOpacity>
+
+                {/* 2. Pro Monthly */}
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectPlan('Pro Monthly')}
+                  style={[
+                    styles.planOptionItem,
+                    subscriptionTier === 'Pro Monthly' && styles.planOptionItemActive,
+                  ]}
+                >
+                  <View style={styles.planOptionLeft}>
+                    <View style={styles.planOptionRadio}>
+                      {subscriptionTier === 'Pro Monthly' && <View style={styles.planOptionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.planOptionName}>Tallgrame Pro Monthly</Text>
+                        <View style={styles.popularBadge}>
+                          <Text style={styles.popularBadgeText}>POPULAR</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.planOptionDesc}>Full 6-week biomechanics, somatotropin logs & AI</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.planOptionPrice}>$9.99</Text>
+                    <Text style={styles.planOptionPeriod}>/ month</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* 3. Pro Annual */}
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectPlan('Pro Annual')}
+                  style={[
+                    styles.planOptionItem,
+                    subscriptionTier === 'Pro Annual' && styles.planOptionItemActive,
+                  ]}
+                >
+                  <View style={styles.planOptionLeft}>
+                    <View style={styles.planOptionRadio}>
+                      {subscriptionTier === 'Pro Annual' && <View style={styles.planOptionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.planOptionName}>Tallgrame Pro Annual</Text>
+                        <View style={styles.bestValueBadge}>
+                          <Text style={styles.bestValueBadgeText}>SAVE 50%</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.planOptionDesc}>Best value, unlimited height trajectories & priority sync</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.planOptionPrice}>$59.99</Text>
+                    <Text style={styles.planOptionPeriod}>/ year ($4.99/mo)</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.donePlanModalBtn}
+                onPress={() => setPlanModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.donePlanModalBtnText}>Close</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          </View>
+        </Modal>
       </SafeAreaView>
     </GlassBackgroundCanvas>
   );
@@ -943,6 +1139,225 @@ const styles = StyleSheet.create({
   userBioCard: {
     padding: 18,
     marginVertical: 12,
+  },
+
+  // Membership Plan Styles
+  planCard: {
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(219, 234, 254, 0.8)',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    gap: 12,
+  },
+  planCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  planIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  planTierBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  planTierBadgePro: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  planTierBadgeFree: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  planTierBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  planTierBadgeTextPro: {
+    color: '#1D4ED8',
+  },
+  planTierBadgeTextFree: {
+    color: '#64748B',
+  },
+  planCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  planUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+  },
+  planUpgradeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Plan Modal Styles
+  planModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 420,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  planModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  planModalTitleGroup: {
+    flex: 1,
+  },
+  planModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  planModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  planSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  planSuccessText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  planOptionsList: {
+    gap: 10,
+  },
+  planOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  planOptionItemActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  planOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  planOptionRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planOptionRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#2563EB',
+  },
+  planOptionName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  popularBadge: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  popularBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  bestValueBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  bestValueBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  planOptionDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  planOptionPrice: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  planOptionPeriod: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  donePlanModalBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  donePlanModalBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
 
   // Biometrics Assessment & Questionnaire Answers styles
