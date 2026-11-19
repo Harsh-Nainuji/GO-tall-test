@@ -247,7 +247,7 @@ export default function AuthModal({
         <View style={styles.disclaimer}>
           <ShieldCheck size={12} color={colors.slate400} />
           <Text style={styles.disclaimerText}>
-            Your Tollgram data is stored securely in Supabase Cloud.
+            Your GoTall data is stored securely in Supabase Cloud.
           </Text>
         </View>
         </ScrollView>

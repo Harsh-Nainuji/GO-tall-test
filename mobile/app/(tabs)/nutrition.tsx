@@ -518,9 +518,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: '#E2E8F0',
   },
   brandText: {
     fontSize: 12,
@@ -544,9 +544,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.18,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   logActionBtnText: {
     fontSize: 12,
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(226, 232, 240, 0.6)',
+    borderTopColor: '#F1F5F9',
   },
   macroCol: {
     flex: 1,
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   macroColBorder: {
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
+    borderColor: '#F1F5F9',
   },
   macroIconWrap: {
     width: 28,
@@ -855,20 +855,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(241, 245, 249, 0.8)',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyCard: {
     padding: 28,
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 20,
   },
   emptyIconWrap: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(241, 245, 249, 0.9)',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -905,7 +905,6 @@ const styles = StyleSheet.create({
   citationCard: {
     padding: 14,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   citationRow: {
     flexDirection: 'row',

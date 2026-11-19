@@ -11,6 +11,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 interface GlassButtonProps {
   children: React.ReactNode;
@@ -18,27 +19,32 @@ interface GlassButtonProps {
   style?: StyleProp<ViewStyle>;
   className?: string;
   disabled?: boolean;
+  haptic?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
- * High-Fidelity Micro-Interaction Button
- * Springs to scale 0.95 on press and releases smoothly back to 1.0
+ * Apple-Grade Micro-Interaction Button
+ * Springs to scale 0.97 on press and releases smoothly back to 1.0 with subtle haptic feedback
  */
 export default function GlassButton({
   children,
   onPress,
   style,
   disabled = false,
+  haptic = true,
 }: GlassButtonProps) {
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
     if (disabled) return;
-    scale.value = withSpring(0.95, {
-      damping: 12,
-      stiffness: 250,
+    if (haptic) {
+      Haptics.selectionAsync().catch(() => {});
+    }
+    scale.value = withSpring(0.97, {
+      damping: 15,
+      stiffness: 220,
       mass: 0.8,
     });
   };
@@ -46,8 +52,8 @@ export default function GlassButton({
   const handlePressOut = () => {
     if (disabled) return;
     scale.value = withSpring(1.0, {
-      damping: 12,
-      stiffness: 250,
+      damping: 15,
+      stiffness: 220,
       mass: 0.8,
     });
   };
@@ -74,4 +80,3 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-

@@ -160,7 +160,7 @@ export default function ProfileScreen() {
       const badgesUnlocked: string[] = data.unlockedBadgeIds || data.unlocked_badge_ids || [];
 
       const lines: string[] = [
-        'TOLLGRAM — BIOMETRIC DATA EXPORT',
+        'GOTALL — BIOMETRIC DATA EXPORT',
         `Generated: ${dateStr}`,
         '==============================',
         '',
@@ -207,12 +207,12 @@ export default function ProfileScreen() {
       }
 
       lines.push('==============================');
-      lines.push('Exported from Tollgram. For personal use only.');
+      lines.push('Exported from GoTall. For personal use only.');
 
       const formattedText = lines.join('\n');
 
       await Share.share({
-        title: 'Tollgram_BiometricExport.txt',
+        title: 'GoTall_BiometricExport.txt',
         message: formattedText,
       });
 
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.brandPill}>
             <Activity size={14} color="#2563EB" />
-            <Text style={styles.brandText}>Tollgram</Text>
+            <Text style={styles.brandText}>GoTall</Text>
             <View style={styles.onlineDot} />
           </View>
 
@@ -785,9 +785,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: '#E2E8F0',
   },
   brandText: {
     fontSize: 13,
@@ -807,9 +807,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(254, 243, 199, 0.9)',
+    backgroundColor: '#FEF3C7',
     borderWidth: 1,
-    borderColor: 'rgba(253, 230, 138, 0.9)',
+    borderColor: '#FDE68A',
   },
   streakBadgeText: {
     fontSize: 12,
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    backgroundColor: '#EFF6FF',
     borderWidth: 2,
     borderColor: '#2563EB',
     alignItems: 'center',
@@ -861,10 +861,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
   verifiedText: {
     fontSize: 10,
@@ -897,12 +899,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 14,
     padding: 12,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E2E8F0',
   },
   authCtaTextCol: {
     flex: 1,
@@ -937,10 +939,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 14,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginTop: 14,
   },
   tourReplayLeft: {
@@ -954,14 +956,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tourReplayTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0369A1',
+    color: '#0F172A',
   },
   tourReplaySub: {
     fontSize: 11,
@@ -970,7 +972,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   tourReplayBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -996,9 +998,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
-    backgroundColor: 'rgba(239, 246, 255, 0.9)',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: 'rgba(191, 219, 254, 0.9)',
+    borderColor: '#BFDBFE',
   },
   currentHeightPillText: {
     fontSize: 10,

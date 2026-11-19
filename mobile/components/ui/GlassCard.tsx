@@ -1,8 +1,7 @@
 import React from 'react';
-import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { StyleSheet, ViewStyle, StyleProp, View } from 'react-native';
 import Animated, { EntryOrExitLayoutType } from 'react-native-reanimated';
-import { colors } from '../../lib/theme';
+import { colors, radii, shadows } from '../../lib/theme';
 
 export interface GlassCardProps {
   children: React.ReactNode;
@@ -10,38 +9,74 @@ export interface GlassCardProps {
   entering?: EntryOrExitLayoutType;
   testID?: string;
   accessibilityLabel?: string;
+  variant?: 'elevated' | 'subtle' | 'plain';
 }
 
+/**
+ * GoTall Minimal Card Component (Apple-inspired)
+ * - Crisp opaque/semi-opaque surface (#FFFFFF / rgba(255, 255, 255, 0.95))
+ * - Clean 1px hairline border (#E2E8F0)
+ * - Refined diffuse ambient shadow
+ * - Purposeful corner radii (18px)
+ */
 export default function GlassCard({
   children,
   style,
   entering,
   testID,
   accessibilityLabel,
+  variant = 'elevated',
 }: GlassCardProps) {
+  const cardStyle = [
+    styles.card,
+    variant === 'subtle' && styles.subtle,
+    variant === 'plain' && styles.plain,
+    style,
+  ];
+
+  if (entering) {
+    return (
+      <Animated.View
+        entering={entering}
+        style={cardStyle}
+        testID={testID}
+        accessibilityLabel={accessibilityLabel}
+      >
+        {children}
+      </Animated.View>
+    );
+  }
+
   return (
-    <Animated.View
-      entering={entering}
-      style={[styles.card, style]}
+    <View
+      style={cardStyle}
       testID={testID}
       accessibilityLabel={accessibilityLabel}
     >
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
       {children}
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.glassBackground,
+    backgroundColor: colors.cardBackground,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: 24,
-    shadowColor: colors.glassShadow,
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 6 },
+    borderColor: colors.cardBorder,
+    borderRadius: radii.lg,
+    ...shadows.subtle,
     overflow: 'hidden',
+  },
+  subtle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderColor: 'rgba(226, 232, 240, 0.6)',
+    shadowOpacity: 0.02,
+  },
+  plain: {
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });

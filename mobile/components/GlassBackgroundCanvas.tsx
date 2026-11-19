@@ -1,37 +1,28 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleProp, ViewStyle } from 'react-native';
+import GoTallBackground from './GoTallBackground';
 
 interface GlassBackgroundCanvasProps {
   children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  variant?: 'pattern' | 'plain';
 }
 
 /**
- * Clean Top-to-Bottom Shaded Glass Canvas
- * Matches the exact smooth vertical gradient shading of the clinical graph.
- * Pure vertical flow from top to bottom with zero distracting circles/orbs.
+ * GoTall Master Background Canvas
+ * Fully updated to the Apple-inspired luminous ambient canvas:
+ * - Soft white-to-slate canvas
+ * - Subtle line-art motivational wallpaper pattern
+ * - Bottom-edge blue ambient atmospheric glow
  */
-export default function GlassBackgroundCanvas({ children }: GlassBackgroundCanvasProps) {
+export default function GlassBackgroundCanvas({
+  children,
+  style,
+  variant = 'pattern',
+}: GlassBackgroundCanvasProps) {
   return (
-    <View style={styles.container}>
-      {/* Smooth top-to-bottom vertical shading matching graph aesthetic */}
-      <LinearGradient
-        colors={['#C7E0FA', '#DBEBFC', '#EDF5FD', '#F8FAFD']}
-        locations={[0.0, 0.30, 0.65, 1.0]}
-        start={{ x: 0.5, y: 0.0 }}
-        end={{ x: 0.5, y: 1.0 }}
-        style={StyleSheet.absoluteFill}
-      />
-
+    <GoTallBackground style={style} variant={variant}>
       {children}
-    </View>
+    </GoTallBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#F8FAFC',
-  },
-});

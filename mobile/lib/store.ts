@@ -1074,7 +1074,7 @@ export const useAppStore = create<AppState>()(
         {
           id: 'msg-welcome',
           role: 'assistant',
-          text: 'Hello! I am your Tollgram Clinical Growth Advisor. All guidance is calibrated to peer-reviewed pediatric growth curves and spinal biomechanics. Tap any quick topic below or type your question.',
+          text: 'Hello! I am your GoTall Clinical Growth Advisor. All guidance is calibrated to peer-reviewed pediatric growth curves and spinal biomechanics. Tap any quick topic below or type your question.',
           citation: 'Ref: Tanner-Whitehouse III & AAP Pediatric Endocrine Guidelines',
           timestamp: 'Just now',
         },

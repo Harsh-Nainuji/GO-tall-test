@@ -7,10 +7,11 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { colors } from '../lib/theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-interface CircularProgressRingGlassProps {
+export interface CircularProgressProps {
   size?: number;
   strokeWidth?: number;
   percentage: number;
@@ -25,16 +26,18 @@ interface CircularProgressRingGlassProps {
 }
 
 /**
- * 3D Glassmorphic SVG Circular Progress Meter
- * - Smooth fluid fill animation (cubic bezier without jiggly bounce)
- * - Gradient-shaded active progress stroke matching 3D glass aesthetic
- * - Inner translucent glass core with specular border
+ * Apple-Inspired Single-Ring Circular Progress Meter
+ * - Thin-to-medium crisp track (rgba(226, 232, 240, 0.70))
+ * - Single continuous animated stroke with rounded terminal caps
+ * - Refined blue / semantic gradient fills
+ * - Clean central content area: large bold metric + small descriptor
+ * - Smooth Reanimated 4 fluid fill and value interpolation
  */
 export default function CircularProgressRingGlass({
   size = 96,
-  strokeWidth = 9,
+  strokeWidth = 7,
   percentage,
-  color = '#0284C7',
+  color = colors.blue600,
   gradientSecondary,
   icon,
   label,
@@ -42,11 +45,19 @@ export default function CircularProgressRingGlass({
   valueText,
   unitText,
   centerContent,
-}: CircularProgressRingGlassProps) {
+}: CircularProgressProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const gradientId = `grad_${color.replace(/[^a-zA-Z0-9]/g, '')}_${size}`;
-  const secondaryColor = gradientSecondary || (color === '#10B981' ? '#34D399' : color === '#8B5CF6' ? '#C084FC' : color === '#F97316' ? '#FB923C' : '#38BDF8');
+  const secondaryColor =
+    gradientSecondary ||
+    (color === '#10B981' || color === '#16A34A'
+      ? '#34D399'
+      : color === '#8B5CF6' || color === '#9333EA'
+      ? '#C084FC'
+      : color === '#F97316' || color === '#F59E0B'
+      ? '#FBBF24'
+      : '#38BDF8');
 
   // Initialize at full circumference (0% filled)
   const strokeOffset = useSharedValue(circumference);
@@ -57,8 +68,8 @@ export default function CircularProgressRingGlass({
   useEffect(() => {
     // Smooth fluid liquid fill (zero jiggly bounce)
     strokeOffset.value = withTiming(targetOffset, {
-      duration: 950,
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      duration: 850,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
   }, [targetOffset]);
 
@@ -67,8 +78,6 @@ export default function CircularProgressRingGlass({
       strokeDashoffset: strokeOffset.value,
     };
   });
-
-  const innerCoreSize = size - strokeWidth * 2 - 8;
 
   return (
     <View style={styles.container}>
@@ -81,12 +90,12 @@ export default function CircularProgressRingGlass({
             </LinearGradient>
           </Defs>
 
-          {/* Frosted inactive background track */}
+          {/* Clean minimal background track */}
           <Circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="rgba(255, 255, 255, 0.50)"
+            stroke="rgba(226, 232, 240, 0.75)"
             strokeWidth={strokeWidth}
             fill="transparent"
           />
@@ -105,32 +114,23 @@ export default function CircularProgressRingGlass({
           />
         </Svg>
 
-        {/* Inner Floating Glass Core */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.innerGlassCore,
-            {
-              width: innerCoreSize,
-              height: innerCoreSize,
-              borderRadius: innerCoreSize / 2,
-            },
-          ]}
-        />
-
         {/* Center content: Custom, Icon, Value+Unit, or numeric % */}
-        <View style={StyleSheet.absoluteFill} className="items-center justify-center">
+        <View style={styles.centerBox}>
           {centerContent ? (
             centerContent
           ) : icon ? (
             icon
           ) : valueText ? (
-            <View className="items-center justify-center">
-              <Text style={styles.percentageText}>{valueText}</Text>
+            <View style={styles.valueWrap}>
+              <Text style={[styles.percentageText, size > 110 && styles.largePercentageText]}>
+                {valueText}
+              </Text>
               {unitText ? <Text style={styles.unitText}>{unitText}</Text> : null}
             </View>
           ) : (
-            <Text style={styles.percentageText}>{Math.round(targetPercentage)}%</Text>
+            <Text style={[styles.percentageText, size > 110 && styles.largePercentageText]}>
+              {Math.round(targetPercentage)}%
+            </Text>
           )}
         </View>
       </View>
@@ -141,6 +141,8 @@ export default function CircularProgressRingGlass({
   );
 }
 
+export { CircularProgressRingGlass as CircularProgress };
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -149,28 +151,43 @@ const styles = StyleSheet.create({
   svg: {
     transform: [{ rotateZ: '-90deg' }],
   },
-  innerGlassCore: {
+  centerBox: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.75)',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  valueWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   percentageText: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#0F172A',
     fontVariant: ['tabular-nums'],
+    letterSpacing: -0.3,
+  },
+  largePercentageText: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.6,
   },
   unitText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   labelText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontWeight: '600',
+    color: '#0F172A',
     marginTop: 8,
   },
   sublabelText: {

@@ -224,7 +224,7 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* ── Dark Premium Header ───────────────────────────────────── */}
+      {/* ── Apple-Grade Clean Light Header ──────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
@@ -235,26 +235,26 @@ export default function ChatScreen() {
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityLabel="Back"
         >
-          <ArrowLeft size={20} color="#94A3B8" />
+          <ArrowLeft size={20} color="#0F172A" />
         </TouchableOpacity>
 
         {/* Gradient wordmark pill */}
         <View style={styles.headerCenter}>
           <LinearGradient
-            colors={['#1E40AF', '#7C3AED']}
+            colors={['#2563EB', '#1D4ED8']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.wordmarkPill}
           >
             <Sparkles size={13} color="#FFFFFF" />
-            <Text style={styles.wordmarkText}>Tollgram AI</Text>
+            <Text style={styles.wordmarkText}>GoTall AI</Text>
           </LinearGradient>
           <Text style={styles.headerSubtitle}>Powered by Gemini</Text>
         </View>
 
         {/* 5-question quota chip */}
         <View style={[styles.quotaChip, quota.isExhausted && styles.quotaChipExhausted]}>
-          <Clock size={11} color={quota.isExhausted ? colors.amber600 : '#93C5FD'} />
+          <Clock size={11} color={quota.isExhausted ? colors.amber600 : '#2563EB'} />
           <Text style={[styles.quotaText, quota.isExhausted && styles.quotaTextExhausted]}>
             {quota.remaining}/5
           </Text>
@@ -277,7 +277,7 @@ export default function ChatScreen() {
         style={styles.flexOne}
       >
         <LinearGradient
-          colors={['#F0F4FF', '#F8FAFF', '#FFFFFF']}
+          colors={['#FFFFFF', '#F8FAFC', '#EFF6FF']}
           style={styles.flexOne}
         >
           <ScrollView
@@ -290,12 +290,12 @@ export default function ChatScreen() {
             {chatMessages.length === 0 && (
               <Animated.View entering={FadeInDown.duration(400)} style={styles.welcomeCard}>
                 <LinearGradient
-                  colors={['#1E3A8A', '#7C3AED']}
+                  colors={['#2563EB', '#1D4ED8']}
                   style={styles.sparkleOrb}
                 >
                   <Sparkles size={22} color="#FFFFFF" />
                 </LinearGradient>
-                <Text style={styles.welcomeTitle}>Ask Tollgram AI</Text>
+                <Text style={styles.welcomeTitle}>Ask GoTall AI</Text>
                 <Text style={styles.welcomeBody}>
                   Evidence-based guidance on growth plates, sleep, nutrition, and spinal biomechanics.
                 </Text>
@@ -486,7 +486,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   flexOne: {
     flex: 1,
@@ -496,17 +496,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    backgroundColor: '#0F172A',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(148, 163, 184, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(148,163,184,0.12)',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -525,7 +527,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   wordmarkText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.1,
@@ -539,21 +541,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(37,99,235,0.18)',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(147,197,253,0.3)',
+    borderColor: '#BFDBFE',
   },
   quotaChipExhausted: {
-    backgroundColor: 'rgba(217,119,6,0.15)',
-    borderColor: 'rgba(252,211,77,0.35)',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
   },
   quotaText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#93C5FD',
+    color: '#2563EB',
   },
   quotaTextExhausted: {
     color: colors.amber600,
@@ -561,8 +563,10 @@ const styles = StyleSheet.create({
 
   // ── Refill bar ────────────────────────────────────────────────
   refillBar: {
-    backgroundColor: '#1E293B',
-    paddingVertical: 5,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingVertical: 6,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
