@@ -48,7 +48,7 @@ export default function PaywallScreen() {
     (state) => state.completeSubscriptionAndCreateAccount
   );
 
-  const [tier, setTier] = useState<'annual' | 'quarterly' | 'monthly'>('annual');
+  const [tier, setTier] = useState<'annual' | 'monthly' | 'lifetime'>('annual');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -68,12 +68,12 @@ export default function PaywallScreen() {
   const getTierPricing = () => {
     switch (tier) {
       case 'annual':
-        return { name: 'Annual Clinical Plan', amountPaise: 149900, display: '₹1,499', monthlyEquivalent: '₹125/mo' };
-      case 'quarterly':
-        return { name: 'Quarterly Plan', amountPaise: 59900, display: '₹599', monthlyEquivalent: '₹200/mo' };
+        return { name: 'Tallgrame Pro Annual', display: '$59.99', monthlyEquivalent: '$4.99/mo' };
+      case 'lifetime':
+        return { name: 'Tallgrame Lifetime VIP', display: '$149.99', monthlyEquivalent: 'One-time' };
       case 'monthly':
       default:
-        return { name: 'Monthly Plan', amountPaise: 29900, display: '₹299', monthlyEquivalent: '₹299/mo' };
+        return { name: 'Tallgrame Pro Monthly', display: '$9.99', monthlyEquivalent: '$9.99/mo' };
     }
   };
 
@@ -91,10 +91,10 @@ export default function PaywallScreen() {
       const pkgToBuy =
         packages.find((p: any) =>
           tier === 'annual'
-            ? p.identifier.includes('annual')
-            : tier === 'quarterly'
-            ? p.identifier.includes('quarterly') || p.packageType === 'THREE_MONTH'
-            : p.identifier.includes('monthly') || p.packageType === 'MONTHLY'
+            ? p.identifier.includes('annual') || p.packageType === 'ANNUAL' || p.product?.identifier === 'yearly'
+            : tier === 'lifetime'
+            ? p.identifier.includes('lifetime') || p.packageType === 'LIFETIME' || p.product?.identifier === 'lifetime'
+            : p.identifier.includes('monthly') || p.packageType === 'MONTHLY' || p.product?.identifier === 'monthly'
         ) || rcPackage || packages[0];
 
       if (pkgToBuy) {
@@ -247,40 +247,16 @@ export default function PaywallScreen() {
               activeOpacity={0.85}
             >
               <View style={styles.bestValueBadge}>
-                <Text style={styles.bestValueText}>BEST VALUE • SAVE 60%</Text>
+                <Text style={styles.bestValueText}>BEST VALUE • SAVE 50%</Text>
               </View>
 
               <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Annual Clinical Plan</Text>
-                <Text style={styles.tierBilling}>₹1,499 billed yearly (₹4.1/day)</Text>
+                <Text style={styles.tierName}>Tallgrame Pro Annual</Text>
+                <Text style={styles.tierBilling}>$59.99 billed yearly ($4.99/mo)</Text>
               </View>
 
               <View style={styles.tierRight}>
-                <Text style={styles.tierPrice}>₹125</Text>
-                <Text style={styles.tierPeriod}>/month</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Quarterly Plan */}
-            <TouchableOpacity
-              key="tier-quarterly"
-              style={[
-                styles.tierCard,
-                tier === 'quarterly' ? styles.tierCardActive : styles.tierCardInactive,
-              ]}
-              onPress={() => {
-                setTier('quarterly');
-                Haptics.selectionAsync().catch(() => {});
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Quarterly Plan</Text>
-                <Text style={styles.tierBilling}>₹599 billed every 3 months</Text>
-              </View>
-
-              <View style={styles.tierRight}>
-                <Text style={styles.tierPrice}>₹200</Text>
+                <Text style={styles.tierPrice}>$4.99</Text>
                 <Text style={styles.tierPeriod}>/month</Text>
               </View>
             </TouchableOpacity>
@@ -299,13 +275,41 @@ export default function PaywallScreen() {
               activeOpacity={0.85}
             >
               <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Monthly Protocol</Text>
+                <Text style={styles.tierName}>Tallgrame Pro Monthly</Text>
                 <Text style={styles.tierBilling}>Cancel anytime with 1 tap</Text>
               </View>
 
               <View style={styles.tierRight}>
-                <Text style={styles.tierPrice}>₹299</Text>
+                <Text style={styles.tierPrice}>$9.99</Text>
                 <Text style={styles.tierPeriod}>/month</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Lifetime Plan */}
+            <TouchableOpacity
+              key="tier-lifetime"
+              style={[
+                styles.tierCard,
+                tier === 'lifetime' ? styles.tierCardActive : styles.tierCardInactive,
+              ]}
+              onPress={() => {
+                setTier('lifetime');
+                Haptics.selectionAsync().catch(() => {});
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.bestValueBadge, { backgroundColor: '#8B5CF6' }]}>
+                <Text style={styles.bestValueText}>ONE-TIME • LIFETIME VIP</Text>
+              </View>
+
+              <View style={styles.tierLeft}>
+                <Text style={styles.tierName}>Tallgrame Lifetime VIP</Text>
+                <Text style={styles.tierBilling}>One-time payment • Zero recurring fees</Text>
+              </View>
+
+              <View style={styles.tierRight}>
+                <Text style={[styles.tierPrice, { color: '#7C3AED' }]}>$149.99</Text>
+                <Text style={styles.tierPeriod}>forever</Text>
               </View>
             </TouchableOpacity>
           </View>
