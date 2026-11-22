@@ -92,7 +92,7 @@ export default function AdminPortalPage() {
 
   return (
     <AdminAuthGate>
-      <div className="min-h-screen bg-[#020617] text-slate-100 flex relative overflow-x-hidden">
+      <div className="h-screen bg-[#020617] text-slate-100 flex relative overflow-hidden">
         {/* Soft Ambient Cyan & Violet Glows */}
         <div
           className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(6,182,212,0.12),rgba(2,6,23,0))] z-0"
@@ -118,7 +118,7 @@ export default function AdminPortalPage() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 relative z-10">
+        <div className="flex-1 flex flex-col min-w-0 h-screen relative z-10 overflow-hidden">
           <AdminTopNav
             title={title}
             subtitle={subtitle}

@@ -29,6 +29,24 @@ export function cmToFtIn(cm?: number | null): string {
   return `${ft}'${inches}"`;
 }
 
+/**
+ * Formats macro grams, calories, or minerals cleanly to prevent IEEE-754 float precision artifacts.
+ * Examples:
+ *   formatMacro(99.80000000000001) => "99.8"
+ *   formatMacro(100.0)             => "100"
+ *   formatMacro(22.45, 1)          => "22.5"
+ *   formatMacro(2400.6, 0)         => "2401"
+ */
+export function formatMacro(val: number | string | undefined | null, decimals: number = 1): string {
+  if (val === undefined || val === null || val === '') return '0';
+  const num = Number(val);
+  if (isNaN(num)) return '0';
+  if (decimals === 0) return Math.round(num).toString();
+  const factor = Math.pow(10, decimals);
+  const rounded = Math.round(num * factor) / factor;
+  return rounded.toString();
+}
+
 // Mid-Parental Target Calculation (Tanner Formula & Epiphyseal Biology)
 export function calculateHeightPotential(quizData: {
   currentHeight?: number;

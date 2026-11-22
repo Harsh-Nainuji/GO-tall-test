@@ -11,14 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Moon,
   Sparkles,
-  Sunrise,
-  Sunset,
-  Plus,
   Flame,
-  Calendar,
   Clock,
-  ShieldCheck,
-  Activity,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -39,6 +33,7 @@ export default function SleepScreen() {
 
   const sleepLogs = useAppStore((state) => state.sleepLogs);
   const sleepTargetHours = useAppStore((state) => state.sleepTargetHours) || SLEEP_GOAL_HOURS;
+  const streakDays = useAppStore((state) => state.streakDays);
 
   // 7-day data mapping (last 7 days)
   const weekData = useMemo(() => {
@@ -62,19 +57,6 @@ export default function SleepScreen() {
   }, [sleepLogs]);
 
   const selectedDayData = weekData[selectedDayIdx] || weekData[weekData.length - 1];
-
-  // Sleep streak: consecutive days with >= 7.5h
-  const streakDays = useMemo(() => {
-    let count = 0;
-    for (let i = weekData.length - 1; i >= 0; i--) {
-      if (weekData[i].hours >= SLEEP_STREAK_MIN_HOURS) {
-        count++;
-      } else {
-        break;
-      }
-    }
-    return count;
-  }, [weekData]);
 
   // Daily target ring percentage
   const currentHours = selectedDayData.hours;

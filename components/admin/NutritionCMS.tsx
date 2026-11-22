@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useDropzone } from 'react-dropzone'
 import {
   Utensils,
   Plus,
@@ -20,12 +19,10 @@ import {
   FileCode,
   Download,
   AlertCircle,
-  Image as ImageIcon,
   CheckCircle2,
   CheckCheck,
 } from 'lucide-react'
 import { FoodItem } from '@/lib/admin-store'
-import { uploadExerciseMedia } from '@/lib/supabase'
 
 interface NutritionCMSProps {
   foods: FoodItem[]
@@ -97,35 +94,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
   const [formVitaminD3, setFormVitaminD3] = useState(0)
   const [formRationale, setFormRationale] = useState('')
   const [formActive, setFormActive] = useState(true)
-
-  // Direct Supabase Media Upload for Single Food
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null)
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
-
-  const onDropMedia = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
-    setMediaFile(file)
-    setIsUploadingMedia(true)
-
-    try {
-      const uploadRes = await uploadExerciseMedia(file, 'foods')
-      setMediaPreviewUrl(uploadRes.publicUrl)
-      showToast('Image uploaded directly to Supabase Storage!', 'success')
-    } catch (err: any) {
-      showToast(err.message || 'Storage upload error', 'error')
-    } finally {
-      setIsUploadingMedia(false)
-    }
-  }, [])
-
-  const { getRootProps: getMediaRootProps, getInputProps: getMediaInputProps, isDragActive: isMediaDragActive } =
-    useDropzone({
-      onDrop: onDropMedia,
-      accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'] },
-      maxFiles: 1,
-    })
 
   // -------------------------------------------------------------
   // 1-CLICK TEMPLATE DOWNLOAD GENERATORS
@@ -503,8 +471,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormVitaminD3(0)
     setFormRationale('Provides essential micronutrients for bone mineralization and chondrocyte proliferation.')
     setFormActive(true)
-    setMediaPreviewUrl(null)
-    setMediaFile(null)
     setIsModalOpen(true)
   }
 
@@ -524,8 +490,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     setFormVitaminD3(food.vitaminD3)
     setFormRationale(food.clinicalRationale || 'Provides essential micronutrients for bone mineralization and chondrocyte proliferation.')
     setFormActive(food.active)
-    setMediaPreviewUrl(food.image_url || null)
-    setMediaFile(null)
     setIsModalOpen(true)
   }
 
@@ -537,11 +501,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
     if (!finalName) {
       setModalError('Food name is required / નામ જરૂરી છે')
       showToast('Please enter food name', 'error')
-      return
-    }
-
-    if (isUploadingMedia) {
-      setModalError('Media is still uploading. Please wait...')
       return
     }
 
@@ -565,7 +524,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
             vitaminD3: Number(formVitaminD3) || 0,
             clinicalRationale: finalRationale,
             active: formActive,
-            image_url: mediaPreviewUrl || f.image_url,
           }
           : f
       )
@@ -586,7 +544,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
         vitaminD3: Number(formVitaminD3) || 0,
         clinicalRationale: finalRationale,
         active: formActive,
-        image_url: mediaPreviewUrl || undefined,
       }
       onUpdateFoods([newFood, ...foods])
       showToast('New clinical food added to database!', 'success')
@@ -1302,57 +1259,6 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                       <option value="Bedtime Anabolic">Bedtime Anabolic</option>
                       <option value="Growth Micronutrients">Growth Micronutrients</option>
                     </select>
-                  </div>
-
-                  {/* Direct Supabase Storage Photo Upload */}
-                  <div>
-                    <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">
-                      Food Image (Direct Supabase Storage Upload)
-                    </label>
-                    <div
-                      {...getMediaRootProps()}
-                      className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isMediaDragActive
-                        ? 'border-cyan-400 bg-cyan-950/40'
-                        : 'border-slate-700 bg-slate-950/40 hover:bg-slate-950/70'
-                        }`}
-                    >
-                      <input {...getMediaInputProps()} />
-                      {isUploadingMedia ? (
-                        <div className="flex items-center gap-2 text-cyan-400 font-bold">
-                          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                          <span>Uploading directly to Supabase...</span>
-                        </div>
-                      ) : mediaPreviewUrl ? (
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={mediaPreviewUrl}
-                            alt="Uploaded Food"
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-700"
-                          />
-                          <div className="text-left">
-                            <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5" /> Uploaded to Supabase
-                            </p>
-                            <p className="text-[10px] text-slate-400">Click or drag another to replace</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
-                          <p className="text-xs font-bold text-slate-300">Drop image here or click to browse</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Stored in Supabase 'exercise-media/foods' bucket</p>
-                        </>
-                      )}
-                    </div>
-                    <div className="mt-2.5">
-                      <input
-                        type="url"
-                        placeholder="Or paste direct food image URL (https://...)"
-                        value={mediaPreviewUrl || ''}
-                        onChange={(e) => setMediaPreviewUrl(e.target.value.trim() || null)}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                      />
-                    </div>
                   </div>
 
                   {/* Macros Row */}

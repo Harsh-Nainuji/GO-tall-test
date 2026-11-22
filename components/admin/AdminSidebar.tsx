@@ -98,7 +98,7 @@ export function AdminSidebar({
   ]
 
   return (
-    <aside className="w-80 bg-slate-950/70 backdrop-blur-2xl border-r border-slate-800/80 flex flex-col h-screen sticky top-0 select-none shadow-xl z-30">
+    <aside className="w-80 min-w-[20rem] shrink-0 flex-shrink-0 bg-slate-950/70 backdrop-blur-2xl border-r border-slate-800/80 flex flex-col h-screen sticky top-0 select-none shadow-xl z-30">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center gap-3.5">

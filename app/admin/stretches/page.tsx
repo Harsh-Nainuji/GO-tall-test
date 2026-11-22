@@ -30,7 +30,7 @@ export default function AdminStretchesPage() {
 
   return (
       <AdminAuthGate>
-        <div className="min-h-screen bg-slate-50 flex font-sans text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+        <div className="h-screen bg-slate-50 flex font-sans text-slate-800 antialiased selection:bg-blue-500 selection:text-white overflow-hidden">
           {/* Sidebar Navigation */}
           <AdminSidebar
             currentTab={currentTab}
@@ -50,7 +50,7 @@ export default function AdminStretchesPage() {
           />
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
             {/* Top Navbar */}
             <AdminTopNav
               title="Daily Exercises & Stretches (CMS)"

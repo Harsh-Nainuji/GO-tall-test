@@ -787,19 +787,25 @@ export function buildWeeklyPlanSchedule(
   const posture = exercises.filter((e) => e.category === 'Posture');
 
   days.forEach((dayName, dayIdx) => {
-    const h1 = heightGrowth[(dayIdx * 2) % (heightGrowth.length || 1)] || exercises[0];
-    const h2 = heightGrowth[(dayIdx * 2 + 1) % (heightGrowth.length || 1)] || exercises[1 % exercises.length];
-    const s1 = strength[dayIdx % (strength.length || 1)] || exercises[2 % exercises.length];
-    const p1 = posture[dayIdx % (posture.length || 1)] || exercises[3 % exercises.length];
-
     const dayRoster: StretchExercise[] = [];
-    [h1, p1, s1, h2].forEach((item) => {
+    const poolSize = exercises.length;
+    const targetSessionSize = Math.min(poolSize, Math.max(4, Math.ceil(poolSize / days.length) * 2));
+
+    for (let i = 0; i < targetSessionSize; i++) {
+      const idx = (dayIdx * 2 + i) % poolSize;
+      const ex = exercises[idx];
+      if (ex && !dayRoster.some((r) => r.id === ex.id)) {
+        dayRoster.push(ex);
+      }
+    }
+
+    [heightGrowth[dayIdx % (heightGrowth.length || 1)], posture[dayIdx % (posture.length || 1)]].forEach((item) => {
       if (item && !dayRoster.some((r) => r.id === item.id)) {
         dayRoster.push(item);
       }
     });
 
-    plan[dayName] = dayRoster;
+    plan[dayName] = dayRoster.length > 0 ? dayRoster : exercises.slice(0, 4);
   });
 
   return { plan, activeDay: days[0] };
@@ -880,6 +886,9 @@ interface AppState {
   subscriptionTier: string;
   setSubscriptionTier: (tier: string) => void;
   streakDays: number;
+  lastActiveDate: string | null;
+  checkAndUpdateDailyStreak: () => void;
+  syncStreakStatus: () => void;
   completedStretches: number[];
   meals: LoggedMeal[];
   badges: AchievementBadgeItem[];
@@ -1004,6 +1013,67 @@ export const useAppStore = create<AppState>()(
       isPremium: false,
       subscriptionTier: 'Free',
       streakDays: 0,
+      lastActiveDate: null,
+
+      checkAndUpdateDailyStreak: () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        const lastActive = get().lastActiveDate;
+        const currentStreak = get().streakDays || 0;
+
+        if (!lastActive) {
+          set({ streakDays: 1, lastActiveDate: todayStr });
+          get().checkBadges();
+          return;
+        }
+
+        if (lastActive === todayStr) {
+          if (currentStreak === 0) set({ streakDays: 1 });
+          return;
+        }
+
+        const [ly, lm, ld] = lastActive.split('-').map(Number);
+        const lastDate = new Date(ly, lm - 1, ld);
+        const todayDate = new Date(year, now.getMonth(), now.getDate());
+        const diffMs = todayDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          const nextStreak = currentStreak + 1;
+          set({ streakDays: nextStreak, lastActiveDate: todayStr });
+          get().checkBadges();
+        } else if (diffDays > 1) {
+          set({ streakDays: 1, lastActiveDate: todayStr });
+          get().checkBadges();
+        }
+      },
+
+      syncStreakStatus: () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        const lastActive = get().lastActiveDate;
+        if (!lastActive) return;
+        if (lastActive === todayStr) return;
+
+        const [ly, lm, ld] = lastActive.split('-').map(Number);
+        const lastDate = new Date(ly, lm - 1, ld);
+        const todayDate = new Date(year, now.getMonth(), now.getDate());
+        const diffMs = todayDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 1) {
+          // More than 1 day elapsed without activity; streak reset
+          set({ streakDays: 0 });
+        }
+      },
       completedStretches: [],
       paymentOrderId: null,
       hasHydrated: false,
@@ -1124,10 +1194,12 @@ export const useAppStore = create<AppState>()(
       // Daily Protocol To-Dos State
       todos: INITIAL_DAILY_TODOS,
       toggleTodo: (id: string) => {
+        let isNowCompleted = false;
         set((state) => {
           const updated = state.todos.map((t) => {
             if (t.id === id) {
               const nextCompleted = !t.completed;
+              if (nextCompleted) isNowCompleted = true;
               return {
                 ...t,
                 completed: nextCompleted,
@@ -1138,6 +1210,9 @@ export const useAppStore = create<AppState>()(
           });
           return { todos: updated };
         });
+        if (isNowCompleted) {
+          get().checkAndUpdateDailyStreak();
+        }
       },
       addTodo: ({ title, category = 'Custom', icon = '✨' }) => {
         const newTodo: DailyTodo = {
@@ -1217,6 +1292,9 @@ export const useAppStore = create<AppState>()(
           : [...completedStretches, index];
 
         set({ completedStretches: updated });
+        if (!exists) {
+          get().checkAndUpdateDailyStreak();
+        }
         get().checkBadges();
       },
 
@@ -1224,6 +1302,7 @@ export const useAppStore = create<AppState>()(
         const { completedStretches } = get();
         if (!completedStretches.includes(index)) {
           set({ completedStretches: [...completedStretches, index] });
+          get().checkAndUpdateDailyStreak();
           get().checkBadges();
         }
       },
@@ -1232,8 +1311,13 @@ export const useAppStore = create<AppState>()(
         const newMeal: LoggedMeal = {
           ...mealData,
           id: `meal-${Date.now()}`,
+          calories: Math.round(Number(mealData.calories) || 0),
+          protein: Math.round((Number(mealData.protein) || 0) * 10) / 10,
+          carbs: Math.round((Number(mealData.carbs) || 0) * 10) / 10,
+          fat: Math.round((Number(mealData.fat) || 0) * 10) / 10,
         };
         set((state) => ({ meals: [newMeal, ...state.meals] }));
+        get().checkAndUpdateDailyStreak();
         get().checkBadges();
       },
 
@@ -1250,6 +1334,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           sleepLogs: [newLog, ...state.sleepLogs],
         }));
+        get().checkAndUpdateDailyStreak();
         get().checkBadges();
       },
 
@@ -1805,6 +1890,7 @@ export const useAppStore = create<AppState>()(
         isPremium: state.isPremium,
         subscriptionTier: state.subscriptionTier,
         streakDays: state.streakDays,
+        lastActiveDate: state.lastActiveDate,
         completedStretches: state.completedStretches,
         meals: state.meals,
         unlockedBadgeIds: state.unlockedBadgeIds,
@@ -1838,6 +1924,7 @@ export const useAppStore = create<AppState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
+          state.syncStreakStatus();
         }
       },
     }

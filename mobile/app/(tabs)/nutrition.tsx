@@ -14,13 +14,11 @@ import * as Haptics from 'expo-haptics';
 import {
   Utensils,
   Plus,
-  Activity,
   ShieldCheck,
   Trash2,
   Apple,
   Wheat,
   Droplet,
-  Sparkles,
   Check,
   Flame,
   ChevronRight,
@@ -28,6 +26,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useAppStore } from '../../lib/store';
+import { formatMacro } from '../../lib/growth-calc';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -41,6 +40,7 @@ export default function NutritionScreen() {
   const deleteMeal = useAppStore((state) => state.deleteMeal);
   const addMeal = useAppStore((state) => state.addMeal);
   const liveStoreMeals = useAppStore((state) => state.livePresetMeals);
+  const streakDays = useAppStore((state) => state.streakDays);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedFoodForModal, setSelectedFoodForModal] = useState<FoodItem | null>(null);
@@ -105,20 +105,20 @@ export default function NutritionScreen() {
     );
   }, [catalogFoods, selectedCatalogCategory]);
 
-  // Compute live nutritional totals from store
-  const totalCalories = meals.reduce((sum, m) => sum + m.calories, 0);
+  // Compute live nutritional totals from store (sanitized and rounded to prevent float precision artifacts)
+  const totalCalories = Math.round(meals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0));
   const targetCalories = 2400;
   const calPct = Math.min(100, Math.round((totalCalories / targetCalories) * 100));
 
-  const totalProtein = meals.reduce((sum, m) => sum + m.protein, 0);
+  const totalProtein = Math.round(meals.reduce((sum, m) => sum + (Number(m.protein) || 0), 0) * 10) / 10;
   const targetProtein = 130;
   const proteinPct = Math.min(100, Math.round((totalProtein / targetProtein) * 100));
 
-  const totalCarbs = meals.reduce((sum, m) => sum + m.carbs, 0);
+  const totalCarbs = Math.round(meals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0) * 10) / 10;
   const targetCarbs = 260;
   const carbsPct = Math.min(100, Math.round((totalCarbs / targetCarbs) * 100));
 
-  const totalFat = meals.reduce((sum, m) => sum + m.fat, 0);
+  const totalFat = Math.round(meals.reduce((sum, m) => sum + (Number(m.fat) || 0), 0) * 10) / 10;
   const targetFat = 70;
   const fatPct = Math.min(100, Math.round((totalFat / targetFat) * 100));
 
@@ -129,10 +129,10 @@ export default function NutritionScreen() {
 
     addMeal({
       name: item.name,
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
+      calories: Math.round(Number(item.calories) || 0),
+      protein: Math.round((Number(item.protein) || 0) * 10) / 10,
+      carbs: Math.round((Number(item.carbs) || 0) * 10) / 10,
+      fat: Math.round((Number(item.fat) || 0) * 10) / 10,
       category: 'Lunch',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
@@ -164,6 +164,11 @@ export default function NutritionScreen() {
             />
             <Text style={styles.brandText}>Tallgrame</Text>
             <View style={styles.onlineDot} />
+          </View>
+
+          <View style={styles.streakBadge}>
+            <Flame size={13} color="#D97706" />
+            <Text style={styles.streakBadgeText}>{streakDays}d Streak</Text>
           </View>
         </Animated.View>
 
@@ -211,7 +216,7 @@ export default function NutritionScreen() {
                     <Apple size={14} color="#F97316" />
                   </View>
                   <Text style={styles.macroLabel}>Protein</Text>
-                  <Text style={styles.macroValue}>{totalProtein}g</Text>
+                  <Text style={styles.macroValue}>{formatMacro(totalProtein)}g</Text>
                   <View style={styles.macroProgressBarBg}>
                     <View
                       style={[
@@ -229,7 +234,7 @@ export default function NutritionScreen() {
                     <Wheat size={14} color="#2563EB" />
                   </View>
                   <Text style={styles.macroLabel}>Carbs</Text>
-                  <Text style={styles.macroValue}>{totalCarbs}g</Text>
+                  <Text style={styles.macroValue}>{formatMacro(totalCarbs)}g</Text>
                   <View style={styles.macroProgressBarBg}>
                     <View
                       style={[
@@ -247,7 +252,7 @@ export default function NutritionScreen() {
                     <Droplet size={14} color="#CA8A04" />
                   </View>
                   <Text style={styles.macroLabel}>Fats</Text>
-                  <Text style={styles.macroValue}>{totalFat}g</Text>
+                  <Text style={styles.macroValue}>{formatMacro(totalFat)}g</Text>
                   <View style={styles.macroProgressBarBg}>
                     <View
                       style={[
@@ -341,7 +346,7 @@ export default function NutritionScreen() {
                         </View>
 
                         <Text style={styles.catalogServing}>
-                          {item.serving_size || '100g'} • {item.calories} kcal
+                          {item.serving_size || '100g'} • {formatMacro(item.calories, 0)} kcal
                         </Text>
 
                         {item.clinicalRationale ? (
@@ -354,9 +359,9 @@ export default function NutritionScreen() {
                       {/* Nutrient Metrics & 1-Tap Log Button */}
                       <View style={styles.catalogActionsCol}>
                         <View style={styles.catalogMacrosBadge}>
-                          <Text style={styles.catalogProteinText}>{item.protein}g P</Text>
+                          <Text style={styles.catalogProteinText}>{formatMacro(item.protein)}g P</Text>
                           {item.calcium ? (
-                            <Text style={styles.catalogCaText}>{item.calcium}mg Ca</Text>
+                            <Text style={styles.catalogCaText}>{formatMacro(item.calcium, 0)}mg Ca</Text>
                           ) : null}
                         </View>
 
@@ -402,7 +407,7 @@ export default function NutritionScreen() {
                 Today&apos;s Logged Meals ({meals.length})
               </Text>
               <Text style={styles.sectionSubtitle}>
-                {totalProtein}g protein • {totalCalories} kcal consumed
+                {formatMacro(totalProtein)}g protein • {formatMacro(totalCalories, 0)} kcal consumed
               </Text>
             </View>
 
@@ -431,7 +436,7 @@ export default function NutritionScreen() {
                     </View>
                     <Text style={styles.mealName}>{m.name}</Text>
                     <Text style={styles.mealNutrients}>
-                      {m.calories} kcal • {m.protein}g P • {m.carbs}g C • {m.fat}g F
+                      {formatMacro(m.calories, 0)} kcal • {formatMacro(m.protein)}g P • {formatMacro(m.carbs)}g C • {formatMacro(m.fat)}g F
                     </Text>
                   </View>
 
@@ -530,6 +535,22 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#10B981',
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  streakBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#D97706',
   },
   logActionBtn: {
     flexDirection: 'row',

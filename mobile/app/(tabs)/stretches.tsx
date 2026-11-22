@@ -16,15 +16,12 @@ import * as Haptics from 'expo-haptics';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { SkeletonRow } from '../../components/ui/SkeletonShimmer';
 import {
-  Activity,
   CheckCircle2,
   ShieldCheck,
   Clock,
   Play,
   RotateCcw,
-  Sparkles,
   Film,
-  FileImage,
   ChevronRight,
   ChevronLeft,
   Tag,
@@ -195,11 +192,11 @@ export default function StretchesScreen() {
       const { data, error } = await supabase
         .from('stretches')
         .select('*')
-        .eq('active', true)
         .order('sort_order', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        const mapped: StretchExercise[] = data.map((d: any, idx: number) => ({
+        const activeRows = data.filter((d: any) => d.active !== false);
+        const mapped: StretchExercise[] = activeRows.map((d: any, idx: number) => ({
           id: Number(d.id) || idx + 1,
           title: d.title,
           category: (d.category as any) || 'Height Growth',
@@ -213,6 +210,9 @@ export default function StretchesScreen() {
           media_type: d.media_type || 'image',
         }));
         setLiveExercises(mapped);
+        const s = useAppStore.getState();
+        s.setLiveCatalog(mapped, s.badges, s.categories);
+        await s.generateWeeklyPlan();
       }
     } catch {
       // Keep local plan on network error
@@ -242,13 +242,21 @@ export default function StretchesScreen() {
     ? activePlanDay
     : scheduleDays[0] || 'Monday';
 
-  // Exercises scheduled for this active day in this specific week
+  // Exercises scheduled for this active day in this specific week (ensures admin-added live exercises are included and visible)
+  const availableLiveList = (liveExercises && liveExercises.length > 0)
+    ? liveExercises
+    : (liveCatalogStretches && liveCatalogStretches.length > 0)
+      ? liveCatalogStretches
+      : null;
+
   const scheduledForDay = currentWeekPlan[currentDayKey] || [];
   const baseExercises: StretchExercise[] = scheduledForDay.length > 0
     ? scheduledForDay
-    : (weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0)
-      ? weeklyPlan[currentDayKey]
-      : CLINICAL_STRETCHES;
+    : availableLiveList && availableLiveList.length > 0
+      ? availableLiveList
+      : (weeklyPlan[currentDayKey] && weeklyPlan[currentDayKey].length > 0)
+        ? weeklyPlan[currentDayKey]
+        : CLINICAL_STRETCHES;
 
   const dailyExercises: StretchExercise[] = baseExercises;
   const todayDoneCount = dailyExercises.filter((e) => completedStretches.includes(e.id)).length;

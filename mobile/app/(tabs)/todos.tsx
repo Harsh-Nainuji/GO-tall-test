@@ -16,8 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
-  Activity,
-  CheckCircle2,
   Circle,
   Plus,
   Trash2,
@@ -77,16 +75,16 @@ export default function TodosScreen() {
   }, [todos, selectedFilter]);
 
   const handleToggle = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     toggleTodo(id);
     if (!todos.find((t) => t.id === id)?.completed && completedCount + 1 === totalCount) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
     }
   };
 
   const handleAddNew = () => {
     if (!newTitle.trim()) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
     const meta = CATEGORY_META[newCategory];
     addTodo({
       title: newTitle.trim(),
@@ -98,7 +96,7 @@ export default function TodosScreen() {
   };
 
   const handleAddSuggestion = (sug: typeof QUICK_SUGGESTIONS[0]) => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     addTodo({
       title: sug.title,
       category: sug.category,
@@ -144,7 +142,7 @@ export default function TodosScreen() {
               style={{ width: 18, height: 18, borderRadius: 5 }}
               resizeMode="cover"
             />
-            <Text style={styles.brandText}>Tallgrame Protocol</Text>
+            <Text style={styles.brandText}>Tallgrame</Text>
             <View style={styles.onlineDot} />
           </View>
 
@@ -157,7 +155,7 @@ export default function TodosScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
+                Haptics.selectionAsync().catch(() => { });
                 setModalVisible(true);
               }}
               style={styles.addBtnHeader}
@@ -184,7 +182,7 @@ export default function TodosScreen() {
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
+                  Haptics.selectionAsync().catch(() => { });
                   setSelectedFilter('All');
                 }}
                 style={[styles.filterChip, selectedFilter === 'All' && styles.filterChipActive]}
@@ -203,7 +201,7 @@ export default function TodosScreen() {
                     key={cat}
                     activeOpacity={0.75}
                     onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
+                      Haptics.selectionAsync().catch(() => { });
                       setSelectedFilter(cat);
                     }}
                     style={[
@@ -315,7 +313,7 @@ export default function TodosScreen() {
                         {!todo.isDefault && (
                           <TouchableOpacity
                             onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
                               deleteTodo(todo.id);
                             }}
                             style={styles.deleteBtn}
@@ -361,7 +359,7 @@ export default function TodosScreen() {
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
+                  Haptics.selectionAsync().catch(() => { });
                   resetDailyTodos();
                 }}
                 style={styles.resetBtn}
@@ -418,7 +416,7 @@ export default function TodosScreen() {
                     <TouchableOpacity
                       key={cat}
                       onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                         setNewCategory(cat);
                       }}
                       style={[

@@ -33,7 +33,6 @@ import {
   AlertTriangle,
   UserPlus,
   Database,
-  FileText,
   X,
   Users,
   Dna,
@@ -44,7 +43,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 import { useAppStore, AchievementBadgeItem } from '../../lib/store';
-import { calculateTarget, cmToFtIn } from '../../lib/growth-calc';
+import { calculateTarget, cmToFtIn, formatMacro } from '../../lib/growth-calc';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -197,8 +196,10 @@ export default function ProfileScreen() {
           const name = meal.name || meal.meal_name || 'Unknown';
           const kcal = meal.calories ?? meal.kcal ?? '';
           const protein = meal.protein ?? '';
+          const kcalStr = kcal !== '' ? `${formatMacro(kcal, 0)} kcal` : '';
+          const proteinStr = protein !== '' ? `, ${formatMacro(protein)}g protein` : '';
           lines.push(
-            `  ${name}: ${kcal ? `${kcal} kcal` : ''}${protein ? `, ${protein}g protein` : ''}`,
+            `  ${name}: ${kcalStr}${proteinStr}`,
           );
         });
         if (meals.length > 20) lines.push(`  ... and ${meals.length - 20} more entries`);

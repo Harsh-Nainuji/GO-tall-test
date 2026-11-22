@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import BottomSheet from './ui/BottomSheet';
 import SkeletonShimmer from './ui/SkeletonShimmer';
 import { useAppStore, LoggedMeal } from '../lib/store';
+import { formatMacro } from '../lib/growth-calc';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
@@ -284,10 +285,10 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
 
     addMeal({
       name: item.name,
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
+      calories: Math.round(Number(item.calories) || 0),
+      protein: Math.round((Number(item.protein) || 0) * 10) / 10,
+      carbs: Math.round((Number(item.carbs) || 0) * 10) / 10,
+      fat: Math.round((Number(item.fat) || 0) * 10) / 10,
       category,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
@@ -304,10 +305,10 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
 
     addMeal({
       name: mealName.trim(),
-      calories: Number(calories) || 0,
-      protein: Number(protein) || 0,
-      carbs: Number(carbs) || 0,
-      fat: Number(fat) || 0,
+      calories: Math.round(Number(calories) || 0),
+      protein: Math.round((Number(protein) || 0) * 10) / 10,
+      carbs: Math.round((Number(carbs) || 0) * 10) / 10,
+      fat: Math.round((Number(fat) || 0) * 10) / 10,
       category,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
@@ -458,8 +459,8 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
                     </View>
 
                     <View style={styles.foodMacros}>
-                      <Text style={styles.foodCalories}>{item.calories} kcal</Text>
-                      <Text style={styles.foodProtein}>{item.protein}g P</Text>
+                      <Text style={styles.foodCalories}>{formatMacro(item.calories, 0)} kcal</Text>
+                      <Text style={styles.foodProtein}>{formatMacro(item.protein)}g P</Text>
                     </View>
 
                     {/* 1-Tap Quick Add Button */}

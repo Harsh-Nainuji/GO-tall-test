@@ -28,7 +28,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 
 import { useAppStore, CLINICAL_STRETCHES, StretchExercise } from '../../lib/store';
-import { calculateTarget, cmToFtIn } from '../../lib/growth-calc';
+import { calculateTarget, cmToFtIn, formatMacro } from '../../lib/growth-calc';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -105,7 +105,7 @@ export default function HomeScreen() {
   const result = calculateTarget(safeData);
 
   // Biological Quota Computations (Real user data only)
-  const proteinLogged = meals.reduce((sum, m) => sum + m.protein, 0);
+  const proteinLogged = Math.round(meals.reduce((sum, m) => sum + (Number(m.protein) || 0), 0) * 10) / 10;
   const proteinTarget = 130;
   const proteinPct = Math.min(100, Math.round((proteinLogged / proteinTarget) * 100));
 
@@ -151,19 +151,6 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerRight}>
-            {/* Replay Tutorial Button */}
-            <TouchableOpacity
-              style={styles.tourHeaderBtn}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                setIsTourOpen(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Sparkles size={12} color="#0284C7" />
-              <Text style={styles.tourHeaderBtnText}>Tour</Text>
-            </TouchableOpacity>
-
             {/* Streak Counter Chip */}
             <View style={styles.streakChip}>
               <Flame size={14} color="#D97706" />
@@ -334,7 +321,7 @@ export default function HomeScreen() {
                   color="#F97316"
                   icon={<Apple size={20} color="#F97316" />}
                   label="Protein"
-                  sublabel={`${proteinLogged}g / ${proteinTarget}g`}
+                  sublabel={`${formatMacro(proteinLogged)}g / ${proteinTarget}g`}
                 />
 
                 {/* Spinal Stretch Meter */}
