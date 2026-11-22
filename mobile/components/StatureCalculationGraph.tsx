@@ -327,23 +327,32 @@ export default function StatureCalculationGraph({
           />
         </Svg>
 
-        {/* Character Silhouette Ending at Crown of Head */}
-        <View
-          style={[
-            styles.characterSilhouetteWrap,
-            {
-              top: Math.max(8, p3.y - 4),
-              left: Math.min(chartWidth - 52, Math.max(paddingLeft, p3.x - 22)),
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Image
-            source={charImg}
-            style={styles.characterSilhouetteImg}
-            resizeMode="contain"
-          />
-        </View>
+        {/* Character Silhouette: Legs start at graph baseline, head reaches projected peak */}
+        {(() => {
+          const graphBaselineY = paddingTop + innerHeight;
+          const figureHeight = Math.max(70, graphBaselineY - p3.y);
+          const figureWidth = Math.max(40, Math.round(figureHeight * 0.44));
+          return (
+            <View
+              style={[
+                styles.characterSilhouetteWrap,
+                {
+                  top: p3.y,
+                  height: figureHeight,
+                  width: figureWidth,
+                  left: Math.min(chartWidth - figureWidth - 6, Math.max(paddingLeft, p3.x - figureWidth / 2)),
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <Image
+                source={charImg}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            </View>
+          );
+        })()}
 
         {/* X-Axis Age Labels */}
         <View style={[styles.xAxisRow, { paddingLeft, paddingRight }]}>
@@ -446,10 +455,8 @@ const styles = StyleSheet.create({
   },
   characterSilhouetteWrap: {
     position: 'absolute',
-    width: 44,
-    height: 84,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
     zIndex: 10,
   },
   characterSilhouetteImg: {

@@ -9,41 +9,46 @@ interface GoTallBackgroundProps {
   variant?: 'pattern' | 'plain';
   style?: StyleProp<ViewStyle>;
   patternOpacity?: number;
+  gender?: 'male' | 'female';
 }
 
 /**
  * GoTall Apple-Inspired Luminous Ambient Background System
- * 1. Base clean white-to-slate canvas (#FFFFFF -> #F8FAFC)
+ * 1. Base clean white-to-slate canvas (#FFFFFF -> soft tint)
  * 2. Subtle fitness & spine motivational wallpaper pattern (WhatsApp-inspired)
- * 3. Bottom-edge ambient glow radiating upward from the display base (Blue for male, Pink/Rose for female)
+ * 3. Bottom-edge ambient glow radiating upward:
+ *    - Female: Soft Lavender to Radiant #B28EF0
+ *    - Male: High-Saturation Royal Cobalt #1D4ED8
  */
 export default function GoTallBackground({
   children,
   variant = 'pattern',
   style,
   patternOpacity = 0.20,
+  gender: genderProp,
 }: GoTallBackgroundProps) {
-  const gender = useAppStore((state) => state.quizData?.gender);
-  const isFemale = gender === 'female';
+  const storeGender = useAppStore((state) => state.quizData?.gender);
+  const activeGender = genderProp || storeGender;
+  const isFemale = activeGender === 'female';
 
   const baseColors = isFemale
-    ? (['#FFFFFF', '#FFF1F2', '#FFE4E6'] as const)
-    : (['#FFFFFF', '#F8FAFC', '#F0F7FF'] as const);
+    ? (['#FFFFFF', '#FAF5FF', '#F3E8FF'] as const)
+    : (['#FFFFFF', '#F0F6FF', '#E0EDFE'] as const);
 
   const glowColors = isFemale
     ? ([
         'transparent',
-        'rgba(255, 228, 230, 0.20)',
-        'rgba(254, 205, 211, 0.40)',
-        'rgba(244, 63, 94, 0.50)',
-        'rgba(225, 29, 72, 0.60)',
+        'rgba(237, 228, 250, 0.20)',
+        'rgba(216, 187, 248, 0.40)',
+        'rgba(178, 142, 240, 0.60)',
+        '#B28EF0',
       ] as const)
     : ([
         'transparent',
-        'rgba(224, 242, 254, 0.18)',
-        'rgba(147, 197, 253, 0.38)',
-        'rgba(59, 130, 246, 0.48)',
-        'rgba(37, 99, 235, 0.58)',
+        'rgba(191, 219, 254, 0.22)',
+        'rgba(96, 165, 250, 0.45)',
+        'rgba(29, 78, 216, 0.68)',
+        '#1D4ED8',
       ] as const);
 
   return (

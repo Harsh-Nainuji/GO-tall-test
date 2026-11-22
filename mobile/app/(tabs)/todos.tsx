@@ -10,6 +10,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -138,7 +139,11 @@ export default function TodosScreen() {
         {/* Top Header */}
         <Animated.View entering={FadeInDown.delay(50).springify()} style={styles.headerContainer}>
           <View style={styles.brandPill}>
-            <Activity size={13} color="#2563EB" />
+            <Image
+              source={require('../../assets/icon.png')}
+              style={{ width: 18, height: 18, borderRadius: 5 }}
+              resizeMode="cover"
+            />
             <Text style={styles.brandText}>Tallgrame Protocol</Text>
             <View style={styles.onlineDot} />
           </View>

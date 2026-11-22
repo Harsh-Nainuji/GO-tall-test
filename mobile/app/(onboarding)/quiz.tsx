@@ -35,6 +35,8 @@ import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import BiometricRulerGlass from '../../components/BiometricRulerGlass';
+import VerticalBiometricRuler from '../../components/VerticalBiometricRuler';
+import ProcessingUnlockFlow from '../../components/ProcessingUnlockFlow';
 import AgeSelector from '../../components/AgeSelector';
 import GlobeGraphic from '../../components/GlobeGraphic';
 import AuthModal from '../../components/AuthModal';
@@ -55,12 +57,14 @@ export default function QuizScreen() {
     }
   }, [user, isPremium]);
 
-  // Stepped Questionnaire: 1 to 15
+  // Stepped Questionnaire: 1 to 14
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [parentTab, setParentTab] = useState<'father' | 'mother'>('father');
 
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
-  // Form State for All 15 Clinical Parameters
+  // Form State for All Clinical Parameters
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [age, setAge] = useState<number>(17);
   const [ethnicity, setEthnicity] = useState<string>('South Asian');
@@ -82,15 +86,15 @@ export default function QuizScreen() {
   const [activityLevel, setActivityLevel] = useState<string>('Moderate Active');
   const [motivation, setMotivation] = useState<string>('Maximize my genetic height potential');
 
-  // 15 Core Biometric Questions for Tanner-Whitehouse III & Posture Evaluation
-  const totalSteps = 15;
+  // 14 Core Biometric Questions (Merged Mid-Parental Height)
+  const totalSteps = 14;
   const progressPercent = (currentStep / totalSteps) * 100;
 
   // Stages definition for clear user context
   const getStageInfo = (step: number) => {
     if (step <= 3) return { stage: 1, title: 'Genetic & Biological Foundations' };
     if (step <= 6) return { stage: 2, title: 'Current Physical Stature & Velocity' };
-    if (step <= 9) return { stage: 3, title: 'Mid-Parental Tanner Calculation' };
+    if (step <= 8) return { stage: 3, title: 'Mid-Parental Tanner Calculation' };
     return { stage: 4, title: 'Hormonal & Lifestyle Catalysts' };
   };
 
@@ -101,7 +105,7 @@ export default function QuizScreen() {
     if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      // Final submission
+      // Final submission - store data and start 0-100% Processing Flow
       const finalData: QuizData = {
         gender,
         age,
@@ -124,7 +128,7 @@ export default function QuizScreen() {
         activityLevel,
       };
       setQuizData(finalData);
-      router.push('/(onboarding)/reveal');
+      setIsProcessing(true);
     }
   };
 
@@ -137,14 +141,39 @@ export default function QuizScreen() {
     }
   };
 
-  // Tanner Live Projection for Step 9
+  // Tanner Live Projection
   const dimorphicOffset = gender === 'male' ? 13 : -13;
   const effectiveFather = fatherUnknown ? (gender === 'male' ? motherHeight + 13 : motherHeight) : fatherHeight;
   const effectiveMother = motherUnknown ? (gender === 'male' ? fatherHeight : fatherHeight - 13) : motherHeight;
   const liveTarget = Math.round(((effectiveFather + effectiveMother + dimorphicOffset) / 2) * 10) / 10;
 
+  // If Processing Flow is active: render 0-100% Processing & Fingerprint Unlock
+  if (isProcessing) {
+    const predictedGain = Math.max(2.5, Math.round((dreamHeight - currentHeight) * 0.35 * 10) / 10);
+    return (
+      <ProcessingUnlockFlow
+        gender={gender}
+        predictedGainCm={predictedGain}
+        onCompleteSignIn={() => {
+          setIsProcessing(false);
+          setIsAuthModalVisible(true);
+        }}
+        onCompleteSignUp={() => {
+          setIsProcessing(false);
+          setIsAuthModalVisible(true);
+        }}
+        onCompleteSelectPlan={() => {
+          router.push('/membership');
+        }}
+        onViewReport={() => {
+          router.push('/(onboarding)/reveal');
+        }}
+      />
+    );
+  }
+
   return (
-    <GlassBackgroundCanvas>
+    <GlassBackgroundCanvas gender={gender}>
       <SafeAreaView style={styles.safeArea}>
         {/* Navigation & Progress Header */}
         <View style={styles.header}>
@@ -182,7 +211,7 @@ export default function QuizScreen() {
             <View
               style={[
                 styles.progressBarFill,
-                gender === 'female' && { backgroundColor: '#F43F5E' },
+                gender === 'female' ? { backgroundColor: '#B28EF0' } : { backgroundColor: '#1D4ED8' },
                 { width: `${progressPercent}%` },
               ]}
             />
@@ -199,7 +228,7 @@ export default function QuizScreen() {
           {/* ========================================================================= */}
           {currentStep === 1 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 1 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 1 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Select Biological Sex</Text>
               <Text style={styles.questionSubtitle}>
                 Calibrates sexual dimorphism calculation (+13 cm male / −13 cm female per the clinical Tanner-Whitehouse metric).
@@ -211,7 +240,7 @@ export default function QuizScreen() {
                   key="opt-male"
                   style={[
                     styles.optionCard,
-                    gender === 'male' ? styles.optionCardActive : styles.optionCardInactive,
+                    gender === 'male' ? styles.optionCardActiveMale : styles.optionCardInactive,
                   ]}
                   onPress={() => {
                     setGender('male');
@@ -220,16 +249,16 @@ export default function QuizScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.optionLeft}>
-                    {/* Official Male Icon */}
-                    <View style={styles.genderIconContainer}>
+                    {/* Official Male Icon - Hero 68px Circle Edge-to-Edge */}
+                    <View style={[styles.heroGenderCircle, gender === 'male' && styles.heroGenderCircleMaleActive]}>
                       <Image
                         source={require('../../assets/male-icon-test.png')}
-                        style={styles.genderIconImg}
-                        resizeMode="contain"
+                        style={styles.heroGenderImg}
+                        resizeMode="cover"
                       />
                     </View>
 
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <View style={styles.optionTitleRow}>
                         <Text style={styles.optionTitle}>Male</Text>
                         <View style={styles.karyotypeChipBlue}>
@@ -245,7 +274,7 @@ export default function QuizScreen() {
                   <View
                     style={[
                       styles.checkCircle,
-                      gender === 'male' && styles.checkCircleActive,
+                      gender === 'male' && styles.checkCircleActiveMale,
                     ]}
                   >
                     {gender === 'male' && (
@@ -259,7 +288,7 @@ export default function QuizScreen() {
                   key="opt-female"
                   style={[
                     styles.optionCard,
-                    gender === 'female' ? styles.optionCardActivePink : styles.optionCardInactive,
+                    gender === 'female' ? styles.optionCardActiveFemale : styles.optionCardInactive,
                   ]}
                   onPress={() => {
                     setGender('female');
@@ -268,20 +297,20 @@ export default function QuizScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.optionLeft}>
-                    {/* Official Female Icon */}
-                    <View style={styles.genderIconContainerPink}>
+                    {/* Official Female Icon - Hero 68px Circle Edge-to-Edge */}
+                    <View style={[styles.heroGenderCircle, gender === 'female' && styles.heroGenderCircleFemaleActive]}>
                       <Image
                         source={require('../../assets/female-icon-test.png')}
-                        style={styles.genderIconImg}
-                        resizeMode="contain"
+                        style={styles.heroGenderImg}
+                        resizeMode="cover"
                       />
                     </View>
 
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <View style={styles.optionTitleRow}>
                         <Text style={styles.optionTitle}>Female</Text>
-                        <View style={styles.karyotypeChipPink}>
-                          <Text style={styles.karyotypeChipPinkText}>46, XX</Text>
+                        <View style={styles.karyotypeChipLavender}>
+                          <Text style={styles.karyotypeChipLavenderText}>46, XX</Text>
                         </View>
                       </View>
                       <Text style={styles.optionDescription}>
@@ -293,7 +322,7 @@ export default function QuizScreen() {
                   <View
                     style={[
                       styles.checkCircle,
-                      gender === 'female' && styles.checkCircleActivePink,
+                      gender === 'female' && styles.checkCircleActiveFemale,
                     ]}
                   >
                     {gender === 'female' && (
@@ -319,7 +348,7 @@ export default function QuizScreen() {
           {/* ========================================================================= */}
           {currentStep === 2 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 2 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 2 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>What is your current age?</Text>
               <Text style={styles.questionSubtitle}>
                 Epiphyseal plates undergo terminal fusion between ages 16–25. Your age establishes your remaining growth window.
@@ -355,7 +384,7 @@ export default function QuizScreen() {
           {/* ========================================================================= */}
           {currentStep === 3 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 3 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 3 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Select Genetic Population Standard</Text>
               <Text style={styles.questionSubtitle}>
                 Calibrates percentile curves against World Health Organization (WHO) and regional demographic datasets.
@@ -413,24 +442,22 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 4: CURRENT HEIGHT (HIGH-STABILITY BIOMETRIC RULER)               */}
+          {/* QUESTION 4: CURRENT HEIGHT (HIGH-STABILITY VERTICAL BIOMETRIC RULER)       */}
           {/* ========================================================================= */}
           {currentStep === 4 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 4 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 4 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>What is your current height?</Text>
               <Text style={styles.questionSubtitle}>
-                Slide the biometric ruler or tap − / + for 1-cm precision. Dual metric and imperial units update live.
+                Slide the vertical scale or tap − / + for precision. Toggle seamlessly between Ft/In and Cm.
               </Text>
 
-              <GlassCard style={styles.rulerContainerCard}>
-                <BiometricRulerGlass
-                  min={120}
-                  max={230}
+              <GlassCard style={styles.verticalRulerCard}>
+                <VerticalBiometricRuler
                   initialValue={currentHeight}
-                  unit="cm"
-                  subLabel="current standing stature"
                   onValueChange={(val) => setCurrentHeight(val)}
+                  accentColor={gender === 'female' ? '#B28EF0' : '#22C55E'}
+                  sublabel="current standing stature"
                 />
               </GlassCard>
 
@@ -454,7 +481,7 @@ export default function QuizScreen() {
           {/* ========================================================================= */}
           {currentStep === 5 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 5 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 5 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Growth velocity over past 12 months?</Text>
               <Text style={styles.questionSubtitle}>
                 Evaluates whether you are in your peak height velocity (PHV) spurt or approaching final epiphyseal fusion.
@@ -504,7 +531,7 @@ export default function QuizScreen() {
           {/* ========================================================================= */}
           {currentStep === 6 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 6 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 6 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Has your shoe size changed recently?</Text>
               <Text style={styles.questionSubtitle}>
                 Distal-to-proximal growth rule: Feet and hands cease lengthening 6–12 months before spinal vertebral growth stops.
@@ -554,55 +581,154 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 7: BIOLOGICAL FATHER'S HEIGHT                                    */}
+          {/* QUESTION 7: MID-PARENTAL BIOMETRIC MEASUREMENT (MERGED FATHER & MOTHER)   */}
           {/* ========================================================================= */}
           {currentStep === 7 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 7 OF 15</Text>
-              <Text style={styles.questionTitle}>Biological father&apos;s height?</Text>
+              <Text style={styles.questionNumber}>QUESTION 7 OF {totalSteps}</Text>
+              <Text style={styles.questionTitle}>Biological Parents&apos; Height</Text>
               <Text style={styles.questionSubtitle}>
-                Required for the Tanner mid-parental genetic target formula. If unknown, toggle the single-parent fallback.
+                Calibrates the Tanner-Whitehouse III genetic baseline using mid-parental data. Toggle between parents on this single screen.
               </Text>
 
-              {!fatherUnknown ? (
-                <GlassCard style={styles.rulerContainerCard}>
-                  <BiometricRulerGlass
-                    min={130}
-                    max={230}
-                    initialValue={fatherHeight}
-                    unit="cm"
-                    subLabel="father stature"
-                    onValueChange={(val) => setFatherHeight(val)}
-                  />
-                </GlassCard>
-              ) : (
-                <GlassCard style={styles.unknownFallbackCard}>
-                  <Text style={styles.unknownTitle}>Single Parent / Unknown Measurement</Text>
-                  <Text style={styles.unknownSubtitle}>
-                    Using maternal height + population sex-dimorphism fallback to project Tanner stature accurately.
+              {/* Segmented Parent Switcher Tabs */}
+              <View style={styles.parentTabRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.parentTabBtn,
+                    parentTab === 'father' && styles.parentTabBtnActiveMale,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setParentTab('father');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.parentTabText,
+                      parentTab === 'father' && styles.parentTabTextActive,
+                    ]}
+                  >
+                    👨 Father ({fatherUnknown ? 'Unknown' : `${fatherHeight} cm`})
                   </Text>
-                </GlassCard>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.parentTabBtn,
+                    parentTab === 'mother' && styles.parentTabBtnActiveFemale,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setParentTab('mother');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.parentTabText,
+                      parentTab === 'mother' && styles.parentTabTextActive,
+                    ]}
+                  >
+                    👩 Mother ({motherUnknown ? 'Unknown' : `${motherHeight} cm`})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Father Tab Active */}
+              {parentTab === 'father' && (
+                <View>
+                  {!fatherUnknown ? (
+                    <GlassCard style={styles.verticalRulerCard}>
+                      <VerticalBiometricRuler
+                        initialValue={fatherHeight}
+                        onValueChange={(val) => setFatherHeight(val)}
+                        accentColor="#1D4ED8"
+                        sublabel="Biological Father Stature"
+                      />
+                    </GlassCard>
+                  ) : (
+                    <GlassCard style={styles.unknownFallbackCard}>
+                      <Text style={styles.unknownTitle}>Single Parent / Unknown Father Measurement</Text>
+                      <Text style={styles.unknownSubtitle}>
+                        Using maternal height + population sex-dimorphism fallback to project Tanner stature accurately.
+                      </Text>
+                    </GlassCard>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => setFatherUnknown(!fatherUnknown)}
+                    style={styles.toggleFallbackBtn}
+                  >
+                    <Text style={styles.toggleFallbackText}>
+                      {fatherUnknown
+                        ? '← I know father&apos;s height (use exact measurement)'
+                        : 'I don&apos;t know father&apos;s height (use single-parent formula)'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
 
-              <TouchableOpacity
-                onPress={() => setFatherUnknown(!fatherUnknown)}
-                style={styles.toggleFallbackBtn}
-              >
-                <Text style={styles.toggleFallbackText}>
-                  {fatherUnknown
-                    ? '← I know father&apos;s height (use exact measurement)'
-                    : 'I don&apos;t know father&apos;s height (use single-parent formula)'}
-                </Text>
-              </TouchableOpacity>
+              {/* Mother Tab Active */}
+              {parentTab === 'mother' && (
+                <View>
+                  {!motherUnknown ? (
+                    <GlassCard style={styles.verticalRulerCard}>
+                      <VerticalBiometricRuler
+                        initialValue={motherHeight}
+                        onValueChange={(val) => setMotherHeight(val)}
+                        accentColor="#B28EF0"
+                        sublabel="Biological Mother Stature"
+                      />
+                    </GlassCard>
+                  ) : (
+                    <GlassCard style={styles.unknownFallbackCard}>
+                      <Text style={styles.unknownTitle}>Single Parent / Unknown Mother Measurement</Text>
+                      <Text style={styles.unknownSubtitle}>
+                        Using paternal height + population sex-dimorphism fallback to project Tanner stature accurately.
+                      </Text>
+                    </GlassCard>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => setMotherUnknown(!motherUnknown)}
+                    style={styles.toggleFallbackBtn}
+                  >
+                    <Text style={styles.toggleFallbackText}>
+                      {motherUnknown
+                        ? '← I know mother&apos;s height (use exact measurement)'
+                        : 'I don&apos;t know mother&apos;s height (use single-parent formula)'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Projected Tanner Target Live Summary */}
+              <GlassCard style={styles.tannerPreviewCard}>
+                <View style={styles.tannerPreviewRow}>
+                  <View>
+                    <Text style={styles.tannerPreviewLabel}>Projected Tanner Genetic Target</Text>
+                    <Text style={styles.tannerPreviewValue}>
+                      {liveTarget.toFixed(1)} cm ({cmToFtIn(liveTarget)})
+                    </Text>
+                  </View>
+                  <View style={styles.tannerPreviewBadge}>
+                    <Text style={styles.tannerPreviewBadgeText}>
+                      Formula Calibrated
+                    </Text>
+                  </View>
+                </View>
+              </GlassCard>
 
               {/* Prominent Clinical Source Box */}
               <GlassCard style={styles.clinicalFactBox}>
                 <View style={styles.factRow}>
                   <BookOpen size={16} color="#0284C7" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.factTitle}>Clinical Source: Tanner Mid-Parental Height Formula</Text>
+                    <Text style={styles.factTitle}>Clinical Source: Tanner-Whitehouse III Formula</Text>
                     <Text style={styles.factText}>
-                      Published by Tanner et al., Arch Dis Child. Paternal genetic contribution accounts for ~40% of baseline long-bone potential alleles.
+                      Published by Tanner et al., Arch Dis Child. Mid-parental stature provides ~80% of genetic baseline variance, with dimorphic offset (+13 cm male / −13 cm female).
                     </Text>
                   </View>
                 </View>
@@ -611,81 +737,22 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 8: BIOLOGICAL MOTHER'S HEIGHT                                    */}
+          {/* QUESTION 8: TARGET / DREAM HEIGHT                                         */}
           {/* ========================================================================= */}
           {currentStep === 8 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 8 OF 15</Text>
-              <Text style={styles.questionTitle}>Biological mother&apos;s height?</Text>
-              <Text style={styles.questionSubtitle}>
-                Maternal height calibrates the female X-chromosome growth velocity and uterine baseline.
-              </Text>
-
-              {!motherUnknown ? (
-                <GlassCard style={styles.rulerContainerCard}>
-                  <BiometricRulerGlass
-                    min={120}
-                    max={220}
-                    initialValue={motherHeight}
-                    unit="cm"
-                    subLabel="mother stature"
-                    onValueChange={(val) => setMotherHeight(val)}
-                  />
-                </GlassCard>
-              ) : (
-                <GlassCard style={styles.unknownFallbackCard}>
-                  <Text style={styles.unknownTitle}>Single Parent / Unknown Measurement</Text>
-                  <Text style={styles.unknownSubtitle}>
-                    Using paternal height + population sex-dimorphism fallback to project Tanner stature accurately.
-                  </Text>
-                </GlassCard>
-              )}
-
-              <TouchableOpacity
-                onPress={() => setMotherUnknown(!motherUnknown)}
-                style={styles.toggleFallbackBtn}
-              >
-                <Text style={styles.toggleFallbackText}>
-                  {motherUnknown
-                    ? '← I know mother&apos;s height (use exact measurement)'
-                    : 'I don&apos;t know mother&apos;s height (use single-parent formula)'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Prominent Clinical Source Box */}
-              <GlassCard style={styles.clinicalFactBox}>
-                <View style={styles.factRow}>
-                  <BookOpen size={16} color="#0284C7" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.factTitle}>Clinical Source: Tanner-Whitehouse III Model</Text>
-                    <Text style={styles.factText}>
-                      Maternal stature contributes crucial polygenic alleles for pubertal onset timing and final adult vertebral height.
-                    </Text>
-                  </View>
-                </View>
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          {/* ========================================================================= */}
-          {/* QUESTION 9: TARGET / DREAM HEIGHT                                         */}
-          {/* ========================================================================= */}
-          {currentStep === 9 && (
-            <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 9 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 8 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>What is your target / dream height?</Text>
               <Text style={styles.questionSubtitle}>
                 We calibrate your daily protocol targets and verify feasibility against biological growth boundaries.
               </Text>
 
-              <GlassCard style={styles.rulerContainerCard}>
-                <BiometricRulerGlass
-                  min={140}
-                  max={230}
+              <GlassCard style={styles.verticalRulerCard}>
+                <VerticalBiometricRuler
                   initialValue={dreamHeight}
-                  unit="cm"
-                  subLabel="dream stature target"
                   onValueChange={(val) => setDreamHeight(val)}
+                  accentColor={gender === 'female' ? '#B28EF0' : '#1D4ED8'}
+                  sublabel="dream stature target"
                 />
               </GlassCard>
 
@@ -722,11 +789,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 10: SLEEP DURATION                                               */}
+          {/* QUESTION 9: SLEEP DURATION                                                */}
           {/* ========================================================================= */}
-          {currentStep === 10 && (
+          {currentStep === 9 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 10 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 9 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Average nightly sleep duration?</Text>
               <Text style={styles.questionSubtitle}>
                 Slow-wave deep sleep (NREM Stages 3 & 4) triggers 70–80% of daily human growth hormone (somatotropin) release.
@@ -777,11 +844,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 11: DIET & NUTRITIONAL PROFILE                                    */}
+          {/* QUESTION 10: DIET & NUTRITIONAL PROFILE                                   */}
           {/* ========================================================================= */}
-          {currentStep === 11 && (
+          {currentStep === 10 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 11 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 10 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Daily nutrition & diet profile?</Text>
               <Text style={styles.questionSubtitle}>
                 Chondrocytes require complete essential amino acids, calcium, zinc, and collagen precursors for cartilage matrix synthesis.
@@ -832,11 +899,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 12: NICOTINE & ALCOHOL EXPOSURE                                  */}
+          {/* QUESTION 11: NICOTINE & ALCOHOL EXPOSURE                                  */}
           {/* ========================================================================= */}
-          {currentStep === 12 && (
+          {currentStep === 11 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 12 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 11 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Tobacco, vaping, or alcohol exposure?</Text>
               <Text style={styles.questionSubtitle}>
                 Nicotine causes vasoconstriction of epiphyseal capillaries, inhibiting osteoblast delivery to the growth plate.
@@ -886,11 +953,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 13: SEDENTARY SITTING TIME                                       */}
+          {/* QUESTION 12: SEDENTARY SITTING TIME                                       */}
           {/* ========================================================================= */}
-          {currentStep === 13 && (
+          {currentStep === 12 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 13 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 12 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Hours spent sitting per day?</Text>
               <Text style={styles.questionSubtitle}>
                 Prolonged seated slouching compresses the L1–L5 lumbar discs by up to 2.0 cm over the course of a day.
@@ -940,11 +1007,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 14: PHYSICAL ACTIVITY LEVEL                                      */}
+          {/* QUESTION 13: PHYSICAL ACTIVITY LEVEL                                      */}
           {/* ========================================================================= */}
-          {currentStep === 14 && (
+          {currentStep === 13 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 14 OF 15</Text>
+              <Text style={styles.questionNumber}>QUESTION 13 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>Weekly physical activity level?</Text>
               <Text style={styles.questionSubtitle}>
                 Progressive dynamic loading stimulates local IGF-1 expression and osteoblast bone mineralization.
@@ -995,11 +1062,11 @@ export default function QuizScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* QUESTION 15: PRIMARY PROTOCOL MOTIVATION                                  */}
+          {/* QUESTION 14: PRIMARY PROTOCOL MOTIVATION                                  */}
           {/* ========================================================================= */}
-          {currentStep === 15 && (
+          {currentStep === 14 && (
             <Animated.View entering={FadeInUp.duration(380).easing(Easing.out(Easing.cubic))}>
-              <Text style={styles.questionNumber}>QUESTION 15 OF {totalSteps}</Text>
+              <Text style={styles.questionNumber}>QUESTION 14 OF {totalSteps}</Text>
               <Text style={styles.questionTitle}>What is your primary motivation?</Text>
               <Text style={styles.questionSubtitle}>
                 Customizes your daily protocol checklist and milestone celebration badges.
@@ -1253,31 +1320,145 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   // Modern 3D Glass Badges for Question 1
+  // Hero 68px Gender Selection Badges (Edge-to-Edge)
+  heroGenderCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 2.5,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  heroGenderCircleMaleActive: {
+    borderColor: '#1D4ED8',
+    backgroundColor: '#EFF6FF',
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  heroGenderCircleFemaleActive: {
+    borderColor: '#B28EF0',
+    backgroundColor: '#FAF5FF',
+    shadowColor: '#B28EF0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  heroGenderImg: {
+    width: '100%',
+    height: '100%',
+  },
   genderIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(2, 132, 199, 0.1)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(2, 132, 199, 0.25)',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(29, 78, 216, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(29, 78, 216, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   genderIconContainerPink: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(244, 63, 94, 0.1)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(244, 63, 94, 0.25)',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(178, 142, 240, 0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(178, 142, 240, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   genderIconImg: {
-    width: 36,
-    height: 36,
+    width: '100%',
+    height: '100%',
+  },
+  optionCardActiveMale: {
+    borderColor: '#1D4ED8',
+    backgroundColor: 'rgba(239, 246, 255, 0.92)',
+    borderWidth: 2,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  optionCardActiveFemale: {
+    borderColor: '#B28EF0',
+    backgroundColor: 'rgba(250, 245, 255, 0.92)',
+    borderWidth: 2,
+    shadowColor: '#B28EF0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  karyotypeChipLavender: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(178, 142, 240, 0.2)',
+  },
+  karyotypeChipLavenderText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#6D28D9',
+  },
+  checkCircleActiveMale: {
+    backgroundColor: '#1D4ED8',
+    borderColor: '#1D4ED8',
+  },
+  checkCircleActiveFemale: {
+    backgroundColor: '#B28EF0',
+    borderColor: '#B28EF0',
+  },
+  verticalRulerCard: {
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  parentTabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  parentTabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(226, 232, 240, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parentTabBtnActiveMale: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#1D4ED8',
+  },
+  parentTabBtnActiveFemale: {
+    backgroundColor: '#FAF5FF',
+    borderColor: '#B28EF0',
+  },
+  parentTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  parentTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '800',
   },
   optionCardActivePink: {
     borderColor: '#F43F5E',

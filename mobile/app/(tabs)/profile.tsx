@@ -281,7 +281,11 @@ export default function ProfileScreen() {
           style={styles.headerContainer}
         >
           <View style={styles.brandPill}>
-            <Activity size={14} color="#2563EB" />
+            <Image
+              source={require('../../assets/icon.png')}
+              style={{ width: 18, height: 18, borderRadius: 5 }}
+              resizeMode="cover"
+            />
             <Text style={styles.brandText}>Tallgrame</Text>
             <View style={styles.onlineDot} />
           </View>

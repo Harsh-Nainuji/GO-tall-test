@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -139,7 +140,11 @@ export default function HomeScreen() {
         >
           <View style={styles.headerLeft}>
             <View style={styles.brandPill}>
-              <Activity size={14} color="#2563EB" />
+              <Image
+                source={require('../../assets/icon.png')}
+                style={{ width: 18, height: 18, borderRadius: 5 }}
+                resizeMode="cover"
+              />
               <Text style={styles.brandText}>Tallgrame</Text>
               <View style={styles.onlineDot} />
             </View>

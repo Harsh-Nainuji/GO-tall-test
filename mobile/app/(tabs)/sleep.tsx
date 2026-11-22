@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -17,6 +18,7 @@ import {
   Calendar,
   Clock,
   ShieldCheck,
+  Activity,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -24,6 +26,7 @@ import * as Haptics from 'expo-haptics';
 import GoTallBackground from '../../components/GoTallBackground';
 import GlassCard from '../../components/ui/GlassCard';
 import CircularProgressRingGlass from '../../components/CircularProgressRingGlass';
+import SleepClockDial from '../../components/SleepClockDial';
 import GradientBarChart from '../../components/GradientBarChart';
 import SleepSchedulerModal from '../../components/SleepSchedulerModal';
 import { useAppStore } from '../../lib/store';
@@ -95,9 +98,18 @@ export default function SleepScreen() {
   return (
     <GoTallBackground variant="pattern">
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Header */}
+        {/* Top Header with Brand Logo & Name */}
         <Animated.View entering={FadeInDown.delay(50).springify()} style={styles.headerRow}>
           <View style={styles.headerLeft}>
+            <View style={styles.brandPill}>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.brandLogoImg}
+                resizeMode="cover"
+              />
+              <Text style={styles.brandText}>Tallgrame</Text>
+              <View style={styles.onlineDot} />
+            </View>
             <Text style={styles.headerTitle}>Sleep & Recovery</Text>
             <Text style={styles.headerSubtitle}>Nocturnal Somatotropin (hGH) cycle</Text>
           </View>
@@ -125,61 +137,22 @@ export default function SleepScreen() {
         </Animated.View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* PRIMARY SINGLE SLEEP RING CARD */}
+          {/* PRIMARY SLEEP CLOCK DIAL (Image 2: Circular Dial with Lavender Arc & 8hr Target) */}
           <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <GlassCard style={styles.ringCard}>
-              <View style={styles.ringCenterWrap}>
-                <CircularProgressRingGlass
-                  size={145}
-                  strokeWidth={9}
-                  percentage={sleepPct}
-                  color={colors.purple500}
-                  gradientSecondary="#38BDF8"
-                  valueText={`${currentHours}h`}
-                  unitText={`of ${sleepTargetHours}h goal`}
-                  label={`${selectedDayData.day} Sleep`}
-                  sublabel={`${sleepPct}% Target Met`}
-                />
-              </View>
-
-              {/* Bedtime & Wakeup Tiles */}
-              <View style={styles.scheduleRow}>
-                <View style={styles.scheduleBox}>
-                  <Sunset size={16} color={colors.purple500} />
-                  <View>
-                    <Text style={styles.scheduleLabel}>Target Bedtime</Text>
-                    <Text style={styles.scheduleValue}>
-                      {selectedDayData.log?.bedtime || '10:30 PM'}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.scheduleBox}>
-                  <Sunrise size={16} color="#0284C7" />
-                  <View>
-                    <Text style={styles.scheduleLabel}>Wake Up</Text>
-                    <Text style={styles.scheduleValue}>
-                      {selectedDayData.log?.wakeupTime || '07:00 AM'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Action Button: Single Unified Wheel Sleep Scheduler */}
-              <View style={styles.cardActionsRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setSchedulerModalVisible(true);
-                  }}
-                  style={styles.primaryLogSleepBtn}
-                  activeOpacity={0.8}
-                >
-                  <Clock size={16} color="#FFFFFF" strokeWidth={2.5} />
-                  <Text style={styles.primaryLogSleepBtnText}>Log & Schedule Sleep</Text>
-                </TouchableOpacity>
-              </View>
-            </GlassCard>
+            <SleepClockDial
+              hours={currentHours}
+              bedtime={selectedDayData.log?.bedtime || '23:30'}
+              wakeupTime={selectedDayData.log?.wakeupTime || '07:30'}
+              targetHours={sleepTargetHours}
+              onPressBedtime={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setSchedulerModalVisible(true);
+              }}
+              onPressWakeup={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setSchedulerModalVisible(true);
+              }}
+            />
           </Animated.View>
 
           {/* APPLE HEALTH WEEKLY BAR CHART */}
@@ -561,6 +534,36 @@ const styles = StyleSheet.create({
   qualityBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  brandPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  brandLogoImg: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+  },
+  brandText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
   },
   qualityTextOptimal: {
     color: '#15803D',
