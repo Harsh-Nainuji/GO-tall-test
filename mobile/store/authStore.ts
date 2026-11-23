@@ -68,25 +68,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ session: data.session, user: data.user, isLoading: false });
 
-      // Automatically ensure corresponding profile row in Supabase
+      // Ensure corresponding profile row in Supabase if not yet created (never overwrite existing biometrics)
       if (data.user) {
         try {
-          await supabase.from('profiles').upsert(
-            {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          if (!existingProfile) {
+            await supabase.from('profiles').insert({
               id: data.user.id,
               user_id: data.user.id,
               email: data.user.email,
               name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
               gender: 'Male',
-              age: 16,
-              current_height: 170,
-              predicted_height: 180,
-              potential_gain: 10,
+              age: 17,
+              current_height: 172.4,
+              predicted_height: 182.0,
+              potential_gain: 9.6,
               growth_plate_status: 'Open (Accelerated)',
               subscription_tier: 'Free',
-            },
-            { onConflict: 'id' }
-          );
+              is_premium: false,
+              active_plan_id: 'plan_free',
+            });
+          }
         } catch (profileErr) {
           console.warn('Could not auto-create profile row:', profileErr);
         }
@@ -125,25 +132,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ session: data.session, user: data.user, isLoading: false });
 
-      // Automatically ensure corresponding profile row in Supabase
+      // Ensure corresponding profile row in Supabase if not yet created (never overwrite existing biometrics)
       if (data.user) {
         try {
-          await supabase.from('profiles').upsert(
-            {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          if (!existingProfile) {
+            await supabase.from('profiles').insert({
               id: data.user.id,
               user_id: data.user.id,
               email: data.user.email,
               name: name?.trim() || data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
               gender: 'Male',
-              age: 16,
-              current_height: 170,
-              predicted_height: 180,
-              potential_gain: 10,
+              age: 17,
+              current_height: 172.4,
+              predicted_height: 182.0,
+              potential_gain: 9.6,
               growth_plate_status: 'Open (Accelerated)',
               subscription_tier: 'Free',
-            },
-            { onConflict: 'id' }
-          );
+              is_premium: false,
+              active_plan_id: 'plan_free',
+            });
+          }
         } catch (profileErr) {
           console.warn('Could not auto-create profile row:', profileErr);
         }

@@ -43,6 +43,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 import { useAppStore, AchievementBadgeItem } from '../../lib/store';
+import { useAuthStore } from '../../store/authStore';
 import { calculateTarget, cmToFtIn, formatMacro } from '../../lib/growth-calc';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
@@ -374,10 +375,17 @@ export default function ProfileScreen() {
                 <View style={styles.authActionRow}>
                   <TouchableOpacity
                     style={styles.signOutBtn}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      signOut();
-                      router.replace('/');
+                    onPress={async () => {
+                      try {
+                        Haptics.selectionAsync().catch(() => {});
+                        await useAuthStore.getState().signOut();
+                        signOut();
+                        router.replace('/');
+                      } catch (err) {
+                        console.warn('Sign out error:', err);
+                        signOut();
+                        router.replace('/');
+                      }
                     }}
                     activeOpacity={0.7}
                   >
@@ -671,20 +679,27 @@ export default function ProfileScreen() {
                           )}
                         </View>
 
-                        <View
-                          style={[
-                            styles.tierTag,
-                            isUnlocked ? styles.tierTagUnlocked : styles.tierTagLocked,
-                          ]}
-                        >
-                          <Text
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <View
                             style={[
-                              styles.tierTagText,
-                              isUnlocked ? styles.tierTagTextUnlocked : styles.tierTagTextLocked,
+                              styles.tierTag,
+                              isUnlocked ? styles.tierTagUnlocked : styles.tierTagLocked,
                             ]}
                           >
-                            {badge.tier}
-                          </Text>
+                            <Text
+                              style={[
+                                styles.tierTagText,
+                                isUnlocked ? styles.tierTagTextUnlocked : styles.tierTagTextLocked,
+                              ]}
+                            >
+                              {badge.tier}
+                            </Text>
+                          </View>
+                          {badge.tier !== 'bronze' && !isPremium && (
+                            <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6 }}>
+                              <Text style={{ fontSize: 9, fontWeight: '800', color: '#D97706' }}>PRO</Text>
+                            </View>
+                          )}
                         </View>
                       </View>
 
@@ -711,10 +726,14 @@ export default function ProfileScreen() {
                         <Text
                           style={[
                             styles.badgeStatusText,
-                            isUnlocked ? styles.badgeStatusUnlocked : styles.badgeStatusLocked,
+                            isUnlocked
+                              ? styles.badgeStatusUnlocked
+                              : badge.tier !== 'bronze' && !isPremium
+                              ? { color: '#D97706', fontWeight: '700' }
+                              : styles.badgeStatusLocked,
                           ]}
                         >
-                          {isUnlocked ? 'Unlocked ✓' : 'Locked'}
+                          {isUnlocked ? 'Unlocked ✓' : badge.tier !== 'bronze' && !isPremium ? 'Pro Locked' : 'Locked'}
                         </Text>
                       </View>
                     </GlassCard>

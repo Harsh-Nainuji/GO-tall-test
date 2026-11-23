@@ -26,7 +26,9 @@ import {
   Clock,
   RotateCcw,
   Zap,
+  Crown,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 
 import { useAppStore, DailyTodo } from '../../lib/store';
@@ -52,6 +54,8 @@ const QUICK_SUGGESTIONS = [
 ];
 
 export default function TodosScreen() {
+  const router = useRouter();
+  const isPremium = useAppStore((state) => state.isPremium);
   const todosRaw = useAppStore((state) => state.todos);
   const todos = useMemo(() => todosRaw || [], [todosRaw]);
   const toggleTodo = useAppStore((state) => state.toggleTodo);
@@ -403,56 +407,87 @@ export default function TodosScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.inputLabel}>Habit Title</Text>
-              <TextInput
-                value={newTitle}
-                onChangeText={setNewTitle}
-                placeholder="e.g., Morning 500ml lemon water..."
-                placeholderTextColor="#94A3B8"
-                style={styles.textInput}
-                autoFocus
-              />
-
-              <Text style={styles.inputLabel}>Category</Text>
-              <View style={styles.categoryPickerRow}>
-                {CATEGORIES.map((cat) => {
-                  const isSelected = newCategory === cat;
-                  const meta = CATEGORY_META[cat];
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => { });
-                        setNewCategory(cat);
-                      }}
-                      style={[
-                        styles.catChoiceChip,
-                        isSelected && [styles.catChoiceChipActive, { borderColor: meta.color }],
-                      ]}
-                    >
-                      <Text style={styles.catChoiceEmoji}>{meta.emoji}</Text>
-                      <Text
-                        style={[
-                          styles.catChoiceText,
-                          isSelected && [styles.catChoiceTextActive, { color: meta.color }],
-                        ]}
-                      >
-                        {cat}
+              {!isPremium && todos.length >= 6 ? (
+                <View style={{ paddingVertical: 12, alignItems: 'center', gap: 10 }}>
+                  <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 14, width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: '#FDE68A', borderWidth: 1 }}>
+                    <Crown size={20} color="#D97706" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#92400E' }}>Custom Habits Limit Reached</Text>
+                      <Text style={{ fontSize: 11, color: '#78350F', marginTop: 2, lineHeight: 15 }}>
+                        Free Starter includes the 5 core clinical growth habits. Upgrade to Pro for unlimited daily custom protocol tracking.
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setModalVisible(false);
+                      router.push('/membership' as any);
+                    }}
+                    style={{ backgroundColor: '#D97706', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 14, width: '100%', alignItems: 'center' }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Upgrade to Tallgrame Pro →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.inputLabel}>Habit Title</Text>
+                  <TextInput
+                    value={newTitle}
+                    onChangeText={setNewTitle}
+                    placeholder="e.g., Morning 500ml lemon water..."
+                    placeholderTextColor="#94A3B8"
+                    style={styles.textInput}
+                    autoFocus
+                  />
 
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleAddNew}
-                style={[styles.saveTaskBtn, !newTitle.trim() && styles.saveTaskBtnDisabled]}
-                disabled={!newTitle.trim()}
-              >
-                <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
-                <Text style={styles.saveTaskBtnText}>Add to Daily Protocol</Text>
-              </TouchableOpacity>
+                  <Text style={styles.inputLabel}>Category</Text>
+                  <View style={styles.categoryPickerRow}>
+                    {CATEGORIES.map((cat) => {
+                      const isSelected = newCategory === cat;
+                      const meta = CATEGORY_META[cat];
+                      return (
+                        <TouchableOpacity
+                          key={cat}
+                          onPress={() => {
+                            Haptics.selectionAsync().catch(() => { });
+                            setNewCategory(cat);
+                          }}
+                          style={[
+                            styles.catChoiceChip,
+                            isSelected && [styles.catChoiceChipActive, { borderColor: meta.color }],
+                          ]}
+                        >
+                          <Text style={styles.catChoiceEmoji}>{meta.emoji}</Text>
+                          <Text
+                            style={[
+                              styles.catChoiceText,
+                              isSelected && [styles.catChoiceTextActive, { color: meta.color }],
+                            ]}
+                          >
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleAddNew}
+                    style={[styles.saveTaskBtn, !newTitle.trim() && styles.saveTaskBtnDisabled]}
+                  >
+                    <LinearGradient
+                      colors={newTitle.trim() ? ['#2563EB', '#1D4ED8'] : ['#E2E8F0', '#CBD5E1']}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <Plus size={16} color={newTitle.trim() ? '#FFFFFF' : '#94A3B8'} strokeWidth={2.5} />
+                    <Text style={[styles.saveTaskBtnText, !newTitle.trim() && { opacity: 0.6 }]}>
+                      Add to Daily Protocol
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </GlassCard>
           </KeyboardAvoidingView>
         </Modal>

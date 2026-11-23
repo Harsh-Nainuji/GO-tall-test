@@ -1,10 +1,11 @@
 // ✓ Modal rules applied — GlassCard, ScrollView, 85% maxHeight, SlideInDown
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { CheckCircle2, Lock } from 'lucide-react-native';
+import { CheckCircle2, Lock, Crown } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import BottomSheet from './ui/BottomSheet';
-import { AchievementBadgeItem } from '../lib/store';
+import { AchievementBadgeItem, useAppStore } from '../lib/store';
 import { colors } from '../lib/theme';
 
 interface ExtendedBadge extends AchievementBadgeItem {
@@ -24,7 +25,11 @@ export default function BadgeModal({
   isUnlocked,
   onClose,
 }: BadgeModalProps) {
+  const router = useRouter();
+  const isPremium = useAppStore((state) => state.isPremium);
   if (!badge) return null;
+
+  const isProTierGated = badge.tier !== 'bronze' && !isPremium;
 
   return (
     <BottomSheet
@@ -75,6 +80,34 @@ export default function BadgeModal({
           <View style={styles.unlockedPill}>
             <CheckCircle2 size={16} color={colors.green600} />
             <Text style={styles.unlockedPillText}>Unlocked and earned ✓</Text>
+          </View>
+        ) : isProTierGated ? (
+          <View style={{ alignItems: 'center', width: '100%', gap: 8 }}>
+            <View style={[styles.lockedPill, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+              <Crown size={15} color="#D97706" />
+              <Text style={[styles.lockedPillText, { color: '#B45309', fontWeight: '700' }]}>
+                Pro Plan Required for {badge.tier.toUpperCase()} Badges
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                onClose();
+                router.push('/membership' as any);
+              }}
+              style={{
+                backgroundColor: '#D97706',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                alignItems: 'center',
+                width: '100%',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                Unlock All Badges with Pro →
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.lockedPill}>

@@ -205,19 +205,55 @@ export default function SleepScreen() {
             </GlassCard>
           </Animated.View>
 
-          {/* CLINICAL hGH INSIGHT CARD */}
+          {/* CLINICAL hGH INSIGHT / PRO LOCK CARD */}
           <Animated.View entering={FadeInDown.delay(240).springify()}>
-            <GlassCard style={styles.insightCard}>
-              <View style={styles.insightIconWrap}>
-                <Sparkles size={18} color="#2563EB" />
-              </View>
-              <View style={styles.insightContent}>
-                <Text style={styles.insightTitle}>Somatotropin (hGH) Secretion Window</Text>
-                <Text style={styles.insightDesc}>
-                  Over 75% of cumulative daily human growth hormone is pulsed during Stage 3–4 slow-wave deep sleep between 10:00 PM and 2:00 AM. Maintaining consistent bedtime synchronizes peak anabolic recovery.
-                </Text>
-              </View>
-            </GlassCard>
+            {entitlements.canAccessSomatotropinSleepSync ? (
+              <GlassCard style={styles.insightCard}>
+                <View style={styles.insightIconWrap}>
+                  <Sparkles size={18} color="#2563EB" />
+                </View>
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightTitle}>Somatotropin (hGH) Secretion Window</Text>
+                  <Text style={styles.insightDesc}>
+                    Over 75% of cumulative daily human growth hormone is pulsed during Stage 3–4 slow-wave deep sleep between 10:00 PM and 2:00 AM. Your nocturnal schedule is active.
+                  </Text>
+                </View>
+              </GlassCard>
+            ) : (
+              <GlassCard style={[styles.insightCard, { borderColor: 'rgba(217, 119, 6, 0.3)', backgroundColor: 'rgba(254, 243, 199, 0.45)' }]}>
+                <View style={[styles.insightIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                  <Crown size={18} color="#D97706" />
+                </View>
+                <View style={styles.insightContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={[styles.insightTitle, { color: '#92400E' }]}>Somatotropin (hGH) Pro Sync</Text>
+                    <View style={{ backgroundColor: '#D97706', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>PRO ONLY</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.insightDesc, { color: '#78350F', marginTop: 4 }]}>
+                    Nocturnal deep-sleep hGH pulse analytics and circadian endocrine synchronization are reserved for Pro subscribers.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      router.push('/membership' as any);
+                    }}
+                    style={{
+                      marginTop: 8,
+                      alignSelf: 'flex-start',
+                      backgroundColor: '#D97706',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 10,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>Upgrade to Pro Plan →</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            )}
           </Animated.View>
 
           {/* RECENT SLEEP HISTORY */}

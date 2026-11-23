@@ -14,8 +14,22 @@ export default function RootLayout() {
     fetchLiveContent().catch(() => {});
 
     // Sync subscription status with RevenueCat in real-time
-    const unsubscribeRC = setupRevenueCatCustomerInfoListener((isPro) => {
-      useAppStore.getState().setPremium(isPro);
+    const unsubscribeRC = setupRevenueCatCustomerInfoListener((isPro, customerInfo) => {
+      const state = useAppStore.getState();
+      const hasActivePaidEntitlement =
+        customerInfo?.entitlements?.active &&
+        Object.keys(customerInfo.entitlements.active).length > 0;
+
+      // Only upgrade if RevenueCat reports verified active entitlement; never promote Free Starter inadvertently
+      if (isPro && hasActivePaidEntitlement) {
+        if (!state.isPremium) {
+          state.setPremium(true);
+        }
+      } else if (!isPro) {
+        if (state.isPremium && state.activePlanId !== 'plan_lifetime') {
+          state.setPremium(false);
+        }
+      }
     });
 
     return () => {

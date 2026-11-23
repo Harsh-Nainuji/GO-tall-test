@@ -1121,6 +1121,7 @@ interface AppState {
   addSleepLog: (log: Omit<SleepLog, 'id' | 'timestamp'>) => void;
   deleteSleepLog: (id: string) => void;
   setSleepTargetHours: (hrs: number) => void;
+  hydrateUserData: (userId: string) => Promise<void>;
   setUser: (user: UserProfile | null) => void;
   signOut: () => void;
   unlockBadge: (badgeId: string) => void;
@@ -1436,16 +1437,18 @@ export const useAppStore = create<AppState>()(
       todos: INITIAL_DAILY_TODOS,
       toggleTodo: (id: string) => {
         let isNowCompleted = false;
+        let targetTodo: DailyTodo | undefined;
         set((state) => {
           const updated = state.todos.map((t) => {
             if (t.id === id) {
               const nextCompleted = !t.completed;
               if (nextCompleted) isNowCompleted = true;
-              return {
+              targetTodo = {
                 ...t,
                 completed: nextCompleted,
                 completedAt: nextCompleted ? new Date().toISOString() : undefined,
               };
+              return targetTodo;
             }
             return t;
           });
@@ -1453,6 +1456,27 @@ export const useAppStore = create<AppState>()(
         });
         if (isNowCompleted) {
           get().checkAndUpdateDailyStreak();
+        }
+
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id && targetTodo) {
+          void supabase
+            .from('user_todos')
+            .upsert(
+              {
+                id: targetTodo.id,
+                user_id: user.id,
+                title: targetTodo.title,
+                category: targetTodo.category,
+                icon: targetTodo.icon,
+                completed: targetTodo.completed,
+                completed_at: targetTodo.completedAt || null,
+                is_default: Boolean(targetTodo.isDefault),
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'id' }
+            )
+            .then(null, () => {});
         }
       },
       addTodo: ({ title, category = 'Custom', icon = '✨' }) => {
@@ -1466,9 +1490,30 @@ export const useAppStore = create<AppState>()(
           isDefault: false,
         };
         set((state) => ({ todos: [newTodo, ...state.todos] }));
+
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase
+            .from('user_todos')
+            .insert({
+              id: newTodo.id,
+              user_id: user.id,
+              title: newTodo.title,
+              category: newTodo.category,
+              icon: newTodo.icon,
+              completed: false,
+              is_default: false,
+              created_at: newTodo.createdAt,
+            })
+            .then(null, () => {});
+        }
       },
       deleteTodo: (id: string) => {
         set((state) => ({ todos: state.todos.filter((t) => t.id !== id) }));
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase.from('user_todos').delete().eq('id', id).then(null, () => {});
+        }
       },
       resetDailyTodos: () => {
         set((state) => ({
@@ -1569,6 +1614,21 @@ export const useAppStore = create<AppState>()(
           get().checkAndUpdateDailyStreak();
         }
         get().checkBadges();
+
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase
+            .from('daily_logs')
+            .upsert(
+              {
+                user_id: user.id,
+                log_date: todayStr,
+                completed_stretches: updatedToday,
+              },
+              { onConflict: 'user_id,log_date' }
+            )
+            .then(null, () => {});
+        }
       },
 
       markStretchComplete: (index) => {
@@ -1584,6 +1644,21 @@ export const useAppStore = create<AppState>()(
           });
           get().checkAndUpdateDailyStreak();
           get().checkBadges();
+
+          const user = get().user;
+          if (isSupabaseConfigured() && user?.id) {
+            void supabase
+              .from('daily_logs')
+              .upsert(
+                {
+                  user_id: user.id,
+                  log_date: todayStr,
+                  completed_stretches: updatedToday,
+                },
+                { onConflict: 'user_id,log_date' }
+              )
+              .then(null, () => {});
+          }
         }
       },
 
@@ -1601,10 +1676,33 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ meals: [newMeal, ...state.meals] }));
         get().checkAndUpdateDailyStreak();
         get().checkBadges();
+
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase
+            .from('meals')
+            .insert({
+              id: newMeal.id,
+              user_id: user.id,
+              name: newMeal.name,
+              serving_size: '1 serving',
+              category: newMeal.category,
+              calories: newMeal.calories,
+              protein: newMeal.protein,
+              carbs: newMeal.carbs,
+              fat: newMeal.fat,
+              active: true,
+            })
+            .then(null, () => {});
+        }
       },
 
       deleteMeal: (id) => {
         set((state) => ({ meals: state.meals.filter((m) => m.id !== id) }));
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase.from('meals').delete().eq('id', id).then(null, () => {});
+        }
       },
 
       addSleepLog: (log) => {
@@ -1618,12 +1716,31 @@ export const useAppStore = create<AppState>()(
         }));
         get().checkAndUpdateDailyStreak();
         get().checkBadges();
+
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase
+            .from('sleep_logs')
+            .insert({
+              user_id: user.id,
+              logged_date: log.date,
+              bedtime: log.bedtime || null,
+              wakeup_time: log.wakeupTime || null,
+              hours: log.hours,
+              quality: log.quality,
+            })
+            .then(null, () => {});
+        }
       },
 
       deleteSleepLog: (id) => {
         set((state) => ({
           sleepLogs: state.sleepLogs.filter((l) => l.id !== id),
         }));
+        const user = get().user;
+        if (isSupabaseConfigured() && user?.id) {
+          void supabase.from('sleep_logs').delete().eq('id', id).then(null, () => {});
+        }
       },
 
       setSleepTargetHours: (hrs) => {
@@ -1646,14 +1763,18 @@ export const useAppStore = create<AppState>()(
 
         let userId = `user-${Date.now()}`;
         const isFree = planName.toLowerCase().includes('free');
-        const tierName = planName.includes('Annual')
+        const tierName = isFree
+          ? 'Free'
+          : planName.includes('Annual')
           ? 'Pro Annual'
           : planName.includes('Monthly')
           ? 'Pro Monthly'
           : planName.includes('Lifetime')
           ? 'Lifetime VIP'
           : 'Free';
-        const activePlanId = planName.includes('Annual')
+        const activePlanId = isFree
+          ? 'plan_free'
+          : planName.includes('Annual')
           ? 'plan_pro_annual'
           : planName.includes('Monthly')
           ? 'plan_pro_monthly'
@@ -1661,8 +1782,12 @@ export const useAppStore = create<AppState>()(
           ? 'plan_lifetime'
           : 'plan_free';
 
+        const trajectory = quizData ? calculateTarget(quizData) : null;
+
         if (isSupabaseConfigured()) {
           try {
+            let authUserObj: any = null;
+            let authSessionObj: any = null;
             // Register in Supabase Auth
             const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
               email,
@@ -1674,6 +1799,8 @@ export const useAppStore = create<AppState>()(
 
             if (signUpData?.user?.id) {
               userId = signUpData.user.id;
+              authUserObj = signUpData.user;
+              authSessionObj = signUpData.session;
             } else if (signUpError) {
               // If already registered, sign in to link session
               const { data: signInData } = await supabase.auth.signInWithPassword({
@@ -1682,10 +1809,12 @@ export const useAppStore = create<AppState>()(
               });
               if (signInData?.user?.id) {
                 userId = signInData.user.id;
+                authUserObj = signInData.user;
+                authSessionObj = signInData.session;
               }
             }
 
-            // Sync user profile in Supabase
+            // Sync user profile in Supabase with full clinical biometrics
             await supabase.from('profiles').upsert({
               id: userId,
               user_id: userId,
@@ -1694,9 +1823,17 @@ export const useAppStore = create<AppState>()(
               gender: quizData?.gender === 'female' ? 'Female' : 'Male',
               age: quizData?.age || 17,
               current_height: quizData?.currentHeight || 172.4,
+              predicted_height: trajectory?.target || 182.0,
+              potential_gain: trajectory?.potentialGain || 9.6,
+              growth_plate_status: trajectory?.platesLikelyClosed ? 'Fully Ossified' : 'Open (Accelerated)',
+              tanner_stage: trajectory?.platesLikelyClosed ? 5 : 3,
+              father_height: quizData?.fatherHeight || 178,
+              mother_height: quizData?.motherHeight || 164,
+              mid_parental_target: trajectory?.target || 177.5,
               subscription_tier: tierName,
               is_premium: !isFree,
               active_plan_id: activePlanId,
+              updated_at: new Date().toISOString(),
             });
 
             // Log payment if paid
@@ -1709,6 +1846,14 @@ export const useAppStore = create<AppState>()(
                 currency: 'INR',
                 status: 'success',
               });
+            }
+
+            // Sync authStore cleanly without cyclic dependency
+            if (authUserObj) {
+              try {
+                const { useAuthStore } = require('../store/authStore');
+                useAuthStore.setState({ user: authUserObj, session: authSessionObj });
+              } catch {}
             }
           } catch (e) {
             console.warn('Supabase account provisioning error:', e);
@@ -1738,7 +1883,115 @@ export const useAppStore = create<AppState>()(
           pendingRegistration: null,
         });
 
+        // Hydrate cloud data if any exists
+        await get().hydrateUserData(userId);
+
         return true;
+      },
+
+      hydrateUserData: async (userId: string) => {
+        if (!isSupabaseConfigured() || !userId) return;
+
+        try {
+          // 1. Hydrate sleep logs
+          const { data: dbSleep } = await supabase
+            .from('sleep_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .order('logged_date', { ascending: false });
+
+          if (dbSleep && dbSleep.length > 0) {
+            const mappedSleep: SleepLog[] = dbSleep.map((s: any) => ({
+              id: s.id,
+              date: s.logged_date,
+              dayOfWeek: new Date(s.logged_date).toLocaleDateString('en-US', { weekday: 'short' }),
+              bedtime: s.bedtime || undefined,
+              wakeupTime: s.wakeup_time || undefined,
+              hours: Number(s.hours) || 8,
+              quality: s.quality || 'Good',
+              timestamp: s.created_at || new Date().toISOString(),
+            }));
+            set({ sleepLogs: mappedSleep });
+          }
+
+          // 2. Hydrate completed stretches
+          const { data: dailyData } = await supabase
+            .from('daily_logs')
+            .select('log_date, completed_stretches')
+            .eq('user_id', userId);
+
+          if (dailyData && dailyData.length > 0) {
+            const byDate: Record<string, number[]> = {};
+            dailyData.forEach((row: any) => {
+              if (row.log_date && Array.isArray(row.completed_stretches)) {
+                byDate[row.log_date] = row.completed_stretches;
+              }
+            });
+            const todayStr = getLocalTodayDateStr();
+            set({
+              completedStretchesByDate: byDate,
+              completedStretches: byDate[todayStr] || [],
+            });
+          }
+
+          // 3. Hydrate meals
+          const { data: dbMeals } = await supabase
+            .from('meals')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+          if (dbMeals && dbMeals.length > 0) {
+            const mappedMeals: LoggedMeal[] = dbMeals.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              calories: Number(m.calories) || 0,
+              protein: Number(m.protein) || 0,
+              carbs: Number(m.carbs) || 0,
+              fat: Number(m.fat) || 0,
+              category: (m.category as any) || 'Lunch',
+              time: m.created_at
+                ? new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                : '12:00 PM',
+              date: m.created_at ? m.created_at.split('T')[0] : getLocalTodayDateStr(),
+            }));
+            set({ meals: mappedMeals });
+          }
+
+          // 4. Hydrate user achievements
+          const { data: userAchievements } = await supabase
+            .from('user_achievements')
+            .select('achievement_id')
+            .eq('user_id', userId);
+
+          if (userAchievements && userAchievements.length > 0) {
+            set({ unlockedBadgeIds: userAchievements.map((ua: any) => ua.achievement_id) });
+          }
+
+          // 5. Hydrate user todos
+          const { data: dbTodos } = await supabase
+            .from('user_todos')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true });
+
+          if (dbTodos && dbTodos.length > 0) {
+            set({
+              todos: dbTodos.map((t: any) => ({
+                id: t.id,
+                title: t.title,
+                category: t.category as any,
+                icon: t.icon || '✨',
+                completed: Boolean(t.completed),
+                completedAt: t.completed_at || undefined,
+                createdAt: t.created_at,
+                isDefault: Boolean(t.is_default),
+              })),
+            });
+          }
+        } catch (err) {
+          console.warn('[hydrateUserData] error:', err);
+        }
       },
 
       signOut: () => {
@@ -1775,13 +2028,27 @@ export const useAppStore = create<AppState>()(
       },
 
       unlockBadge: (badgeId) => {
-        const { unlockedBadgeIds, badges } = get();
+        const { unlockedBadgeIds, badges, user } = get();
         if (!unlockedBadgeIds.includes(badgeId)) {
           const badge = badges.find((b) => b.id === badgeId);
           set({
             unlockedBadgeIds: [...unlockedBadgeIds, badgeId],
             newlyUnlockedBadge: badge || null,
           });
+
+          if (isSupabaseConfigured() && user?.id) {
+            void supabase
+              .from('user_achievements')
+              .upsert(
+                {
+                  user_id: user.id,
+                  achievement_id: badgeId,
+                  unlocked_at: new Date().toISOString(),
+                },
+                { onConflict: 'user_id,achievement_id' }
+              )
+              .then(null, () => {});
+          }
         }
       },
 

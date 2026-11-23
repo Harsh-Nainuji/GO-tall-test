@@ -80,6 +80,17 @@ export default function TabLayout() {
         options={{
           title: 'Sleep',
           tabBarIcon: ({ color, size }) => <BedDouble color={color} size={size} strokeWidth={2.3} />,
+          tabBarBadge: !entitlements.canAccessSomatotropinSleepSync ? 'PRO' : undefined,
+          tabBarBadgeStyle: {
+            fontSize: 7.5,
+            fontWeight: '800',
+            backgroundColor: '#D97706',
+            color: '#FFFFFF',
+            minWidth: 26,
+            height: 14,
+            lineHeight: 14,
+            borderRadius: 7,
+          },
         }}
       />
       <Tabs.Screen

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import BottomSheet from './ui/BottomSheet';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore, UserProfile } from '../lib/store';
+import { QuizData } from '../lib/growth-calc';
 import { useWaterStore } from '../store/waterStore';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
@@ -85,11 +86,15 @@ export default function AuthModal({
     let userTier = 'Free';
     let userPlanId = 'plan_free';
 
+    // Cleanly isolate state: reset prior account data before logging in
+    useAppStore.getState().resetAccountData(mode === 'signup');
+    useWaterStore.getState().resetWaterData();
+
     if (isSupabaseConfigured() && authUser?.id) {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_premium, subscription_tier, active_plan_id, name')
+          .select('*')
           .eq('id', authUser.id)
           .maybeSingle();
 
@@ -97,15 +102,29 @@ export default function AuthModal({
           isUserPremium = Boolean(profile.is_premium);
           userTier = profile.subscription_tier || (isUserPremium ? 'Pro Monthly' : 'Free');
           userPlanId = profile.active_plan_id || (isUserPremium ? 'plan_pro_monthly' : 'plan_free');
+
+          // Restore stature and biometrics so Current Stature is never 'Not Set' on relogin
+          if (profile.current_height) {
+            const restoredQuiz: QuizData = {
+              gender: (profile.gender?.toLowerCase() as 'male' | 'female') || 'male',
+              age: profile.age || 17,
+              currentHeight: Number(profile.current_height),
+              fatherHeight: Number(profile.father_height || 178),
+              motherHeight: Number(profile.mother_height || 164),
+              dreamHeight: Number(profile.predicted_height || 182),
+              sittingHours: '6-8 hours/day',
+              sleepHours: '7-8 hours/night',
+              activityLevel: 'Moderate',
+              dietType: 'Balanced Whole Food',
+              motivation: 'Maximize vertical stature and posture',
+            };
+            useAppStore.getState().setQuizData(restoredQuiz);
+          }
         }
       } catch (err) {
         console.warn('Failed to load profile in AuthModal:', err);
       }
     }
-
-    // Cleanly isolate state: reset prior account data before logging in
-    useAppStore.getState().resetAccountData(mode === 'signup');
-    useWaterStore.getState().resetWaterData();
 
     const profile: UserProfile = {
       id: userId,
@@ -119,6 +138,9 @@ export default function AuthModal({
     useAppStore.getState().setPremium(isUserPremium);
     useAppStore.getState().setSubscriptionTier(userTier);
     useAppStore.getState().setActivePlanId(userPlanId);
+
+    // Hydrate user logs (sleep, stretches, meals, badges, todos) from database
+    await useAppStore.getState().hydrateUserData(userId);
     setSuccessMessage(mode === 'signup' ? 'Account created successfully!' : 'Signed in successfully!');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
