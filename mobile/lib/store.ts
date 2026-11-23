@@ -1504,7 +1504,19 @@ export const useAppStore = create<AppState>()(
 
         // If window has elapsed, count is 0 until next question
         const used = hasActiveWindow ? s.aiQuestionsUsedToday : 0;
-        const limit = 5;
+        const isPremiumUser = s.isPremium;
+        const tier = s.subscriptionTier;
+
+        let limit: number;
+        if (!isPremiumUser) {
+          limit = 5;
+        } else if (tier?.includes('Monthly')) {
+          limit = 25;
+        } else if (tier?.includes('Annual') || tier?.includes('Lifetime')) {
+          limit = 999; // effectively unlimited
+        } else {
+          limit = 5;
+        }
         const remaining = Math.max(0, limit - used);
         const planName = s.isPremium ? 'Pro Clinical' : 'Free';
 

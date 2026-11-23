@@ -361,19 +361,11 @@ export async function purchaseRevenueCatPackage(
     if (error?.userCancelled) {
       return { success: false, error: 'User cancelled transaction' };
     }
-    console.warn('RevenueCat native purchase error, falling back to test simulation:', error);
-    const mockCustomerInfo = {
-      originalAppUserId: `rc_fallback_${Date.now()}`,
-      entitlements: {
-        active: {
-          [ENTITLEMENT_ID]: {
-            identifier: ENTITLEMENT_ID,
-            isActive: true,
-          },
-        },
-      },
+    console.warn('RevenueCat native purchase error:', error);
+    return { 
+      success: false, 
+      error: 'Purchase failed. Please try again.' 
     };
-    return { success: true, customerInfo: mockCustomerInfo };
   }
 }
 
@@ -383,6 +375,7 @@ export async function purchaseRevenueCatPackage(
 export async function restoreRevenueCatPurchases(): Promise<{
   success: boolean;
   customerInfo?: CustomerInfo | any;
+  error?: any;
 }> {
   if (Platform.OS === 'web') {
     return { success: false };
@@ -412,7 +405,10 @@ export async function restoreRevenueCatPurchases(): Promise<{
     return { success: isPro, customerInfo };
   } catch (error) {
     console.warn('RevenueCat restore error:', error);
-    return { success: true };
+    return { 
+      success: false, 
+      error: 'Could not restore purchases. Please try again.' 
+    };
   }
 }
 

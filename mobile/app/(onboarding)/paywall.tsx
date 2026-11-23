@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -123,14 +124,16 @@ export default function PaywallScreen() {
         router.replace('/(tabs)/home');
       }, 1200);
     } catch (err: any) {
-      console.warn('Payment flow caught error:', err);
+      if (err?.userCancelled) {
+        setIsProcessing(false);
+        return;
+      }
       setIsProcessing(false);
-      const plan = getTierPricing();
-      await completeSubscriptionAndCreateAccount(`trial_fallback_${Date.now()}`, plan.name);
-      setPaymentSuccess(true);
-      setTimeout(() => {
-        router.replace('/(tabs)/home');
-      }, 1000);
+      Alert.alert(
+        'Payment Failed',
+        'Something went wrong. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 

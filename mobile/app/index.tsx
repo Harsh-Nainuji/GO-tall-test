@@ -50,9 +50,6 @@ export default function WelcomeScreen() {
       );
 
       if (hasLocalAccount) {
-        if (!state.isPremium) {
-          useAppStore.getState().setPremium(true);
-        }
         router.replace('/(tabs)/home');
         return;
       }
@@ -69,7 +66,6 @@ export default function WelcomeScreen() {
               provider: 'supabase',
               isLoggedIn: true,
             });
-            useAppStore.getState().setPremium(true);
             router.replace('/(tabs)/home');
             return;
           }
@@ -87,9 +83,6 @@ export default function WelcomeScreen() {
           hydrated.isPremium
         );
         if (hasHydratedAccount && isMounted) {
-          if (!hydrated.isPremium) {
-            useAppStore.getState().setPremium(true);
-          }
           router.replace('/(tabs)/home');
         } else if (isMounted) {
           setIsCheckingSession(false);

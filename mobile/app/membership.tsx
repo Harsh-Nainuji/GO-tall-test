@@ -221,13 +221,14 @@ export default function MembershipScreen() {
         }
       }
 
-      // Fallback simulation for test environment
-      setPremium(true);
-      setSubscriptionTier(plan?.name || selectedPlanId);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setSuccessBanner(`Active: ${plan?.name || selectedPlanId}!`);
-      setTimeout(() => setSuccessBanner(null), 3500);
+      // Fallback removal: Do not grant premium on missing package or failed purchase
       setIsLoading(false);
+      Alert.alert(
+        'Purchase Failed',
+        'Could not complete purchase. Please try again or restore purchases.',
+        [{ text: 'OK' }]
+      );
+      return;
     } catch (err: any) {
       console.warn('Purchase error:', err);
       setIsLoading(false);

@@ -62,12 +62,12 @@ export default function HomeScreen() {
   const isPremium = useAppStore((state) => state.isPremium);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
 
-  // Protected route guard: if user is not logged in or has no subscription, kick out to landing page
+  // Protected route guard: if user is not logged in, kick out to landing page
   React.useEffect(() => {
-    if (hasHydrated && (!user?.isLoggedIn || !isPremium)) {
+    if (hasHydrated && !user?.isLoggedIn) {
       router.replace('/');
     }
-  }, [hasHydrated, user?.isLoggedIn, isPremium]);
+  }, [hasHydrated, user?.isLoggedIn]);
 
   // Modal dialog states
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
