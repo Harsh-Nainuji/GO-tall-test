@@ -13,9 +13,12 @@ import {
   Sparkles,
   Flame,
   Clock,
+  Crown,
+  Lock,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 
 import GoTallBackground from '../../components/GoTallBackground';
 import GlassCard from '../../components/ui/GlassCard';
@@ -24,26 +27,37 @@ import SleepClockDial from '../../components/SleepClockDial';
 import GradientBarChart from '../../components/GradientBarChart';
 import SleepSchedulerModal from '../../components/SleepSchedulerModal';
 import { useAppStore } from '../../lib/store';
+import { getLocalTodayDateStr } from '../../lib/dates';
+import { resolvePlanEntitlements } from '../../lib/entitlements';
 import { SLEEP_GOAL_HOURS, SLEEP_STREAK_MIN_HOURS } from '../../lib/constants';
 import { colors } from '../../lib/theme';
 
 export default function SleepScreen() {
+  const router = useRouter();
   const [schedulerModalVisible, setSchedulerModalVisible] = useState(false);
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(6); // Default today (last index)
 
   const sleepLogs = useAppStore((state) => state.sleepLogs);
   const sleepTargetHours = useAppStore((state) => state.sleepTargetHours) || SLEEP_GOAL_HOURS;
   const streakDays = useAppStore((state) => state.streakDays);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const activePlanId = useAppStore((state) => state.activePlanId);
+  const subscriptionTier = useAppStore((state) => state.subscriptionTier);
+  const liveCatalogPlans = useAppStore((state) => state.liveCatalogPlans);
 
-  // 7-day data mapping (last 7 days)
+  const entitlements = useMemo(() => {
+    return resolvePlanEntitlements(activePlanId, isPremium, subscriptionTier, liveCatalogPlans);
+  }, [activePlanId, isPremium, subscriptionTier, liveCatalogPlans]);
+
+  // 7-day data mapping (last 7 days strictly matched to local calendar dates)
   const weekData = useMemo(() => {
     const result = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const dateStr = d.toISOString().split('T')[0];
-      const match = sleepLogs.find((l) => l.date === dateStr || l.dayOfWeek === dayName);
+      const dateStr = getLocalTodayDateStr(d);
+      const match = sleepLogs.find((l) => l.date === dateStr);
       result.push({
         day: dayName,
         date: dateStr,
@@ -93,7 +107,34 @@ export default function SleepScreen() {
               <View style={styles.onlineDot} />
             </View>
             <Text style={styles.headerTitle}>Sleep & Recovery</Text>
-            <Text style={styles.headerSubtitle}>Nocturnal Somatotropin (hGH) cycle</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={styles.headerSubtitle}>
+                {entitlements.canAccessSomatotropinSleepSync
+                  ? 'Nocturnal Somatotropin (hGH) cycle'
+                  : 'Circadian Sleep & Recovery Log'}
+              </Text>
+              {!entitlements.canAccessSomatotropinSleepSync && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    router.push('/membership' as any);
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 3,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                    backgroundColor: '#FEF3C7',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Crown size={10} color="#D97706" />
+                  <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#B45309' }}>Pro Sync</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View style={styles.headerRight}>

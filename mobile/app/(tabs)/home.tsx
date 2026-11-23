@@ -64,10 +64,11 @@ export default function HomeScreen() {
 
   // Protected route guard: if user is not logged in, kick out to landing page
   React.useEffect(() => {
-    if (hasHydrated && !user?.isLoggedIn) {
+    const isLoggedIn = Boolean(user?.isLoggedIn && (user?.id || user?.email));
+    if (hasHydrated && !isLoggedIn) {
       router.replace('/');
     }
-  }, [hasHydrated, user?.isLoggedIn]);
+  }, [hasHydrated, user?.isLoggedIn, user?.email, user?.id]);
 
   // Modal dialog states
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);

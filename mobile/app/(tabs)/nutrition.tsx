@@ -22,11 +22,17 @@ import {
   Check,
   Flame,
   ChevronRight,
+  Lock,
+  Crown,
+  Sparkles,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { useAppStore } from '../../lib/store';
 import { formatMacro } from '../../lib/growth-calc';
+import { getLocalTodayDateStr } from '../../lib/dates';
+import { resolvePlanEntitlements } from '../../lib/entitlements';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -36,11 +42,20 @@ import FoodLogModal, { FoodItem, DEFAULT_PRESETS } from '../../components/FoodLo
 const FOOD_CATEGORY_FILTERS = ['All', 'High Protein', 'Bone Mineralization', 'Bedtime Anabolic', 'Growth Micronutrients'];
 
 export default function NutritionScreen() {
+  const router = useRouter();
   const meals = useAppStore((state) => state.meals);
   const deleteMeal = useAppStore((state) => state.deleteMeal);
   const addMeal = useAppStore((state) => state.addMeal);
   const liveStoreMeals = useAppStore((state) => state.livePresetMeals);
   const streakDays = useAppStore((state) => state.streakDays);
+  const isPremium = useAppStore((state) => state.isPremium);
+  const activePlanId = useAppStore((state) => state.activePlanId);
+  const subscriptionTier = useAppStore((state) => state.subscriptionTier);
+  const liveCatalogPlans = useAppStore((state) => state.liveCatalogPlans);
+
+  const entitlements = useMemo(() => {
+    return resolvePlanEntitlements(activePlanId, isPremium, subscriptionTier, liveCatalogPlans);
+  }, [activePlanId, isPremium, subscriptionTier, liveCatalogPlans]);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedFoodForModal, setSelectedFoodForModal] = useState<FoodItem | null>(null);
@@ -105,25 +120,37 @@ export default function NutritionScreen() {
     );
   }, [catalogFoods, selectedCatalogCategory]);
 
-  // Compute live nutritional totals from store (sanitized and rounded to prevent float precision artifacts)
-  const totalCalories = Math.round(meals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0));
+  // Filter meals strictly for today to ensure daily reset
+  const todayStr = getLocalTodayDateStr();
+  const todayMeals = useMemo(() => {
+    return meals.filter((m) => m.date === todayStr || (!m.date && m.time));
+  }, [meals, todayStr]);
+
+  // Compute live nutritional totals from today's meals only
+  const totalCalories = Math.round(todayMeals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0));
   const targetCalories = 2400;
   const calPct = Math.min(100, Math.round((totalCalories / targetCalories) * 100));
 
-  const totalProtein = Math.round(meals.reduce((sum, m) => sum + (Number(m.protein) || 0), 0) * 10) / 10;
+  const totalProtein = Math.round(todayMeals.reduce((sum, m) => sum + (Number(m.protein) || 0), 0) * 10) / 10;
   const targetProtein = 130;
   const proteinPct = Math.min(100, Math.round((totalProtein / targetProtein) * 100));
 
-  const totalCarbs = Math.round(meals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0) * 10) / 10;
+  const totalCarbs = Math.round(todayMeals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0) * 10) / 10;
   const targetCarbs = 260;
   const carbsPct = Math.min(100, Math.round((totalCarbs / targetCarbs) * 100));
 
-  const totalFat = Math.round(meals.reduce((sum, m) => sum + (Number(m.fat) || 0), 0) * 10) / 10;
+  const totalFat = Math.round(todayMeals.reduce((sum, m) => sum + (Number(m.fat) || 0), 0) * 10) / 10;
   const targetFat = 70;
   const fatPct = Math.min(100, Math.round((totalFat / targetFat) * 100));
 
   // 1-Tap Quick Log directly from the screen
   const handleQuickLog = (item: FoodItem) => {
+    if (!entitlements.canAccessClinicalNutrition) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      router.push('/membership' as any);
+      return;
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setQuickAddedId(item.id);
 
@@ -135,6 +162,7 @@ export default function NutritionScreen() {
       fat: Math.round((Number(item.fat) || 0) * 10) / 10,
       category: 'Lunch',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: todayStr,
     });
 
     setTimeout(() => {
@@ -143,6 +171,11 @@ export default function NutritionScreen() {
   };
 
   const handleOpenFoodModal = (item?: FoodItem) => {
+    if (!entitlements.canAccessClinicalNutrition) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      router.push('/membership' as any);
+      return;
+    }
     Haptics.selectionAsync().catch(() => {});
     setSelectedFoodForModal(item || null);
     setIsLogModalOpen(true);
@@ -192,8 +225,59 @@ export default function NutritionScreen() {
             <Text style={styles.headingText}>Daily Fuel & Macros</Text>
           </Animated.View>
 
-          {/* Central Calories Meter Card */}
-          <Animated.View entering={FadeInDown.delay(180).springify()}>
+          {!entitlements.canAccessClinicalNutrition ? (
+            /* ============================================================== */
+            /* ADMIN PLAN-CONTROLLED LOCKED PREVIEW (Free Starter Plan)      */
+            /* ============================================================== */
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <GlassCard style={styles.lockedContainerCard}>
+                <View style={styles.lockedHeader}>
+                  <View style={styles.lockedIconPill}>
+                    <Crown size={22} color="#D97706" />
+                  </View>
+                  <Text style={styles.lockedTitle}>Clinical Nutrition Matrix</Text>
+                  <Text style={styles.lockedSubtitle}>
+                    Bone mineralization, epiphyseal chondrocyte fuel, and micro-nutrient tracking are available on Pro plans.
+                  </Text>
+                </View>
+
+                <View style={styles.lockedBullets}>
+                  <View style={styles.lockedBulletRow}>
+                    <Check size={14} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.lockedBulletText}>Daily elemental Calcium (1200mg) & Vitamin D3 mineralization tracking</Text>
+                  </View>
+                  <View style={styles.lockedBulletRow}>
+                    <Check size={14} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.lockedBulletText}>Optimized growth plate protein synthesis calculators</Text>
+                  </View>
+                  <View style={styles.lockedBulletRow}>
+                    <Check size={14} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.lockedBulletText}>Bedtime anabolic meal timing for Somatotropin (hGH) peak</Text>
+                  </View>
+                  <View style={styles.lockedBulletRow}>
+                    <Check size={14} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.lockedBulletText}>100+ clinical nutrition presets & macro calculators</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    router.push('/membership' as any);
+                  }}
+                  style={styles.upgradeBtn}
+                  activeOpacity={0.85}
+                >
+                  <Crown size={15} color="#FFFFFF" />
+                  <Text style={styles.upgradeBtnText}>Upgrade to Pro to Unlock Nutrition</Text>
+                  <ChevronRight size={15} color="#FFFFFF" />
+                </TouchableOpacity>
+              </GlassCard>
+            </Animated.View>
+          ) : (
+            <>
+              {/* Central Calories Meter Card */}
+              <Animated.View entering={FadeInDown.delay(180).springify()}>
             <GlassCard style={styles.cardSpacing}>
               <View style={styles.meterCenterWrap}>
                 <CircularProgressRingGlass
@@ -397,82 +481,84 @@ export default function NutritionScreen() {
             </View>
           </Animated.View>
 
-          {/* Logged Meals Header */}
-          <Animated.View
-            entering={FadeInDown.delay(300).springify()}
-            style={styles.sectionHeaderRow}
-          >
-            <View>
-              <Text style={styles.sectionTitle}>
-                Today&apos;s Logged Meals ({meals.length})
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                {formatMacro(totalProtein)}g protein • {formatMacro(totalCalories, 0)} kcal consumed
-              </Text>
-            </View>
-
-            <GlassButton
-              onPress={() => handleOpenFoodModal()}
-              style={styles.addMealBtn}
-            >
-              <Plus size={12} color="#2563EB" />
-              <Text style={styles.addMealBtnText}>Add Meal</Text>
-            </GlassButton>
-          </Animated.View>
-
-          {/* Live Meals List */}
-          <Animated.View entering={FadeInDown.delay(360).springify()} style={styles.mealsListWrap}>
-            {meals.map((m) => (
-              <GlassCard key={m.id} style={styles.mealCard}>
-                <View style={styles.mealRow}>
-                  <View style={styles.mealIconWrap}>
-                    <Utensils size={18} color="#2563EB" />
-                  </View>
-
-                  <View style={styles.mealDetails}>
-                    <View style={styles.mealMetaRow}>
-                      <Text style={styles.mealCategory}>{m.category}</Text>
-                      <Text style={styles.mealTime}>• {m.time}</Text>
-                    </View>
-                    <Text style={styles.mealName}>{m.name}</Text>
-                    <Text style={styles.mealNutrients}>
-                      {formatMacro(m.calories, 0)} kcal • {formatMacro(m.protein)}g P • {formatMacro(m.carbs)}g C • {formatMacro(m.fat)}g F
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      deleteMeal(m.id);
-                    }}
-                    style={styles.deleteBtn}
-                    accessibilityLabel="Delete meal"
-                  >
-                    <Trash2 size={15} color="#94A3B8" />
-                  </TouchableOpacity>
+              {/* Logged Meals Header */}
+              <Animated.View
+                entering={FadeInDown.delay(300).springify()}
+                style={styles.sectionHeaderRow}
+              >
+                <View>
+                  <Text style={styles.sectionTitle}>
+                    Today&apos;s Logged Meals ({todayMeals.length})
+                  </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    {formatMacro(totalProtein)}g protein • {formatMacro(totalCalories, 0)} kcal consumed
+                  </Text>
                 </View>
-              </GlassCard>
-            ))}
 
-            {meals.length === 0 && (
-              <GlassCard style={styles.emptyCard}>
-                <View style={styles.emptyIconWrap}>
-                  <Utensils size={28} color="#94A3B8" />
-                </View>
-                <Text style={styles.emptyTitle}>No meals logged yet today</Text>
-                <Text style={styles.emptySubtitle}>
-                  Track your protein, calcium, and collagen intake to fuel epiphyseal bone growth.
-                </Text>
                 <GlassButton
                   onPress={() => handleOpenFoodModal()}
-                  style={styles.emptyActionBtn}
+                  style={styles.addMealBtn}
                 >
-                  <Plus size={14} color="#FFFFFF" />
-                  <Text style={styles.emptyActionBtnText}>Log First Meal</Text>
+                  <Plus size={12} color="#2563EB" />
+                  <Text style={styles.addMealBtnText}>Add Meal</Text>
                 </GlassButton>
-              </GlassCard>
-            )}
-          </Animated.View>
+              </Animated.View>
+
+              {/* Live Meals List */}
+              <Animated.View entering={FadeInDown.delay(360).springify()} style={styles.mealsListWrap}>
+                {todayMeals.map((m) => (
+                  <GlassCard key={m.id} style={styles.mealCard}>
+                    <View style={styles.mealRow}>
+                      <View style={styles.mealIconWrap}>
+                        <Utensils size={18} color="#2563EB" />
+                      </View>
+
+                      <View style={styles.mealDetails}>
+                        <View style={styles.mealMetaRow}>
+                          <Text style={styles.mealCategory}>{m.category}</Text>
+                          <Text style={styles.mealTime}>• {m.time}</Text>
+                        </View>
+                        <Text style={styles.mealName}>{m.name}</Text>
+                        <Text style={styles.mealNutrients}>
+                          {formatMacro(m.calories, 0)} kcal • {formatMacro(m.protein)}g P • {formatMacro(m.carbs)}g C • {formatMacro(m.fat)}g F
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          deleteMeal(m.id);
+                        }}
+                        style={styles.deleteBtn}
+                        accessibilityLabel="Delete meal"
+                      >
+                        <Trash2 size={15} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  </GlassCard>
+                ))}
+
+                {todayMeals.length === 0 && (
+                  <GlassCard style={styles.emptyCard}>
+                    <View style={styles.emptyIconWrap}>
+                      <Utensils size={28} color="#94A3B8" />
+                    </View>
+                    <Text style={styles.emptyTitle}>No meals logged yet today</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Track your protein, calcium, and collagen intake to fuel epiphyseal bone growth.
+                    </Text>
+                    <GlassButton
+                      onPress={() => handleOpenFoodModal()}
+                      style={styles.emptyActionBtn}
+                    >
+                      <Plus size={14} color="#FFFFFF" />
+                      <Text style={styles.emptyActionBtnText}>Log First Meal</Text>
+                    </GlassButton>
+                  </GlassCard>
+                )}
+              </Animated.View>
+            </>
+          )}
 
           {/* Scientific Citation Card */}
           <Animated.View entering={FadeInDown.delay(420).springify()}>
@@ -935,5 +1021,87 @@ const styles = StyleSheet.create({
     color: '#475569',
     flex: 1,
     lineHeight: 16,
+  },
+  lockedContainerCard: {
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    marginTop: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  lockedHeader: {
+    alignItems: 'center',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  lockedIconPill: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  lockedTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  lockedSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 8,
+  },
+  lockedBullets: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  lockedBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  lockedBulletText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
+    lineHeight: 17,
+  },
+  upgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  upgradeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

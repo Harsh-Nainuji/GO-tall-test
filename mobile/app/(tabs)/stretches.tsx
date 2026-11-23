@@ -29,11 +29,17 @@ import {
   ShieldAlert,
   X,
   Flame,
+  Crown,
+  Sparkles,
+  Calendar,
+  Layers,
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useAppStore, CLINICAL_STRETCHES, StretchExercise, WorkoutCategory, CategoryQuestion } from '../../lib/store';
+import { getLocalTodayDateStr } from '../../lib/dates';
+import { resolvePlanEntitlements } from '../../lib/entitlements';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -128,27 +134,46 @@ const getCalendarWeekDays = (): CalendarDayItem[] => {
 export default function StretchesScreen() {
   const router = useRouter();
   const completedStretches = useAppStore((state) => state.completedStretches);
+  const streakDays = useAppStore((state) => state.streakDays);
   const toggleStretch = useAppStore((state) => state.toggleStretch);
   const newlyUnlockedBadge = useAppStore((state) => state.newlyUnlockedBadge);
   const clearNewlyUnlockedBadge = useAppStore((state) => state.clearNewlyUnlockedBadge);
 
   // Weekly Auto-Scheduler state & actions
-  const workoutDaysPerWeek = useAppStore((state) => state.workoutDaysPerWeek ?? 4);
+  const workoutDaysPerWeek = useAppStore((state) => state.workoutDaysPerWeek) ?? 4;
   const activePlanDay = useAppStore((state) => state.activePlanDay);
-  const weeklyPlan = useAppStore((state) => state.weeklyPlan ?? {});
+  const weeklyPlanRaw = useAppStore((state) => state.weeklyPlan);
+  const weeklyPlan = useMemo(() => weeklyPlanRaw || {}, [weeklyPlanRaw]);
   const categories = useAppStore((state) => state.categories);
   const categoryQuestions = useAppStore((state) => state.categoryQuestions);
   const setActivePlanDay = useAppStore((state) => state.setActivePlanDay);
   const generateWeeklyPlan = useAppStore((state) => state.generateWeeklyPlan);
 
   // Multi-Week Program Progression & Gating
-  const currentProgramWeek = useAppStore((state) => state.currentProgramWeek ?? 1);
-  const selectedViewingWeek = useAppStore((state) => state.selectedViewingWeek ?? 1);
-  const completedWeeks = useAppStore((state) => state.completedWeeks ?? []);
-  const totalProgramWeeks = useAppStore((state) => state.totalProgramWeeks ?? 4);
-  const multiWeekPlan = useAppStore((state) => state.multiWeekPlan ?? {});
+  const currentProgramWeek = useAppStore((state) => state.currentProgramWeek) ?? 1;
+  const selectedViewingWeek = useAppStore((state) => state.selectedViewingWeek) ?? 1;
+  const completedWeeksRaw = useAppStore((state) => state.completedWeeks);
+  const completedWeeks = useMemo(() => completedWeeksRaw || [], [completedWeeksRaw]);
+  const totalProgramWeeks = useAppStore((state) => state.totalProgramWeeks) ?? 4;
+  const multiWeekPlanRaw = useAppStore((state) => state.multiWeekPlan);
+  const multiWeekPlan = useMemo(() => multiWeekPlanRaw || {}, [multiWeekPlanRaw]);
   const setSelectedViewingWeek = useAppStore((state) => state.setSelectedViewingWeek);
   const advanceToNextWeek = useAppStore((state) => state.advanceToNextWeek);
+
+  const [activeTab, setActiveTab] = useState<'today' | 'roadmap' | 'library'>('today');
+  const isPremium = useAppStore((state) => state.isPremium);
+  const activePlanId = useAppStore((state) => state.activePlanId);
+  const subscriptionTier = useAppStore((state) => state.subscriptionTier);
+  const liveCatalogPlans = useAppStore((state) => state.liveCatalogPlans);
+  const checkDailyReset = useAppStore((state) => state.checkDailyReset);
+
+  const entitlements = useMemo(() => {
+    return resolvePlanEntitlements(activePlanId, isPremium, subscriptionTier, liveCatalogPlans);
+  }, [activePlanId, isPremium, subscriptionTier, liveCatalogPlans]);
+
+  useEffect(() => {
+    checkDailyReset();
+  }, [checkDailyReset]);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -223,9 +248,11 @@ export default function StretchesScreen() {
   };
 
   useEffect(() => {
-    setIsLoadingLive(true);
     loadLiveStretches();
     useAppStore.getState().fetchLiveContent().catch(() => { });
+  }, []);
+
+  useEffect(() => {
     if (hasAcceptedHealthDisclaimer && !isProgramCalibrated) {
       calibratePersonalizedProgram().catch(() => { });
     }
@@ -382,7 +409,7 @@ export default function StretchesScreen() {
     <GlassBackgroundCanvas>
       <SafeAreaView style={styles.safeArea}>
         {/* ==================================================================== */}
-        {/* TOP CONTEXT BAR (Image 2 Inspired: Category Subtitle & Brand)        */}
+        {/* TOP HEADER & BRAND                                                   */}
         {/* ==================================================================== */}
         <Animated.View
           entering={FadeInDown.delay(50).springify()}
@@ -400,46 +427,60 @@ export default function StretchesScreen() {
             </View>
           </View>
 
-          <Text style={styles.superContextTitle}>AT HOME WORKOUT</Text>
+          {streakDays > 0 && (
+            <View style={styles.streakBadge}>
+              <Flame size={12} color="#D97706" />
+              <Text style={styles.streakBadgeText}>{streakDays}d Streak</Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* ==================================================================== */}
-        {/* 4-WEEK PROTOCOL PROGRESSION LINE (Fills up as weeks & days progress) */}
+        {/* 3-WAY SEGMENTED VIEW SWITCHER (Today / 6-Week Plan / Library)        */}
         {/* ==================================================================== */}
-        <Animated.View
-          entering={FadeInDown.delay(70).springify()}
-          style={styles.topProgressLineWrapper}
-        >
-          <View style={styles.topProgressInfoRow}>
-            <Text style={styles.topProgressLabel}>
-              Protocol Progression • Week {currentProgramWeek} of {totalProgramWeeks}
+        <View style={styles.segmentedTabsRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              setActiveTab('today');
+            }}
+            style={[styles.segmentedTabBtn, activeTab === 'today' && styles.segmentedTabBtnActive]}
+          >
+            <Play size={12} color={activeTab === 'today' ? '#2563EB' : '#64748B'} fill={activeTab === 'today' ? '#2563EB' : 'transparent'} />
+            <Text style={[styles.segmentedTabText, activeTab === 'today' && styles.segmentedTabTextActive]}>
+              Today&apos;s Session
             </Text>
-            <Text style={styles.topProgressPct}>
-              {Math.min(100, Math.round(((currentProgramWeek - 1 + (todayDoneCount / Math.max(1, dailyExercises.length))) / totalProgramWeeks) * 100))}%
-            </Text>
-          </View>
-          <View style={styles.topProgressSegmentsRow}>
-            {Array.from({ length: totalProgramWeeks }, (_, i) => i + 1).map((w) => {
-              const isDone = w < currentProgramWeek;
-              const isActive = w === currentProgramWeek;
-              const activePct = isActive
-                ? Math.min(100, Math.round((todayDoneCount / Math.max(1, dailyExercises.length)) * 100))
-                : 0;
+          </TouchableOpacity>
 
-              return (
-                <View key={w} style={styles.segmentTrack}>
-                  <View
-                    style={[
-                      styles.segmentFill,
-                      isDone && styles.segmentFillDone,
-                      isActive && { width: `${activePct}%`, backgroundColor: '#2563EB' },
-                    ]}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        </Animated.View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              setActiveTab('roadmap');
+            }}
+            style={[styles.segmentedTabBtn, activeTab === 'roadmap' && styles.segmentedTabBtnActive]}
+          >
+            <Layers size={12} color={activeTab === 'roadmap' ? '#2563EB' : '#64748B'} />
+            <Text style={[styles.segmentedTabText, activeTab === 'roadmap' && styles.segmentedTabTextActive]}>
+              6-Week Plan
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              setActiveTab('library');
+            }}
+            style={[styles.segmentedTabBtn, activeTab === 'library' && styles.segmentedTabBtnActive]}
+          >
+            <Tag size={12} color={activeTab === 'library' ? '#2563EB' : '#64748B'} />
+            <Text style={[styles.segmentedTabText, activeTab === 'library' && styles.segmentedTabTextActive]}>
+              Library
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -457,194 +498,111 @@ export default function StretchesScreen() {
             />
           }
         >
-          {/* ==================================================================== */}
-          {/* WEEK SELECTOR HEADER WITH NAV CHEVRONS (Image 2: "Week 1")           */}
-          {/* ==================================================================== */}
-          <Animated.View
-            entering={FadeInDown.delay(90).springify()}
-            style={styles.weekHeroRow}
-          >
-            <View style={styles.weekHeroLeft}>
-              <Text style={styles.weekHeroTitle}>Week {selectedViewingWeek}</Text>
-              <View style={styles.weekBadgeStatus}>
-                <Text style={styles.weekBadgeStatusText}>
-                  {selectedViewingWeek < currentProgramWeek
-                    ? 'Completed ✓'
-                    : selectedViewingWeek === currentProgramWeek
-                      ? 'Active Phase'
-                      : 'Phase Locked 🔒'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Left & Right Week Switcher Chevrons */}
-            <View style={styles.weekNavArrowsRow}>
-              <TouchableOpacity
-                onPress={handlePrevWeek}
-                disabled={!canGoPrevWeek}
-                activeOpacity={0.7}
-                style={[
-                  styles.weekNavArrowBtn,
-                  !canGoPrevWeek && styles.weekNavArrowBtnDisabled,
-                ]}
-              >
-                <ChevronLeft
-                  size={20}
-                  color={canGoPrevWeek ? '#0F172A' : '#CBD5E1'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleNextWeek}
-                disabled={!canGoNextWeek}
-                activeOpacity={0.7}
-                style={[
-                  styles.weekNavArrowBtn,
-                  !canGoNextWeek && styles.weekNavArrowBtnDisabled,
-                ]}
-              >
-                <ChevronRight
-                  size={20}
-                  color={canGoNextWeek ? '#0F172A' : '#CBD5E1'}
-                />
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-
-          {/* ==================================================================== */}
-          {/* 7-DAY CALENDAR BAR (Image 2: MON 29, TUE 30, WED 31, THU 1...)        */}
-          {/* Synced directly with phone's internal clock                           */}
-          {/* ==================================================================== */}
-          <Animated.View
-            entering={FadeInDown.delay(120).springify()}
-            style={styles.calendarBarWrapper}
-          >
-            <View style={styles.calendarDaysRow}>
-              {calendarWeek.map((dayItem) => {
-                const isSelected = currentDayKey === dayItem.fullDayName;
-                const isToday = dayItem.isToday;
-
-                return (
-                  <TouchableOpacity
-                    key={dayItem.shortName}
-                    activeOpacity={0.75}
-                    onPress={() => handleSelectDay(dayItem.fullDayName)}
-                    style={[
-                      styles.calendarPill,
-                      isSelected && styles.calendarPillActive,
-                      isToday && !isSelected && styles.calendarPillToday,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayAbbr,
-                        isSelected && styles.calendarDayAbbrActive,
-                      ]}
-                    >
-                      {dayItem.shortName}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.calendarDateNum,
-                        isSelected && styles.calendarDateNumActive,
-                      ]}
-                    >
-                      {dayItem.dateNumber}
-                    </Text>
-
-                    {isToday && (
-                      <View
-                        style={[
-                          styles.todayDot,
-                          isSelected && styles.todayDotActive,
-                        ]}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Animated.View>
-
-          {/* ==================================================================== */}
-          {/* PHASE LOCKED STATE (When user swipes or previews future locked weeks) */}
-          {/* ==================================================================== */}
-          {isWeekLocked ? (
-            <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <GlassCard style={styles.lockedCard}>
-                <View style={styles.lockedIconCircle}>
-                  <Lock size={32} color="#D97706" />
-                </View>
-                <View style={styles.lockedTagPill}>
-                  <Text style={styles.lockedTagPillText}>Phase Locked</Text>
-                </View>
-                <Text style={styles.lockedCardTitle}>
-                  Week {selectedViewingWeek} is Locked
-                </Text>
-                <Text style={styles.lockedCardFocus}>
-                  Complete Week {currentProgramWeek} and come back
-                </Text>
-                <Text style={styles.lockedCardDesc}>
-                  You need to finish all scheduled routines in Week {currentProgramWeek} before unlocking Week {selectedViewingWeek}.
-                </Text>
-
-                <View style={styles.lockedRequirementBox}>
-                  <ShieldCheck size={16} color="#0284C7" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.lockedReqTitle}>Unlock Condition</Text>
-                    <Text style={styles.lockedReqDesc}>
-                      Complete Week {currentProgramWeek} and come back to unlock Week {selectedViewingWeek}.
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => { });
-                    setSelectedViewingWeek(currentProgramWeek);
-                  }}
-                  style={styles.returnActiveWeekBtn}
-                >
-                  <Text style={styles.returnActiveWeekBtnText}>
-                    Return to Week {currentProgramWeek} (Active)
-                  </Text>
-                </TouchableOpacity>
-              </GlassCard>
-            </Animated.View>
-          ) : (
+          {activeTab === 'today' ? (
+            /* ==================================================================== */
+            /* TAB 1: TODAY'S ACTIVE SESSION (Standard Modern Fitness App Flow)     */
+            /* ==================================================================== */
             <>
-              {/* Daily Progress & Category Filter Chips */}
-              <Animated.View
-                entering={FadeInDown.delay(140).springify()}
-                style={styles.metaRow}
-              >
-                <View style={styles.dayProgressPill}>
-                  <Flame size={12} color="#2563EB" />
-                  <Text style={styles.dayProgressText}>
-                    {currentDayKey}: {dayCompleted}/{dayTotal} Completed
-                  </Text>
-                </View>
+              {/* Hero "Today's Protocol" Card */}
+              <Animated.View entering={FadeInDown.delay(70).springify()}>
+                <GlassCard style={styles.heroSessionCard}>
+                  <View style={styles.heroSessionTopRow}>
+                    <View style={styles.heroPhasePill}>
+                      <Text style={styles.heroPhasePillText}>Week {currentProgramWeek} • Day {currentDayKey}</Text>
+                    </View>
+                    <View style={styles.heroDonePill}>
+                      <Text style={styles.heroDonePillText}>
+                        {todayDoneCount} of {dailyExercises.length} Done
+                      </Text>
+                    </View>
+                  </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => { });
-                    router.push('/workout-categories');
-                  }}
-                  style={styles.categoriesHeaderBtn}
-                >
-                  <Tag size={11} color="#0284C7" />
-                  <Text style={styles.categoriesHeaderBtnText}>Categories</Text>
-                  <ChevronRight size={11} color="#0284C7" />
-                </TouchableOpacity>
+                  <Text style={styles.heroSessionTitle}>
+                    {currentWeekInfo?.title || 'Thoracic Decompression & Alignment'}
+                  </Text>
+                  <Text style={styles.heroSessionGoal}>
+                    {currentWeekInfo?.scientificGoal || 'Rehydrating intervertebral fibrocartilage discs for vertical spinal elongation.'}
+                  </Text>
+
+                  {/* 1-Tap Hero "Start Session" Button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      const nextUncompleted = dailyExercises.find((e) => !completedStretches.includes(Number(e.id))) || dailyExercises[0];
+                      if (nextUncompleted) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                        setSelectedStretch(nextUncompleted);
+                      }
+                    }}
+                    style={styles.heroStartBtn}
+                    activeOpacity={0.85}
+                  >
+                    <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                    <Text style={styles.heroStartBtnText}>
+                      {todayDoneCount === 0
+                        ? "Start Today's Routine"
+                        : allDayDone
+                        ? 'Replay Today\'s Session'
+                        : 'Continue Session'}
+                    </Text>
+                  </TouchableOpacity>
+                </GlassCard>
               </Animated.View>
 
-              {/* ============================================================== */}
-              {/* WORKOUT BANNER CARDS (Image 2 Exact Pastel Gradient Layout)     */}
-              {/* ============================================================== */}
+              {/* 7-Day Day Selector Strip */}
               <Animated.View
-                entering={FadeInDown.delay(170).springify()}
+                entering={FadeInDown.delay(100).springify()}
+                style={styles.calendarBarWrapper}
+              >
+                <View style={styles.calendarDaysRow}>
+                  {calendarWeek.map((dayItem) => {
+                    const isSelected = currentDayKey === dayItem.fullDayName;
+                    const isToday = dayItem.isToday;
+
+                    return (
+                      <TouchableOpacity
+                        key={dayItem.shortName}
+                        activeOpacity={0.75}
+                        onPress={() => handleSelectDay(dayItem.fullDayName)}
+                        style={[
+                          styles.calendarPill,
+                          isSelected && styles.calendarPillActive,
+                          isToday && !isSelected && styles.calendarPillToday,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayAbbr,
+                            isSelected && styles.calendarDayAbbrActive,
+                          ]}
+                        >
+                          {dayItem.shortName}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.calendarDateNum,
+                            isSelected && styles.calendarDateNumActive,
+                          ]}
+                        >
+                          {dayItem.dateNumber}
+                        </Text>
+
+                        {isToday && (
+                          <View
+                            style={[
+                              styles.todayDot,
+                              isSelected && styles.todayDotActive,
+                            ]}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+
+              {/* Today's Exercises List */}
+              <Animated.View
+                entering={FadeInDown.delay(130).springify()}
                 style={styles.workoutCardsContainer}
               >
                 {isLoadingLive && displayedExercises.length === 0 ? (
@@ -656,6 +614,8 @@ export default function StretchesScreen() {
                 ) : (
                   displayedExercises.map((s, index) => {
                     const isDone = completedStretches.includes(Number(s.id));
+                    const isAdvancedGated =
+                      s.intensity === 'Advanced' && !entitlements.canAccessAdvancedStretches;
                     const theme = WORKOUT_CARD_THEMES[index % WORKOUT_CARD_THEMES.length];
                     const durationMins = Math.round(s.durationSeconds / 60);
                     const durationLabel = durationMins > 0 ? `${durationMins} min` : `${s.durationSeconds}s`;
@@ -665,7 +625,14 @@ export default function StretchesScreen() {
                       <TouchableOpacity
                         key={s.id}
                         activeOpacity={0.88}
-                        onPress={() => setSelectedStretch(s)}
+                        onPress={() => {
+                          if (isAdvancedGated) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+                            router.push('/membership' as any);
+                            return;
+                          }
+                          setSelectedStretch(s);
+                        }}
                         style={styles.workoutBannerTouch}
                       >
                         <LinearGradient
@@ -682,9 +649,14 @@ export default function StretchesScreen() {
                               <Text style={styles.durationPillText}>
                                 {durationLabel}
                               </Text>
+                              {isAdvancedGated && (
+                                <View style={styles.proPillBadge}>
+                                  <Crown size={9} color="#D97706" />
+                                  <Text style={styles.proPillText}>PRO</Text>
+                                </View>
+                              )}
                             </View>
 
-                            {/* Big Bold White Title (Image 2: FULL BODY, LEGS & GLUTES...) */}
                             <Text
                               style={[
                                 styles.workoutBannerTitle,
@@ -695,7 +667,6 @@ export default function StretchesScreen() {
                               {s.title.toUpperCase()}
                             </Text>
 
-                            {/* Subtitle / Clinical Benefit */}
                             <Text
                               style={styles.workoutBannerSubtitle}
                               numberOfLines={1}
@@ -708,6 +679,10 @@ export default function StretchesScreen() {
                               activeOpacity={0.8}
                               onPress={(e) => {
                                 e.stopPropagation();
+                                if (isAdvancedGated) {
+                                  router.push('/membership' as any);
+                                  return;
+                                }
                                 handleToggleExercise(Number(s.id));
                               }}
                               style={[
@@ -730,7 +705,7 @@ export default function StretchesScreen() {
                             </TouchableOpacity>
                           </View>
 
-                          {/* Right Column: High Quality Athlete Figure Model Image */}
+                          {/* Right Column: Athlete Figure Image */}
                           <View style={styles.workoutFigureContainer}>
                             <Image
                               source={{ uri: cardImageUri }}
@@ -738,19 +713,10 @@ export default function StretchesScreen() {
                               contentFit="cover"
                               transition={250}
                             />
-                            {/* Smooth gradient blend overlay over image */}
                             <LinearGradient
                               colors={['transparent', 'rgba(0, 0, 0, 0.15)']}
                               style={styles.figureBlendOverlay}
                             />
-
-                            {/* Video / GIF tag if present */}
-                            {s.media_type === 'video' && (
-                              <View style={styles.mediaPillBadge}>
-                                <Film size={10} color="#FFFFFF" />
-                                <Text style={styles.mediaPillBadgeText}>Video</Text>
-                              </View>
-                            )}
                           </View>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -758,16 +724,236 @@ export default function StretchesScreen() {
                   })
                 )}
               </Animated.View>
+            </>
+          ) : activeTab === 'roadmap' ? (
+            /* ==================================================================== */
+            /* TAB 2: 6-WEEK PROGRAM ROADMAP & PLAN GATING                          */
+            /* ==================================================================== */
+            <Animated.View entering={FadeInDown.delay(70).springify()} style={styles.roadmapListWrap}>
+              {Array.from({ length: 6 }, (_, i) => i + 1).map((weekNum) => {
+                const info = multiWeekPlan[weekNum] || {
+                  title: `Week ${weekNum}`,
+                  focus: 'Axial Decompression',
+                  scientificGoal: 'Spinal mobility and chondrocyte stimulation',
+                };
+                const isLockedByPlan = weekNum > entitlements.maxProgramWeeks;
+                const isCompleted = completedWeeks.includes(weekNum) || weekNum < currentProgramWeek;
+                const isCurrent = weekNum === currentProgramWeek;
 
-              {/* Clean Minimal Week Status Text */}
-              <View style={styles.weekInfoTextWrapper}>
-                <Text style={styles.weekInfoText}>
-                  {currentProgramWeek >= totalProgramWeeks
-                    ? '🎉 6-Week Protocol Completed'
-                    : `Complete Week ${currentProgramWeek} to see Week ${currentProgramWeek + 1}`}
+                return (
+                  <GlassCard
+                    key={weekNum}
+                    style={[
+                      styles.roadmapCard,
+                      isCurrent && styles.roadmapCardCurrent,
+                    ]}
+                  >
+                    <View style={styles.roadmapCardHeader}>
+                      <View style={[styles.roadmapNumberBox, isCurrent && styles.roadmapNumberBoxCurrent]}>
+                        <Text style={[styles.roadmapNumberText, isCurrent && styles.roadmapNumberTextCurrent]}>
+                          W{weekNum}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.roadmapTitleRow}>
+                          <Text style={styles.roadmapCardTitle}>
+                            Week {weekNum}: {info.title?.replace(/^Week \d+:\s*/, '') || `Phase ${weekNum}`}
+                          </Text>
+
+                          {isLockedByPlan ? (
+                            <View style={styles.roadmapLockPill}>
+                              <Crown size={11} color="#D97706" />
+                              <Text style={styles.roadmapLockPillText}>Pro Only</Text>
+                            </View>
+                          ) : isCompleted ? (
+                            <View style={styles.roadmapCompletedPill}>
+                              <CheckCircle2 size={11} color="#10B981" />
+                              <Text style={styles.roadmapCompletedPillText}>Done</Text>
+                            </View>
+                          ) : isCurrent ? (
+                            <View style={styles.roadmapCurrentPill}>
+                              <Text style={styles.roadmapCurrentPillText}>Active</Text>
+                            </View>
+                          ) : null}
+                        </View>
+
+                        <Text style={styles.roadmapCardFocus}>{info.focus}</Text>
+                        <Text style={styles.roadmapCardGoal}>{info.scientificGoal}</Text>
+                      </View>
+                    </View>
+
+                    {isLockedByPlan ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          router.push('/membership' as any);
+                        }}
+                        style={styles.roadmapUpgradeBtn}
+                        activeOpacity={0.85}
+                      >
+                        <Crown size={14} color="#FFFFFF" />
+                        <Text style={styles.roadmapUpgradeBtnText}>
+                          Unlock in Pro (Capped at 2 Weeks on Free)
+                        </Text>
+                        <ChevronRight size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          setSelectedViewingWeek(weekNum);
+                          setActiveTab('today');
+                        }}
+                        style={styles.roadmapViewBtn}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.roadmapViewBtnText}>
+                          {isCurrent ? "Open Today's Routine" : `Preview Week ${weekNum} Routine`}
+                        </Text>
+                        <ChevronRight size={13} color="#2563EB" />
+                      </TouchableOpacity>
+                    )}
+                  </GlassCard>
+                );
+              })}
+            </Animated.View>
+          ) : (
+            /* ==================================================================== */
+            /* TAB 3: EXERCISE LIBRARY & CATEGORIES                                 */
+            /* ==================================================================== */
+            <Animated.View entering={FadeInDown.delay(70).springify()}>
+              <View style={styles.libraryHeaderRow}>
+                <Text style={styles.sectionTitle}>Biomechanical Categories</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Targeted traction protocols for spinal decompression and pelvic alignment
                 </Text>
               </View>
-            </>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryPillsScroll}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setSelectedCategorySlug('all');
+                  }}
+                  style={[
+                    styles.catPill,
+                    selectedCategorySlug === 'all' && styles.catPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.catPillText,
+                      selectedCategorySlug === 'all' && styles.catPillTextActive,
+                    ]}
+                  >
+                    All Stretches
+                  </Text>
+                </TouchableOpacity>
+
+                {categories.map((cat) => {
+                  const isSelected = selectedCategorySlug === cat.slug || selectedCategorySlug === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setSelectedCategorySlug(cat.slug || cat.id);
+                      }}
+                      style={[
+                        styles.catPill,
+                        isSelected && styles.catPillActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.catPillText,
+                          isSelected && styles.catPillTextActive,
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Category Exercises List */}
+              <View style={styles.workoutCardsContainer}>
+                {displayedExercises.map((s, index) => {
+                  const isDone = completedStretches.includes(Number(s.id));
+                  const theme = WORKOUT_CARD_THEMES[index % WORKOUT_CARD_THEMES.length];
+                  const durationMins = Math.round(s.durationSeconds / 60);
+                  const durationLabel = durationMins > 0 ? `${durationMins} min` : `${s.durationSeconds}s`;
+                  const cardImageUri = s.media_url || theme.fallbackImage;
+
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      activeOpacity={0.88}
+                      onPress={() => setSelectedStretch(s)}
+                      style={styles.workoutBannerTouch}
+                    >
+                      <LinearGradient
+                        colors={theme.gradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.workoutBannerGradient}
+                      >
+                        <View style={styles.workoutLeftColumn}>
+                          <View style={styles.durationPill}>
+                            <Clock size={11} color="#1E293B" />
+                            <Text style={styles.durationPillText}>{durationLabel}</Text>
+                          </View>
+                          <Text style={styles.workoutBannerTitle} numberOfLines={2}>
+                            {s.title.toUpperCase()}
+                          </Text>
+                          <Text style={styles.workoutBannerSubtitle} numberOfLines={1}>
+                            {s.targetZone || s.tag}
+                          </Text>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleToggleExercise(Number(s.id));
+                            }}
+                            style={[
+                              styles.cardCheckBtn,
+                              isDone ? styles.cardCheckBtnDone : styles.cardCheckBtnPending,
+                            ]}
+                          >
+                            <CheckCircle2
+                              size={15}
+                              color={isDone ? '#FFFFFF' : 'rgba(255, 255, 255, 0.9)'}
+                            />
+                            <Text
+                              style={[
+                                styles.cardCheckBtnText,
+                                isDone && styles.cardCheckBtnTextDone,
+                              ]}
+                            >
+                              {isDone ? 'Completed' : 'Mark Done'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.workoutFigureContainer}>
+                          <Image
+                            source={{ uri: cardImageUri }}
+                            style={styles.workoutFigureImage}
+                            contentFit="cover"
+                            transition={250}
+                          />
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Animated.View>
           )}
 
           {/* ==================================================================== */}
@@ -1361,5 +1547,321 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: '#78350F',
     lineHeight: 15,
+  },
+
+  // 3-Way Segmented Tabs
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  streakBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  segmentedTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    padding: 3,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    gap: 3,
+  },
+  segmentedTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 13,
+  },
+  segmentedTabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  segmentedTabText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentedTabTextActive: {
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  // Hero Session Card (Today's Routine)
+  heroSessionCard: {
+    padding: 20,
+    borderRadius: 22,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  heroSessionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  heroPhasePill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  heroPhasePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2563EB',
+    textTransform: 'uppercase',
+  },
+  heroDonePill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  heroDonePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  heroSessionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  heroSessionGoal: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  heroStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    paddingVertical: 13,
+    borderRadius: 16,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  heroStartBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Advanced Pro Pill Badge
+  proPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  proPillText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+
+  // Roadmap 6-Week Plan
+  roadmapListWrap: {
+    gap: 14,
+    marginBottom: 16,
+  },
+  roadmapCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  roadmapCardCurrent: {
+    borderColor: '#3B82F6',
+    borderWidth: 1.5,
+  },
+  roadmapCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  roadmapNumberBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roadmapNumberBoxCurrent: {
+    backgroundColor: '#EFF6FF',
+  },
+  roadmapNumberText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  roadmapNumberTextCurrent: {
+    color: '#2563EB',
+  },
+  roadmapTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 3,
+  },
+  roadmapCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    flex: 1,
+  },
+  roadmapCardFocus: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#2563EB',
+    marginBottom: 2,
+  },
+  roadmapCardGoal: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  roadmapLockPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  roadmapLockPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  roadmapCompletedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  roadmapCompletedPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  roadmapCurrentPill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  roadmapCurrentPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  roadmapUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#D97706',
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  roadmapUpgradeBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  roadmapViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  roadmapViewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+
+  // Library tab
+  libraryHeaderRow: {
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  categoryPillsScroll: {
+    gap: 8,
+    paddingBottom: 14,
+  },
+  catPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  catPillActive: {
+    backgroundColor: '#2563EB',
+  },
+  catPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  catPillTextActive: {
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

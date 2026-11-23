@@ -5,10 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Modal,
   Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,13 +22,6 @@ import {
   Sparkles,
   Fingerprint,
   Lock,
-  Unlock,
-  CheckCircle2,
-  LogIn,
-  UserPlus,
-  Crown,
-  ChevronRight,
-  TrendingUp,
   Dna,
 } from 'lucide-react-native';
 import GlassCard from './GlassCard';
@@ -38,10 +29,7 @@ import GlassCard from './GlassCard';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ProcessingUnlockFlowProps {
-  onCompleteSignIn: () => void;
-  onCompleteSignUp: () => void;
-  onCompleteSelectPlan: () => void;
-  onViewReport: () => void;
+  onUnlocked: () => void;
   predictedGainCm?: number;
   gender?: 'male' | 'female';
 }
@@ -55,10 +43,7 @@ const MILESTONES = [
 ];
 
 export default function ProcessingUnlockFlow({
-  onCompleteSignIn,
-  onCompleteSignUp,
-  onCompleteSelectPlan,
-  onViewReport,
+  onUnlocked,
   predictedGainCm = 3.6,
   gender = 'male',
 }: ProcessingUnlockFlowProps) {
@@ -66,12 +51,11 @@ export default function ProcessingUnlockFlow({
   const [percent, setPercent] = useState(0);
   const [statusText, setStatusText] = useState(MILESTONES[0]);
   const [isHolding, setIsHolding] = useState(false);
-  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
   // Animations
   const scanRingScale = useSharedValue(1);
   const holdProgress = useSharedValue(0);
-  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isFemale = gender === 'female';
   const primaryColor = isFemale ? '#B28EF0' : '#1D4ED8';
@@ -121,14 +105,14 @@ export default function ProcessingUnlockFlow({
   // Handle Long Press PressIn
   const handlePressIn = () => {
     setIsHolding(true);
-    holdProgress.value = withTiming(1, { duration: 1100, easing: Easing.linear });
+    holdProgress.value = withTiming(1, { duration: 900, easing: Easing.linear });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
     holdTimerRef.current = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setIsHolding(false);
-      setOptionsModalVisible(true);
-    }, 1100);
+      onUnlocked();
+    }, 900);
   };
 
   // Handle PressOut (if released early)
@@ -233,6 +217,10 @@ export default function ProcessingUnlockFlow({
             <Pressable
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                onUnlocked();
+              }}
               style={[
                 styles.fingerprintBtn,
                 { borderColor: primaryColor, backgroundColor: isHolding ? glowColor : 'rgba(255, 255, 255, 0.95)' },
@@ -253,116 +241,11 @@ export default function ProcessingUnlockFlow({
             </Pressable>
 
             <Text style={styles.holdToScanPrompt}>
-              {isHolding ? 'Scanning Biometrics...' : 'Press and hold to unlock result'}
+              {isHolding ? 'Scanning Biometrics...' : 'Touch to unlock trajectory'}
             </Text>
           </View>
         </Animated.View>
       )}
-
-      {/* ========================================================================= */}
-      {/* ACTION MODAL: SIGN IN / CREATE ACC / SELECT PLAN                          */
-      /* ========================================================================= */}
-      <Modal
-        visible={optionsModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOptionsModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-
-            <View style={styles.modalHeader}>
-              <View style={[styles.unlockSuccessIcon, { backgroundColor: glowColor }]}>
-                <Unlock size={22} color={primaryColor} />
-              </View>
-              <Text style={styles.modalTitle}>Protocol Unlocked</Text>
-              <Text style={styles.modalSub}>
-                Choose how you would like to proceed with your stature optimization plan.
-              </Text>
-            </View>
-
-            <View style={styles.actionsList}>
-              {/* Option 1: Select Plan / RevenueCat Paywall */}
-              <TouchableOpacity
-                style={[styles.actionRowBtn, styles.actionRowBtnFeatured]}
-                onPress={() => {
-                  setOptionsModalVisible(false);
-                  onCompleteSelectPlan();
-                }}
-                activeOpacity={0.88}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#FEF3C7' }]}>
-                  <Crown size={18} color="#D97706" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.actionRowTitle}>Choose Membership Plan</Text>
-                  <Text style={styles.actionRowSub}>
-                    Monthly, Yearly (Save 50%), or Lifetime VIP access
-                  </Text>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" />
-              </TouchableOpacity>
-
-              {/* Option 2: Create Account */}
-              <TouchableOpacity
-                style={styles.actionRowBtn}
-                onPress={() => {
-                  setOptionsModalVisible(false);
-                  onCompleteSignUp();
-                }}
-                activeOpacity={0.85}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
-                  <UserPlus size={18} color="#2563EB" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.actionRowTitle}>Create New Account</Text>
-                  <Text style={styles.actionRowSub}>
-                    Save your biometric data and sync across devices
-                  </Text>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" />
-              </TouchableOpacity>
-
-              {/* Option 3: Already Have an Account / Sign In */}
-              <TouchableOpacity
-                style={styles.actionRowBtn}
-                onPress={() => {
-                  setOptionsModalVisible(false);
-                  onCompleteSignIn();
-                }}
-                activeOpacity={0.85}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#F1F5F9' }]}>
-                  <LogIn size={18} color="#475569" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.actionRowTitle}>Sign In to Existing Account</Text>
-                  <Text style={styles.actionRowSub}>
-                    Already a member? Restore your active profile
-                  </Text>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Direct View Report Option */}
-            <TouchableOpacity
-              style={styles.viewDirectLink}
-              onPress={() => {
-                setOptionsModalVisible(false);
-                onViewReport();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.viewDirectLinkText, { color: primaryColor }]}>
-                View Trajectory Graph &amp; Analysis →
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

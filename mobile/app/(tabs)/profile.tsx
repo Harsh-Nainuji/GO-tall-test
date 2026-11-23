@@ -62,6 +62,7 @@ export default function ProfileScreen() {
   const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
   const subscriptionTier = useAppStore((state) => state.subscriptionTier) || (isPremium ? 'Pro Monthly' : 'Free');
+  const getAiQuota = useAppStore((state) => state.getAiQuota);
   const signOut = useAppStore((state) => state.signOut);
   const deleteAccount = useAppStore((state) => state.deleteAccount);
   const downloadAllUserData = useAppStore((state) => state.downloadAllUserData);
@@ -460,16 +461,18 @@ export default function ProfileScreen() {
                           isPremium ? styles.membershipBadgeTextPro : styles.membershipBadgeTextFree,
                         ]}
                       >
-                        {isPremium ? 'PRO VIP' : 'FREE'}
+                        {subscriptionTier === 'Lifetime VIP' ? 'VIP PLATINUM' : isPremium ? 'PRO VIP' : 'FREE'}
                       </Text>
                     </View>
                   </View>
                   <Text style={styles.membershipTileSubtitle}>
                     {subscriptionTier === 'Pro Annual'
-                      ? 'Tallgrame Pro Annual (Active VIP)'
+                      ? `Tallgrame Pro Annual • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
                       : subscriptionTier === 'Pro Monthly'
-                      ? 'Tallgrame Pro Monthly (Active VIP)'
-                      : 'Free Starter Plan • Upgrade to Pro'}
+                      ? `Tallgrame Pro Monthly • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
+                      : subscriptionTier === 'Lifetime VIP'
+                      ? `Tallgrame Lifetime VIP • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
+                      : `Free Starter Plan • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`}
                   </Text>
                 </View>
               </View>

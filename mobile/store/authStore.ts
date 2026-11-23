@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { logError } from '../lib/logger';
+import { useAppStore } from '../lib/store';
+import { useWaterStore } from './waterStore';
 
 interface AuthState {
   session: Session | null;
@@ -190,6 +192,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         logError('Sign out error', err);
       }
     }
+    useAppStore.getState().resetAccountData(false);
+    useWaterStore.getState().resetWaterData();
     set({ session: null, user: null, isLoading: false });
   },
 

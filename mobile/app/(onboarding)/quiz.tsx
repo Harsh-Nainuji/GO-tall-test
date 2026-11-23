@@ -51,11 +51,11 @@ export default function QuizScreen() {
 
   // If user already has an account, bypass questionnaire and redirect directly to dashboard
   React.useEffect(() => {
-    const hasAccount = Boolean(user?.isLoggedIn || user?.email || user?.id || isPremium);
-    if (hasAccount) {
+    const isLoggedIn = Boolean(user?.isLoggedIn && (user?.id || user?.email));
+    if (isLoggedIn) {
       router.replace('/(tabs)/home');
     }
-  }, [user, isPremium]);
+  }, [user?.isLoggedIn, user?.email, user?.id]);
 
   // Stepped Questionnaire: 1 to 14
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -154,18 +154,8 @@ export default function QuizScreen() {
       <ProcessingUnlockFlow
         gender={gender}
         predictedGainCm={predictedGain}
-        onCompleteSignIn={() => {
+        onUnlocked={() => {
           setIsProcessing(false);
-          setIsAuthModalVisible(true);
-        }}
-        onCompleteSignUp={() => {
-          setIsProcessing(false);
-          setIsAuthModalVisible(true);
-        }}
-        onCompleteSelectPlan={() => {
-          router.push('/membership');
-        }}
-        onViewReport={() => {
           router.push('/(onboarding)/reveal');
         }}
       />

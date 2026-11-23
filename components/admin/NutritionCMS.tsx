@@ -499,7 +499,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
 
     const finalName = formName.trim()
     if (!finalName) {
-      setModalError('Food name is required / નામ જરૂરી છે')
+      setModalError('Food name is required')
       showToast('Please enter food name', 'error')
       return
     }
@@ -770,8 +770,8 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Utensils className="w-8 h-8 mx-auto mb-2 opacity-40 text-cyan-400" />
-                    <p className="font-bold text-slate-200 text-sm">No foods match the filter / કોઈ ખોરાક મળ્યો નથી</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Use Add Food or Add many foods to add verified clinical items.</p>
+                    <p className="font-bold text-slate-200 text-sm">No foods match the selected filters</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Use Add Food or Bulk Upload to add verified clinical items.</p>
                   </td>
                 </tr>
               ) : (
@@ -893,7 +893,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-100">
-                      Add many foods / ઘણો ખોરાક ઉમેરો
+                      Bulk Upload Clinical Foods
                     </h3>
                     <p className="text-xs text-slate-400 font-medium">
                       Upload standard CSV/JSON with 100% strict clinical macro &amp; micronutrient validation
@@ -1160,7 +1160,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                   onClick={() => setIsBulkModalOpen(false)}
                   className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer"
                 >
-                  Cancel / રદ કરો
+                  Cancel
                 </button>
 
                 <button
@@ -1171,7 +1171,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>
-                    Save all / બધું સાચવો ({bulkValidatedRows.filter((r) => r.isValid).length})
+                    Save Valid Foods ({bulkValidatedRows.filter((r) => r.isValid).length})
                   </span>
                 </button>
               </div>
@@ -1199,7 +1199,7 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-100">
-                      {editingFood ? 'Edit Food / ખોરાક બદલો' : 'Add Food / ખોરાક ઉમેરો'}
+                      {editingFood ? 'Edit Clinical Food Item' : 'Add New Food Item'}
                     </h3>
                     <p className="text-[11px] text-slate-400 font-medium">
                       Configure serving, macros, and bone mineralization micronutrients
@@ -1389,13 +1389,13 @@ export function NutritionCMS({ foods, onUpdateFoods }: NutritionCMSProps) {
                     onClick={() => setIsModalOpen(false)}
                     className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 font-bold cursor-pointer"
                   >
-                    Cancel / રદ કરો
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="px-5 py-2 glow-button text-slate-950 font-bold cursor-pointer shadow-md transition-all"
                   >
-                    {editingFood ? 'Save / સાચવો' : '+ Add Food / + ઉમેરો'}
+                    {editingFood ? 'Save Changes' : '+ Add Food Item'}
                   </button>
                 </div>
               </form>

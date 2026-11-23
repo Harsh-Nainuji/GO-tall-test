@@ -72,7 +72,9 @@ export default function SignUpScreen() {
       provider: 'email',
       isLoggedIn: true,
     });
-    setPremium(true);
+    setPremium(false);
+    useAppStore.getState().setSubscriptionTier('Free');
+    useAppStore.getState().setActivePlanId('plan_free');
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     router.replace('/(onboarding)/quiz');

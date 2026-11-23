@@ -15,6 +15,8 @@ import { useRouter } from 'expo-router';
 import BottomSheet from './ui/BottomSheet';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore, UserProfile } from '../lib/store';
+import { useWaterStore } from '../store/waterStore';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
 interface AuthModalProps {
@@ -75,16 +77,48 @@ export default function AuthModal({
       }
     }
 
+    const authUser = useAuthStore.getState().user;
+    const userId = authUser?.id || `user-${Date.now()}`;
+    const displayName = name || authUser?.user_metadata?.display_name || email.split('@')[0];
+
+    let isUserPremium = false;
+    let userTier = 'Free';
+    let userPlanId = 'plan_free';
+
+    if (isSupabaseConfigured() && authUser?.id) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_premium, subscription_tier, active_plan_id, name')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (profile) {
+          isUserPremium = Boolean(profile.is_premium);
+          userTier = profile.subscription_tier || (isUserPremium ? 'Pro Monthly' : 'Free');
+          userPlanId = profile.active_plan_id || (isUserPremium ? 'plan_pro_monthly' : 'plan_free');
+        }
+      } catch (err) {
+        console.warn('Failed to load profile in AuthModal:', err);
+      }
+    }
+
+    // Cleanly isolate state: reset prior account data before logging in
+    useAppStore.getState().resetAccountData(mode === 'signup');
+    useWaterStore.getState().resetWaterData();
+
     const profile: UserProfile = {
-      id: `user-${Date.now()}`,
-      name: name || email.split('@')[0],
+      id: userId,
+      name: displayName,
       email,
       provider: 'email',
       isLoggedIn: true,
     };
 
     setUser(profile);
-    setPremium(true);
+    useAppStore.getState().setPremium(isUserPremium);
+    useAppStore.getState().setSubscriptionTier(userTier);
+    useAppStore.getState().setActivePlanId(userPlanId);
     setSuccessMessage(mode === 'signup' ? 'Account created successfully!' : 'Signed in successfully!');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 

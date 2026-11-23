@@ -19,6 +19,7 @@ import { useAppStore, LoggedMeal } from '../lib/store';
 import { formatMacro } from '../lib/growth-calc';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
+import { getLocalTodayDateStr } from '../lib/dates';
 
 interface FoodLogModalProps {
   visible: boolean;
@@ -291,6 +292,7 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
       fat: Math.round((Number(item.fat) || 0) * 10) / 10,
       category,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: getLocalTodayDateStr(),
     });
 
     setTimeout(() => {
@@ -311,6 +313,7 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
       fat: Math.round((Number(fat) || 0) * 10) / 10,
       category,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: getLocalTodayDateStr(),
     });
 
     // Reset form

@@ -36,6 +36,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
 import { speakText, stopSpeech } from '../lib/tts';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
 interface PromptChip {
@@ -127,6 +128,7 @@ export default function ChatScreen() {
   const chatMessages = useAppStore((state) => state.chatMessages);
   const addChatMessage = useAppStore((state) => state.addChatMessage);
   const quizData = useAppStore((state) => state.quizData);
+  const user = useAppStore((state) => state.user);
   const getAiQuota = useAppStore((state) => state.getAiQuota);
   const incrementAiQuestionsUsed = useAppStore((state) => state.incrementAiQuestionsUsed);
 
@@ -196,7 +198,6 @@ export default function ChatScreen() {
     setInputText('');
 
     addChatMessage({ role: 'user', text: query });
-    incrementAiQuestionsUsed();
     setIsTyping(true);
 
     try {
@@ -211,10 +212,20 @@ export default function ChatScreen() {
 
       const result = await queryGeminiAdvisor(query, userProfile);
       addChatMessage({ role: 'assistant', text: result.text, citation: result.citation });
+
+      // Only burn quota after response successfully received
+      incrementAiQuestionsUsed();
+      if (
+        isSupabaseConfigured() &&
+        user?.id &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)
+      ) {
+        supabase.rpc('consume_user_ai_quota', { p_user_id: user.id }).then(() => {}, () => {});
+      }
     } catch {
       addChatMessage({
         role: 'assistant',
-        text: 'Unable to reach Gemini advisor right now. Please check your network connection and try again.',
+        text: 'Unable to reach Dr. Jack growth advisor right now. Please check your network connection and try again.',
       });
     } finally {
       setIsTyping(false);

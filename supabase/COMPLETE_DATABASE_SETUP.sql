@@ -171,6 +171,33 @@ CREATE TABLE IF NOT EXISTS public.payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 12. SUBSCRIPTION PLANS TABLE (Dynamic Plans & Quotas Managed via Admin Studio)
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    tagline TEXT,
+    price_usd NUMERIC(6, 2) NOT NULL DEFAULT 0.00,
+    price_inr NUMERIC(8, 2) NOT NULL DEFAULT 0.00,
+    interval TEXT NOT NULL DEFAULT 'monthly' CHECK (interval IN ('free', 'monthly', 'quarterly', 'yearly', 'lifetime')),
+    revenuecat_product_id TEXT,
+    badge_label TEXT,
+    badge_color TEXT DEFAULT '#0284C7',
+    sort_order INTEGER DEFAULT 1,
+    active BOOLEAN DEFAULT TRUE,
+    ai_chat_daily_limit INTEGER NOT NULL DEFAULT 5,
+    max_program_weeks INTEGER NOT NULL DEFAULT 6,
+    can_access_advanced_stretches BOOLEAN DEFAULT FALSE,
+    can_access_ai_biomechanical_calibration BOOLEAN DEFAULT FALSE,
+    can_access_somatotropin_sleep_sync BOOLEAN DEFAULT FALSE,
+    can_access_clinical_nutrition BOOLEAN DEFAULT FALSE,
+    can_access_priority_support BOOLEAN DEFAULT FALSE,
+    marketing_features JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS active_plan_id TEXT DEFAULT 'plan_free';
+
 -- =============================================================================
 -- STORAGE BUCKET: exercise-media
 -- =============================================================================

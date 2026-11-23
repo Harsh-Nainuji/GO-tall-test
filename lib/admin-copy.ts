@@ -38,6 +38,10 @@ export const ADMIN_COPY = {
       label: { en: 'Database & Storage', gu: 'ડેટાબેઝ અને સ્ટોરેજ' },
       sublabel: { en: 'Usage, tables & media files', gu: 'વપરાશ, ટેબલ અને મીડિયા ફાઇલો' },
     },
+    plans: {
+      label: { en: 'Plans & Quotas', gu: 'પ્લાન અને ક્વોટા' },
+      sublabel: { en: 'Pricing, limits & features', gu: 'કિંમત, મર્યાદા અને સુવિધાઓ' },
+    },
     users: {
       label: { en: 'App Members', gu: 'સભ્યો' },
       sublabel: { en: 'Users & VIP access', gu: 'વપરાશકર્તાઓ અને વીઆઈપી' },
@@ -93,6 +97,14 @@ export const ADMIN_COPY = {
         en: 'Inspect member heights, grant VIP access, or download/delete data.',
         gu: 'સભ્યોની ઊંચાઈ તપાસો, વીઆઈપી એક્સેસ આપો અથવા ડેટા મેનેજ કરો.',
       },
+    },
+    plans: {
+      title: { en: 'Subscription Plans & Quotas', gu: 'સબ્સ્ક્રિપ્શન પ્લાન અને ક્વોટા' },
+      subtitle: {
+        en: 'Configure subscription pricing, daily AI chat quotas, program weeks, and feature limits.',
+        gu: 'સબ્સ્ક્રિપ્શન કિંમત, દૈનિક એઆઈ ચેટ ક્વોટા, પ્રોગ્રામ અઠવાડિયા અને સુવિધા મર્યાદા ગોઠવો.',
+      },
+      addBtn: { en: '+ Add Plan', gu: '+ પ્લાન ઉમેરો' },
     },
   },
 

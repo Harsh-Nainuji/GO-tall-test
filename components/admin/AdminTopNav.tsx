@@ -4,7 +4,6 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Search, Plus, CheckCircle2, Sparkles, LogOut } from 'lucide-react'
 import { logoutAdminSession } from './AdminAuthGate'
-import { ADMIN_COPY } from '@/lib/admin-copy'
 
 interface AdminTopNavProps {
   title: string
@@ -26,79 +25,66 @@ export function AdminTopNav({
   onOpenTour,
 }: AdminTopNavProps) {
   return (
-    <header className="h-20 bg-slate-950/70 backdrop-blur-2xl border-b border-slate-800/80 px-8 flex items-center justify-between sticky top-0 z-20 shadow-md">
+    <header className="h-16 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
       <div>
-        <h1 className="text-xl font-black text-slate-100 tracking-tight">{title}</h1>
-        <p className="text-xs text-slate-400 font-medium mt-0.5">{subtitle}</p>
+        <h1 className="text-base font-extrabold text-slate-100 tracking-tight">{title}</h1>
+        <p className="text-[11px] text-slate-400 font-medium">{subtitle}</p>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {/* Universal Search Bar */}
-        <div className="relative w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <div className="relative w-64 md:w-72">
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder={ADMIN_COPY.topNav.searchPlaceholder.en}
+            placeholder="Search exercises, users, plans..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-400 transition-all font-medium shadow-inner"
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 focus:border-cyan-500/50 transition-all font-medium"
           />
         </div>
 
         {/* Persistent Guided Tour Button */}
         {onOpenTour && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.03 }}
+          <button
             onClick={onOpenTour}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-slate-800/80 border border-slate-700/60 text-cyan-300 text-xs font-bold rounded-2xl shadow-xs transition-colors cursor-pointer"
-            title="Watch Admin Tutorial"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            title="Interactive Walkthrough"
           >
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <div className="flex flex-col text-left leading-tight">
-              <span>{ADMIN_COPY.topNav.tourBtn.en}</span>
-              <span className="text-[10px] text-cyan-400/80 font-normal">{ADMIN_COPY.topNav.tourBtn.gu}</span>
-            </div>
-          </motion.button>
+            <span>Tour Guide</span>
+          </button>
         )}
 
         {/* Database Connected Status Pill */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs font-bold text-slate-300">
+        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-medium text-slate-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <div className="flex flex-col leading-tight">
-            <span>{ADMIN_COPY.topNav.liveSynced.en}</span>
-            <span className="text-[10px] text-slate-500 font-normal">{ADMIN_COPY.topNav.liveSynced.gu}</span>
-          </div>
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 ml-1" />
+          <span>Synced</span>
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 ml-0.5" />
         </div>
-
-        {/* Secure Admin Logout Button */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.03 }}
-          onClick={logoutAdminSession}
-          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-rose-950/60 hover:text-rose-300 border border-slate-800 hover:border-rose-800/60 text-slate-400 text-xs font-bold rounded-2xl transition-all cursor-pointer"
-          title="Sign out of Admin Session"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <div className="flex flex-col text-left leading-tight">
-            <span>{ADMIN_COPY.topNav.signOut.en}</span>
-            <span className="text-[10px] text-slate-500 font-normal">{ADMIN_COPY.topNav.signOut.gu}</span>
-          </div>
-        </motion.button>
 
         {/* Dynamic Action CTA */}
         {onQuickAction && quickActionLabel && (
           <motion.button
             whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.03 }}
+            whileHover={{ scale: 1.02 }}
             onClick={onQuickAction}
-            className="flex items-center gap-2 px-4 py-2.5 glow-button text-xs font-black uppercase tracking-wider cursor-pointer shadow-md"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 glow-button text-xs font-bold uppercase tracking-wider cursor-pointer shadow-sm rounded-xl"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
             <span>{quickActionLabel}</span>
           </motion.button>
         )}
+
+        {/* Secure Admin Logout Button */}
+        <button
+          onClick={logoutAdminSession}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-rose-950/60 hover:text-rose-300 border border-slate-800 hover:border-rose-900/60 text-slate-400 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+          title="Sign out of Admin Session"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Sign Out</span>
+        </button>
       </div>
     </header>
   )

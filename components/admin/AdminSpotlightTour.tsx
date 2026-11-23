@@ -223,14 +223,14 @@ export function AdminSpotlightTour({ isOpen, onClose }: AdminSpotlightTourProps)
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back / પાછળ</span>
+                    <span>Back</span>
                   </button>
                 ) : (
                   <button
                     onClick={handleSkip}
                     className="px-3.5 py-2.5 text-slate-400 hover:text-slate-200 text-xs font-semibold cursor-pointer"
                   >
-                    Skip Tour / છોડો
+                    Skip Tour
                   </button>
                 )}
 
@@ -238,7 +238,7 @@ export function AdminSpotlightTour({ isOpen, onClose }: AdminSpotlightTourProps)
                   onClick={handleNext}
                   className="glow-button flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
                 >
-                  <span>{isLast ? 'Complete Tour ✓ / પૂર્ણ કરો' : 'Next Step / આગળ'}</span>
+                  <span>{isLast ? 'Complete Tour' : 'Next Step'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

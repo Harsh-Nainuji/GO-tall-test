@@ -43,10 +43,7 @@ export default function WelcomeScreen() {
       // 1. Check local persistent Zustand store
       const state = useAppStore.getState();
       const hasLocalAccount = Boolean(
-        state.user?.isLoggedIn ||
-        state.user?.email ||
-        state.user?.id ||
-        state.isPremium
+        state.user?.isLoggedIn && (state.user?.email || state.user?.id)
       );
 
       if (hasLocalAccount) {
@@ -77,10 +74,7 @@ export default function WelcomeScreen() {
       // 3. Listen for store hydration if not yet done
       const unsubscribe = useAppStore.persist.onFinishHydration((hydrated) => {
         const hasHydratedAccount = Boolean(
-          hydrated.user?.isLoggedIn ||
-          hydrated.user?.email ||
-          hydrated.user?.id ||
-          hydrated.isPremium
+          hydrated.user?.isLoggedIn && (hydrated.user?.email || hydrated.user?.id)
         );
         if (hasHydratedAccount && isMounted) {
           router.replace('/(tabs)/home');

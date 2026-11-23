@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QuizData, calculateTarget } from './growth-calc';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { classifyBiomechanicalArchetype, buildCalibrated6WeekProgram, BiomechanicalClassification } from './ai-program-generator';
+import { getLocalTodayDateStr } from './dates';
+import { useWaterStore } from '../store/waterStore';
 
 export interface LoggedMeal {
   id: string;
@@ -14,6 +16,7 @@ export interface LoggedMeal {
   fat: number;
   category: 'Breakfast' | 'Lunch' | 'Dinner' | 'Bedtime Anabolic' | 'Snack';
   time: string;
+  date?: string; // YYYY-MM-DD
 }
 
 export interface SleepLog {
@@ -877,6 +880,142 @@ export function buildMultiWeekProgramSchedule(
   return result;
 }
 
+export interface SubscriptionPlanItem {
+  id: string;
+  name: string;
+  tagline: string;
+  priceUsd: number;
+  priceInr: number;
+  interval: 'free' | 'monthly' | 'quarterly' | 'yearly' | 'lifetime';
+  revenuecatProductId?: string;
+  badgeLabel?: string;
+  badgeColor?: string;
+  sortOrder: number;
+  active: boolean;
+  aiChatDailyLimit: number;
+  maxProgramWeeks: number;
+  canAccessAdvancedStretches: boolean;
+  canAccessAiBiomechanicalCalibration: boolean;
+  canAccessSomatotropinSleepSync: boolean;
+  canAccessClinicalNutrition: boolean;
+  canAccessPrioritySupport: boolean;
+  marketingFeatures: string[];
+}
+
+export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlanItem[] = [
+  {
+    id: 'plan_pro_annual',
+    name: 'Tallgrame Pro Annual',
+    tagline: 'Maximum biological stature retention with 50% savings',
+    priceUsd: 59.99,
+    priceInr: 4999,
+    interval: 'yearly',
+    revenuecatProductId: 'yearly',
+    badgeLabel: 'BEST VALUE',
+    badgeColor: '#10B981',
+    sortOrder: 1,
+    active: true,
+    aiChatDailyLimit: 50,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: true,
+    marketingFeatures: [
+      'Full 6-week progressive spinal elongation protocol',
+      '50 daily Dr. Jack AI Growth Advisor queries',
+      'Save 50% compared to monthly billing ($4.99/mo)',
+      'Unlimited stature trajectory recalculations',
+      'Nocturnal Somatotropin (hGH) peak sync',
+      'Clinical bone mineralization nutrition matrix',
+      'VIP Gold Crown status & priority cloud sync',
+    ],
+  },
+  {
+    id: 'plan_pro_monthly',
+    name: 'Tallgrame Pro Monthly',
+    tagline: 'Complete 6-week progressive biomechanical protocol',
+    priceUsd: 9.99,
+    priceInr: 899,
+    interval: 'monthly',
+    revenuecatProductId: 'monthly',
+    badgeLabel: 'FLEXIBLE',
+    badgeColor: '#0284C7',
+    sortOrder: 2,
+    active: true,
+    aiChatDailyLimit: 20,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: false,
+    marketingFeatures: [
+      'Full 6-week progressive spinal elongation protocol',
+      '20 daily Dr. Jack AI Growth Advisor queries',
+      'Nocturnal Somatotropin (hGH) secretion tracker',
+      'Clinical bone mineralization nutrition matrix',
+      'AI-powered cervical & pelvic posture calibration',
+      'Cancel anytime with zero commitment',
+    ],
+  },
+  {
+    id: 'plan_lifetime',
+    name: 'Tallgrame Lifetime VIP',
+    tagline: 'Permanent one-time access with zero recurring fees',
+    priceUsd: 149.99,
+    priceInr: 12999,
+    interval: 'lifetime',
+    revenuecatProductId: 'lifetime',
+    badgeLabel: 'VIP PERMANENT',
+    badgeColor: '#8B5CF6',
+    sortOrder: 3,
+    active: true,
+    aiChatDailyLimit: 100,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: true,
+    marketingFeatures: [
+      'Permanent lifetime access to all features',
+      '100 daily Dr. Jack AI Growth Advisor queries',
+      'Zero recurring subscription fees',
+      'All future AI upgrades & protocols included',
+      'Lifetime priority cloud backup',
+    ],
+  },
+  {
+    id: 'plan_free',
+    name: 'Free Starter',
+    tagline: 'Essential height growth estimation & basic logging',
+    priceUsd: 0,
+    priceInr: 0,
+    interval: 'free',
+    revenuecatProductId: undefined,
+    badgeLabel: undefined,
+    badgeColor: '#64748B',
+    sortOrder: 4,
+    active: true,
+    aiChatDailyLimit: 5,
+    maxProgramWeeks: 2,
+    canAccessAdvancedStretches: false,
+    canAccessAiBiomechanicalCalibration: false,
+    canAccessSomatotropinSleepSync: false,
+    canAccessClinicalNutrition: false,
+    canAccessPrioritySupport: false,
+    marketingFeatures: [
+      'Tanner-Whitehouse III biological ceiling calculation',
+      'Basic 2-week spinal decompression routine',
+      'Standard circadian sleep log',
+      'Daily water intake tracking',
+      '5 daily AI Clinical Advisor queries',
+    ],
+  },
+];
+
 const initialSchedule = buildWeeklyPlanSchedule(CLINICAL_STRETCHES, 4);
 const initialMultiWeekPlan = buildMultiWeekProgramSchedule(CLINICAL_STRETCHES, 4, 6);
 
@@ -885,11 +1024,19 @@ interface AppState {
   isPremium: boolean;
   subscriptionTier: string;
   setSubscriptionTier: (tier: string) => void;
+  activePlanId: string;
+  setActivePlanId: (id: string) => void;
+  liveCatalogPlans: SubscriptionPlanItem[];
+  setLiveCatalogPlans: (plans: SubscriptionPlanItem[]) => void;
   streakDays: number;
   lastActiveDate: string | null;
   checkAndUpdateDailyStreak: () => void;
   syncStreakStatus: () => void;
+  checkDailyReset: () => void;
+  resetAccountData: (preserveQuiz?: boolean) => void;
   completedStretches: number[];
+  completedStretchesByDate: Record<string, number[]>;
+  getTodayCompletedStretches: (dateStr?: string) => number[];
   meals: LoggedMeal[];
   badges: AchievementBadgeItem[];
   unlockedBadgeIds: string[];
@@ -1012,16 +1159,63 @@ export const useAppStore = create<AppState>()(
       quizData: null,
       isPremium: false,
       subscriptionTier: 'Free',
+      activePlanId: 'plan_free',
+      setActivePlanId: (activePlanId: string) => set({ activePlanId }),
+      liveCatalogPlans: DEFAULT_SUBSCRIPTION_PLANS,
+      setLiveCatalogPlans: (liveCatalogPlans: SubscriptionPlanItem[]) => set({ liveCatalogPlans }),
       streakDays: 0,
       lastActiveDate: null,
 
-      checkAndUpdateDailyStreak: () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
+      checkDailyReset: () => {
+        const todayStr = getLocalTodayDateStr();
+        const lastActive = get().lastActiveDate;
 
+        // Sync today's completed stretches from date map
+        const byDate = get().completedStretchesByDate || {};
+        const todayDone = byDate[todayStr] || [];
+        set({ completedStretches: todayDone });
+
+        if (!lastActive) {
+          set({ lastActiveDate: todayStr });
+          return;
+        }
+
+        if (lastActive === todayStr) {
+          return;
+        }
+
+        // New day detected: calculate date difference
+        const [ly, lm, ld] = lastActive.split('-').map(Number);
+        const lastDate = new Date(ly, lm - 1, ld);
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        lastDate.setHours(0, 0, 0, 0);
+        const diffMs = todayDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        // Auto-reset daily habits/todos completion
+        const freshTodos = get().todos.map((t) => ({
+          ...t,
+          completed: false,
+          completedAt: undefined,
+        }));
+
+        let nextStreak = get().streakDays || 0;
+        if (diffDays > 1) {
+          // Missed one or more days without activity
+          nextStreak = 0;
+        }
+
+        set({
+          todos: freshTodos,
+          completedStretches: todayDone,
+          lastActiveDate: todayStr,
+          streakDays: nextStreak,
+        });
+      },
+
+      checkAndUpdateDailyStreak: () => {
+        const todayStr = getLocalTodayDateStr();
         const lastActive = get().lastActiveDate;
         const currentStreak = get().streakDays || 0;
 
@@ -1038,7 +1232,9 @@ export const useAppStore = create<AppState>()(
 
         const [ly, lm, ld] = lastActive.split('-').map(Number);
         const lastDate = new Date(ly, lm - 1, ld);
-        const todayDate = new Date(year, now.getMonth(), now.getDate());
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        lastDate.setHours(0, 0, 0, 0);
         const diffMs = todayDate.getTime() - lastDate.getTime();
         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
@@ -1053,28 +1249,73 @@ export const useAppStore = create<AppState>()(
       },
 
       syncStreakStatus: () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
-
+        const todayStr = getLocalTodayDateStr();
         const lastActive = get().lastActiveDate;
         if (!lastActive) return;
         if (lastActive === todayStr) return;
 
         const [ly, lm, ld] = lastActive.split('-').map(Number);
         const lastDate = new Date(ly, lm - 1, ld);
-        const todayDate = new Date(year, now.getMonth(), now.getDate());
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        lastDate.setHours(0, 0, 0, 0);
         const diffMs = todayDate.getTime() - lastDate.getTime();
         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
         if (diffDays > 1) {
-          // More than 1 day elapsed without activity; streak reset
           set({ streakDays: 0 });
         }
       },
+
+      resetAccountData: (preserveQuiz = false) => {
+        const freshSchedule = buildWeeklyPlanSchedule(CLINICAL_STRETCHES, 4);
+        const freshMultiWeekPlan = buildMultiWeekProgramSchedule(CLINICAL_STRETCHES, 4, 6);
+        set((state) => ({
+          ...(preserveQuiz
+            ? {}
+            : {
+                quizData: null,
+                isProgramCalibrated: false,
+                programCalibrationDate: null,
+                biomechanicalProfile: null,
+              }),
+          meals: [],
+          sleepLogs: [],
+          completedStretches: [],
+          completedStretchesByDate: {},
+          streakDays: 0,
+          lastActiveDate: null,
+          unlockedBadgeIds: [],
+          newlyUnlockedBadge: null,
+          paymentOrderId: null,
+          todos: INITIAL_DAILY_TODOS.map((t) => ({ ...t, completed: false, completedAt: undefined })),
+          chatMessages: [
+            {
+              id: 'msg-welcome',
+              role: 'assistant',
+              text: 'Hello! I am your GoTall Clinical Growth Advisor. All guidance is calibrated to peer-reviewed pediatric growth curves and spinal biomechanics. Tap any quick topic below or type your question.',
+              citation: 'Ref: Tanner-Whitehouse III & AAP Pediatric Endocrine Guidelines',
+              timestamp: 'Just now',
+            },
+          ],
+          aiQuestionsUsedToday: 0,
+          aiWindowStart: null,
+          currentProgramWeek: 1,
+          selectedViewingWeek: 1,
+          completedWeeks: [],
+          weeklyPlan: freshSchedule.plan,
+          multiWeekPlan: freshMultiWeekPlan,
+          activePlanDay: freshSchedule.activeDay,
+        }));
+      },
+
       completedStretches: [],
+      completedStretchesByDate: {},
+      getTodayCompletedStretches: (dateStr?: string) => {
+        const targetDate = dateStr || getLocalTodayDateStr();
+        const byDate = get().completedStretchesByDate || {};
+        return byDate[targetDate] || [];
+      },
       paymentOrderId: null,
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
@@ -1088,12 +1329,12 @@ export const useAppStore = create<AppState>()(
       currentProgramWeek: 1,
       selectedViewingWeek: 1,
       completedWeeks: [],
-      totalProgramWeeks: 4,
+      totalProgramWeeks: 6,
       multiWeekPlan: initialMultiWeekPlan,
       setSelectedViewingWeek: (week: number) => set({ selectedViewingWeek: week }),
       advanceToNextWeek: () => {
         const current = get().currentProgramWeek;
-        const maxWeeks = get().totalProgramWeeks || 4;
+        const maxWeeks = get().totalProgramWeeks || 6;
         const completed = get().completedWeeks;
         const next = Math.min(maxWeeks, current + 1);
         const newCompleted = completed.includes(current) ? completed : [...completed, current];
@@ -1265,10 +1506,33 @@ export const useAppStore = create<AppState>()(
       ],
 
       setQuizData: (data) => set({ quizData: data }),
-      setPremium: (status) => set({ isPremium: status, subscriptionTier: status ? 'Pro Monthly' : 'Free' }),
+      setPremium: (status) => {
+        const tier = status ? 'Pro Monthly' : 'Free';
+        const planId = status ? 'plan_pro_monthly' : 'plan_free';
+        set({ isPremium: status, subscriptionTier: tier, activePlanId: planId });
+        const user = get().user;
+        if (user?.id && isSupabaseConfigured()) {
+          void supabase
+            .from('profiles')
+            .update({
+              subscription_tier: tier,
+              is_premium: status,
+              active_plan_id: planId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+        }
+      },
       setSubscriptionTier: (tier) => {
-        const isPrem = tier !== 'Free';
-        set({ subscriptionTier: tier, isPremium: isPrem });
+        const isPrem = tier !== 'Free' && !tier.toLowerCase().includes('free');
+        const activePlanId = tier.includes('Annual')
+          ? 'plan_pro_annual'
+          : tier.includes('Monthly')
+          ? 'plan_pro_monthly'
+          : tier.includes('Lifetime')
+          ? 'plan_lifetime'
+          : 'plan_free';
+        set({ subscriptionTier: tier, isPremium: isPrem, activePlanId });
         const user = get().user;
         if (user?.id && isSupabaseConfigured()) {
           void supabase
@@ -1276,6 +1540,7 @@ export const useAppStore = create<AppState>()(
             .update({
               subscription_tier: tier,
               is_premium: isPrem,
+              active_plan_id: activePlanId,
               updated_at: new Date().toISOString(),
             })
             .eq('id', user.id);
@@ -1285,13 +1550,21 @@ export const useAppStore = create<AppState>()(
       setHasSeenAppTour: (seen) => set({ hasSeenAppTour: seen }),
 
       toggleStretch: (index) => {
-        const { completedStretches } = get();
-        const exists = completedStretches.includes(index);
-        const updated = exists
-          ? completedStretches.filter((i) => i !== index)
-          : [...completedStretches, index];
+        const todayStr = getLocalTodayDateStr();
+        const byDate = { ...(get().completedStretchesByDate || {}) };
+        const currentToday = byDate[todayStr] || [];
+        const exists = currentToday.includes(index);
+        const updatedToday = exists
+          ? currentToday.filter((i) => i !== index)
+          : [...currentToday, index];
 
-        set({ completedStretches: updated });
+        byDate[todayStr] = updatedToday;
+
+        set({
+          completedStretchesByDate: byDate,
+          completedStretches: updatedToday,
+        });
+
         if (!exists) {
           get().checkAndUpdateDailyStreak();
         }
@@ -1299,18 +1572,27 @@ export const useAppStore = create<AppState>()(
       },
 
       markStretchComplete: (index) => {
-        const { completedStretches } = get();
-        if (!completedStretches.includes(index)) {
-          set({ completedStretches: [...completedStretches, index] });
+        const todayStr = getLocalTodayDateStr();
+        const byDate = { ...(get().completedStretchesByDate || {}) };
+        const currentToday = byDate[todayStr] || [];
+        if (!currentToday.includes(index)) {
+          const updatedToday = [...currentToday, index];
+          byDate[todayStr] = updatedToday;
+          set({
+            completedStretchesByDate: byDate,
+            completedStretches: updatedToday,
+          });
           get().checkAndUpdateDailyStreak();
           get().checkBadges();
         }
       },
 
       addMeal: (mealData) => {
+        const todayStr = mealData.date || getLocalTodayDateStr();
         const newMeal: LoggedMeal = {
           ...mealData,
           id: `meal-${Date.now()}`,
+          date: todayStr,
           calories: Math.round(Number(mealData.calories) || 0),
           protein: Math.round((Number(mealData.protein) || 0) * 10) / 10,
           carbs: Math.round((Number(mealData.carbs) || 0) * 10) / 10,
@@ -1363,6 +1645,21 @@ export const useAppStore = create<AppState>()(
         const password = pendingRegistration?.password || 'GoTallSecure2026';
 
         let userId = `user-${Date.now()}`;
+        const isFree = planName.toLowerCase().includes('free');
+        const tierName = planName.includes('Annual')
+          ? 'Pro Annual'
+          : planName.includes('Monthly')
+          ? 'Pro Monthly'
+          : planName.includes('Lifetime')
+          ? 'Lifetime VIP'
+          : 'Free';
+        const activePlanId = planName.includes('Annual')
+          ? 'plan_pro_annual'
+          : planName.includes('Monthly')
+          ? 'plan_pro_monthly'
+          : planName.includes('Lifetime')
+          ? 'plan_lifetime'
+          : 'plan_free';
 
         if (isSupabaseConfigured()) {
           try {
@@ -1397,19 +1694,22 @@ export const useAppStore = create<AppState>()(
               gender: quizData?.gender === 'female' ? 'Female' : 'Male',
               age: quizData?.age || 17,
               current_height: quizData?.currentHeight || 172.4,
-              subscription_tier: planName.includes('Annual') ? 'Pro Annual' : 'Pro Monthly',
-              is_premium: true,
+              subscription_tier: tierName,
+              is_premium: !isFree,
+              active_plan_id: activePlanId,
             });
 
-            // Log payment
-            await supabase.from('payments').insert({
-              user_id: userId,
-              revenuecat_original_transaction_id: paymentId,
-              plan_name: planName,
-              amount_paise: planName.includes('Annual') ? 149900 : planName.includes('Quarterly') ? 59900 : 29900,
-              currency: 'INR',
-              status: 'success',
-            });
+            // Log payment if paid
+            if (!isFree) {
+              await supabase.from('payments').insert({
+                user_id: userId,
+                revenuecat_original_transaction_id: paymentId,
+                plan_name: planName,
+                amount_paise: planName.includes('Annual') ? 149900 : planName.includes('Quarterly') ? 59900 : 29900,
+                currency: 'INR',
+                status: 'success',
+              });
+            }
           } catch (e) {
             console.warn('Supabase account provisioning error:', e);
           }
@@ -1423,9 +1723,17 @@ export const useAppStore = create<AppState>()(
           isLoggedIn: true,
         };
 
+        // Reset any previous user's local logs while preserving freshly submitted quiz data
+        get().resetAccountData(true);
+        try {
+          useWaterStore.getState().resetWaterData();
+        } catch {}
+
         set({
           user: newUser,
-          isPremium: true,
+          isPremium: !isFree,
+          subscriptionTier: tierName,
+          activePlanId: activePlanId,
           paymentOrderId: paymentId,
           pendingRegistration: null,
         });
@@ -1437,7 +1745,17 @@ export const useAppStore = create<AppState>()(
         if (isSupabaseConfigured()) {
           supabase.auth.signOut().catch(() => {});
         }
-        set({ user: null, isPremium: false, pendingRegistration: null });
+        get().resetAccountData(false);
+        try {
+          useWaterStore.getState().resetWaterData();
+        } catch {}
+        set({
+          user: null,
+          isPremium: false,
+          subscriptionTier: 'Free',
+          activePlanId: 'plan_free',
+          pendingRegistration: null,
+        });
       },
 
       setCategories: (categories) => {
@@ -1507,18 +1825,23 @@ export const useAppStore = create<AppState>()(
         const isPremiumUser = s.isPremium;
         const tier = s.subscriptionTier;
 
+        const activePlan = s.liveCatalogPlans?.find((p) => p.id === s.activePlanId) ||
+          s.liveCatalogPlans?.find((p) => s.isPremium ? (p.id.includes('annual') || p.id.includes('monthly') || p.id.includes('lifetime')) : p.id.includes('free'));
+
         let limit: number;
-        if (!isPremiumUser) {
+        if (activePlan && activePlan.aiChatDailyLimit !== undefined) {
+          limit = activePlan.aiChatDailyLimit === -1 ? 9999 : activePlan.aiChatDailyLimit;
+        } else if (!isPremiumUser) {
           limit = 5;
         } else if (tier?.includes('Monthly')) {
-          limit = 25;
+          limit = 20;
         } else if (tier?.includes('Annual') || tier?.includes('Lifetime')) {
-          limit = 999; // effectively unlimited
+          limit = 50;
         } else {
           limit = 5;
         }
         const remaining = Math.max(0, limit - used);
-        const planName = s.isPremium ? 'Pro Clinical' : 'Free';
+        const planName = activePlan?.name || (s.isPremium ? 'Pro Clinical' : 'Free Starter');
 
         let resetCountdown = 'Ready';
         if (hasActiveWindow && s.aiWindowStart) {
@@ -1659,12 +1982,13 @@ export const useAppStore = create<AppState>()(
       fetchLiveContent: async () => {
         if (!isSupabaseConfigured()) return;
         try {
-          const [stretchesRes, catRes, qRes, badgeRes, mealsRes] = await Promise.allSettled([
+          const [stretchesRes, catRes, qRes, badgeRes, mealsRes, plansRes] = await Promise.allSettled([
             supabase.from('stretches').select('*').eq('active', true).order('sort_order', { ascending: true }),
             supabase.from('workout_categories').select('*').order('sort_order', { ascending: true }),
             supabase.from('category_questions').select('*').eq('active', true),
             supabase.from('achievements').select('*').order('created_at', { ascending: true }),
             supabase.from('meals').select('*').is('user_id', null).eq('active', true).order('name', { ascending: true }),
+            supabase.from('subscription_plans').select('*').eq('active', true).order('sort_order', { ascending: true }),
           ]);
 
           // 1. Stretches / Exercises
@@ -1766,6 +2090,36 @@ export const useAppStore = create<AppState>()(
               active: m.active !== false,
             }));
             set({ livePresetMeals: mappedMeals });
+          }
+
+          // 6. Subscription Plans & Quotas (admin-managed from Supabase)
+          if (plansRes.status === 'fulfilled' && plansRes.value.data && plansRes.value.data.length > 0) {
+            const mappedPlans: SubscriptionPlanItem[] = plansRes.value.data.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              tagline: p.tagline || '',
+              priceUsd: Number(p.price_usd) || 0,
+              priceInr: Number(p.price_inr) || 0,
+              interval: p.interval || 'monthly',
+              revenuecatProductId: p.revenuecat_product_id || undefined,
+              badgeLabel: p.badge_label || undefined,
+              badgeColor: p.badge_color || '#0284C7',
+              sortOrder: Number(p.sort_order) || 1,
+              active: p.active !== false,
+              aiChatDailyLimit: p.ai_chat_daily_limit !== undefined ? Number(p.ai_chat_daily_limit) : 5,
+              maxProgramWeeks: p.max_program_weeks !== undefined ? Number(p.max_program_weeks) : 6,
+              canAccessAdvancedStretches: Boolean(p.can_access_advanced_stretches),
+              canAccessAiBiomechanicalCalibration: Boolean(p.can_access_ai_biomechanical_calibration),
+              canAccessSomatotropinSleepSync: Boolean(p.can_access_somatotropin_sleep_sync),
+              canAccessClinicalNutrition: Boolean(p.can_access_clinical_nutrition),
+              canAccessPrioritySupport: Boolean(p.can_access_priority_support),
+              marketingFeatures: Array.isArray(p.marketing_features)
+                ? p.marketing_features
+                : typeof p.marketing_features === 'string'
+                ? JSON.parse(p.marketing_features)
+                : [],
+            }));
+            set({ liveCatalogPlans: mappedPlans });
           }
 
           // 6. Populate live catalog — used by stretches tab instead of CLINICAL_STRETCHES.
@@ -1901,9 +2255,12 @@ export const useAppStore = create<AppState>()(
         quizData: state.quizData,
         isPremium: state.isPremium,
         subscriptionTier: state.subscriptionTier,
+        activePlanId: state.activePlanId,
+        pendingRegistration: state.pendingRegistration,
         streakDays: state.streakDays,
         lastActiveDate: state.lastActiveDate,
         completedStretches: state.completedStretches,
+        completedStretchesByDate: state.completedStretchesByDate,
         meals: state.meals,
         unlockedBadgeIds: state.unlockedBadgeIds,
         paymentOrderId: state.paymentOrderId,
@@ -1931,11 +2288,13 @@ export const useAppStore = create<AppState>()(
         liveCatalogStretches: state.liveCatalogStretches,
         livePresetMeals: state.livePresetMeals,
         liveCatalogBadges: state.liveCatalogBadges,
+        liveCatalogPlans: state.liveCatalogPlans,
         badges: state.badges,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
+          state.checkDailyReset();
           state.syncStreakStatus();
         }
       },

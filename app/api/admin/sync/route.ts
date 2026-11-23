@@ -221,6 +221,62 @@ export async function GET(request: Request) {
       }
     }
 
+    // Subscription Plans
+    if (!entity || entity === 'plans') {
+      const { data } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .order('sort_order', { ascending: true })
+
+      if (data && data.length > 0) {
+        results.plans = data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          tagline: p.tagline || '',
+          priceUsd: Number(p.price_usd) || 0,
+          priceInr: Number(p.price_inr) || 0,
+          interval: p.interval || 'monthly',
+          revenuecatProductId: p.revenuecat_product_id || '',
+          badgeLabel: p.badge_label || '',
+          badgeColor: p.badge_color || '#0284C7',
+          sortOrder: p.sort_order || 1,
+          active: p.active ?? true,
+          aiChatDailyLimit: p.ai_chat_daily_limit ?? 5,
+          maxProgramWeeks: p.max_program_weeks ?? 6,
+          canAccessAdvancedStretches: Boolean(p.can_access_advanced_stretches),
+          canAccessAiBiomechanicalCalibration: Boolean(p.can_access_ai_biomechanical_calibration),
+          canAccessSomatotropinSleepSync: Boolean(p.can_access_somatotropin_sleep_sync),
+          canAccessClinicalNutrition: Boolean(p.can_access_clinical_nutrition),
+          canAccessPrioritySupport: Boolean(p.can_access_priority_support),
+          marketingFeatures: Array.isArray(p.marketing_features) ? p.marketing_features : [],
+        }))
+      }
+    }
+
+    // Revenue & Transactions Ledger
+    if (!entity || entity === 'revenue' || entity === 'payments') {
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (paymentsData && paymentsData.length > 0) {
+        results.payments = paymentsData.map((p: any) => ({
+          id: p.id,
+          userId: p.user_id,
+          originalTransactionId: p.revenuecat_original_transaction_id || '',
+          productId: p.product_id || '',
+          planName: p.plan_name || 'Tallgrame Pro',
+          amountPaise: Number(p.amount_paise) || 0,
+          currency: p.currency || 'USD',
+          status: p.status || 'success',
+          createdAt: p.created_at,
+        }))
+      } else {
+        results.payments = []
+      }
+    }
+
     return NextResponse.json(results)
   } catch (err: any) {
     console.error('Sync GET error:', err)
@@ -317,6 +373,32 @@ export async function POST(request: Request) {
       }))
 
       const { error } = await supabase.from('achievements').upsert(rows, { onConflict: 'id' })
+      if (error) throw error
+    } else if (entity === 'plans') {
+      const rows = items.map((p: any, idx: number) => ({
+        id: p.id || `plan_${idx + 1}`,
+        name: p.name,
+        tagline: p.tagline || '',
+        price_usd: Number(p.priceUsd) || 0,
+        price_inr: Number(p.priceInr) || 0,
+        interval: p.interval || 'monthly',
+        revenuecat_product_id: p.revenuecatProductId || null,
+        badge_label: p.badgeLabel || null,
+        badge_color: p.badgeColor || '#0284C7',
+        sort_order: Number(p.sortOrder) || idx + 1,
+        active: p.active !== false,
+        ai_chat_daily_limit: Number(p.aiChatDailyLimit) ?? 5,
+        max_program_weeks: Number(p.maxProgramWeeks) ?? 6,
+        can_access_advanced_stretches: Boolean(p.canAccessAdvancedStretches),
+        can_access_ai_biomechanical_calibration: Boolean(p.canAccessAiBiomechanicalCalibration),
+        can_access_somatotropin_sleep_sync: Boolean(p.canAccessSomatotropinSleepSync),
+        can_access_clinical_nutrition: Boolean(p.canAccessClinicalNutrition),
+        can_access_priority_support: Boolean(p.canAccessPrioritySupport),
+        marketing_features: Array.isArray(p.marketingFeatures) ? p.marketingFeatures : [],
+        updated_at: new Date().toISOString(),
+      }))
+
+      const { error } = await supabase.from('subscription_plans').upsert(rows, { onConflict: 'id' })
       if (error) throw error
     } else if (entity === 'users') {
       const rows = items.map((u: any) => ({

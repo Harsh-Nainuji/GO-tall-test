@@ -21,31 +21,23 @@ import {
   CheckCircle2,
   ShieldCheck,
   Zap,
-  Star,
-  Award,
   ArrowRight,
-  Clock,
   Dna,
-  RefreshCw,
-  Settings,
-  Flame,
-  Infinity as InfinityIcon,
+  Receipt,
+  CreditCard,
+  Calendar,
 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { useAppStore } from '../lib/store';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import GlassCard from '../components/GlassCard';
 import GlassBackgroundCanvas from '../components/GlassBackgroundCanvas';
 import {
   getRevenueCatOfferings,
   purchaseRevenueCatPackage,
-  restoreRevenueCatPurchases,
-  presentRevenueCatPaywall,
-  presentRevenueCatCustomerCenter,
   PRODUCT_IDS,
-  ENTITLEMENT_ID,
   DEFAULT_PLAN_FEATURES,
-  checkTestingProEntitlement,
 } from '../lib/revenuecat';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -62,6 +54,16 @@ interface PlanDetails {
   badgeColor?: string;
   isPopular?: boolean;
   features: string[];
+}
+
+interface PaymentHistoryItem {
+  id: string;
+  plan_name: string;
+  amount_paise: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  revenuecat_original_transaction_id?: string;
 }
 
 const DEFAULT_PLANS: PlanDetails[] = [
@@ -114,20 +116,23 @@ const DEFAULT_PLANS: PlanDetails[] = [
 
 const COMPARISON_ROWS = [
   { feature: '6-Week Biomechanical Protocol', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Daily Dr. Jack AI Growth Chat Quota', free: '5/day', monthly: '20/day', annual: '50/day', lifetime: '100/day' },
   { feature: 'Somatotropin (hGH) Peak Sync', free: false, monthly: true, annual: true, lifetime: true },
   { feature: 'Clinical Nutrition & Casein Timing', free: false, monthly: true, annual: true, lifetime: true },
   { feature: 'Tanner-Whitehouse III Calculator', free: true, monthly: true, annual: true, lifetime: true },
   { feature: 'AI Pelvic & Cervical Calibration', free: false, monthly: true, annual: true, lifetime: true },
   { feature: 'Unlimited Height Trajectory Scans', free: false, monthly: false, annual: true, lifetime: true },
-  { feature: 'Priority Cross-Device Backup', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Priority Cloud Backup & Cross-Device Sync', free: false, monthly: true, annual: true, lifetime: true },
   { feature: 'Zero Recurring Fees & Lifetime Updates', free: false, monthly: false, annual: false, lifetime: true },
 ];
 
 export default function MembershipScreen() {
   const router = useRouter();
 
+  const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
   const subscriptionTier = useAppStore((state) => state.subscriptionTier) || (isPremium ? 'Pro Annual' : 'Free');
+  const liveCatalogPlans = useAppStore((state) => state.liveCatalogPlans);
   const setPremium = useAppStore((state) => state.setPremium);
   const setSubscriptionTier = useAppStore((state) => state.setSubscriptionTier);
 
@@ -136,6 +141,33 @@ export default function MembershipScreen() {
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Fetch payment history for authenticated user
+  const fetchPaymentHistory = async () => {
+    if (!user?.id || !isSupabaseConfigured()) return;
+    try {
+      setIsLoadingHistory(true);
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (data && !error) {
+        setPaymentHistory(data as PaymentHistoryItem[]);
+      }
+    } catch (e) {
+      console.warn('Payment history fetch error:', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPaymentHistory();
+  }, [user?.id]);
 
   // Load dynamic offerings & prices from RevenueCat
   useEffect(() => {
@@ -145,10 +177,8 @@ export default function MembershipScreen() {
         const available = offering.availablePackages || [];
         setPackages(available);
 
-        // Extract dynamic features if present in offering metadata
         const metadataFeatures = offering.metadata?.features;
 
-        // Map live RevenueCat packages to plan display
         setPlans((prev) =>
           prev.map((plan) => {
             if (plan.id === 'Free') return plan;
@@ -181,6 +211,37 @@ export default function MembershipScreen() {
       });
   }, []);
 
+  // Sync with Admin Studio live plans if present in store
+  useEffect(() => {
+    if (liveCatalogPlans && liveCatalogPlans.length > 0) {
+      setPlans((prev) =>
+        prev.map((plan) => {
+          const matched = liveCatalogPlans.find((lp) =>
+            plan.id === 'Free'
+              ? lp.id.includes('free')
+              : plan.id === 'Pro Monthly'
+              ? lp.id.includes('monthly')
+              : plan.id === 'Pro Annual'
+              ? lp.id.includes('annual')
+              : lp.id.includes('lifetime')
+          );
+          if (matched) {
+            return {
+              ...plan,
+              price: matched.priceUsd > 0 ? `$${matched.priceUsd}` : '$0',
+              tagline: matched.tagline || plan.tagline,
+              features:
+                matched.marketingFeatures && matched.marketingFeatures.length > 0
+                  ? matched.marketingFeatures
+                  : plan.features,
+            };
+          }
+          return plan;
+        })
+      );
+    }
+  }, [liveCatalogPlans]);
+
   const handleSelectPlan = (planId: string) => {
     Haptics.selectionAsync().catch(() => {});
     setSelectedPlanId(planId);
@@ -194,6 +255,15 @@ export default function MembershipScreen() {
       if (selectedPlanId === 'Free') {
         setPremium(false);
         setSubscriptionTier('Free Starter');
+        if (user?.id && isSupabaseConfigured()) {
+          try {
+            await supabase.from('profiles').update({
+              active_plan_id: 'plan_free',
+              subscription_tier: 'Free Starter',
+              is_premium: false,
+            }).eq('user_id', user.id);
+          } catch {}
+        }
         setIsLoading(false);
         setSuccessBanner('Switched to Free Starter plan.');
         setTimeout(() => setSuccessBanner(null), 3000);
@@ -211,21 +281,69 @@ export default function MembershipScreen() {
       if (pkgToBuy) {
         const res = await purchaseRevenueCatPackage(pkgToBuy);
         if (res.success) {
+          const activePlanTitle = plan?.name || selectedPlanId;
           setPremium(true);
-          setSubscriptionTier(plan?.name || selectedPlanId);
+          setSubscriptionTier(activePlanTitle);
+
+          // Update user profile and record payment in database
+          if (user?.id && isSupabaseConfigured()) {
+            const planId =
+              selectedPlanId === 'Pro Monthly'
+                ? 'plan_pro_monthly'
+                : selectedPlanId === 'Pro Annual'
+                ? 'plan_pro_annual'
+                : selectedPlanId === 'Lifetime VIP'
+                ? 'plan_lifetime'
+                : 'plan_free';
+
+            const amountPaise =
+              selectedPlanId === 'Pro Annual'
+                ? 5999
+                : selectedPlanId === 'Lifetime VIP'
+                ? 14999
+                : 999;
+
+            const txnId = res.customerInfo?.originalAppUserId || `rc_tx_${Date.now()}`;
+
+            try {
+              await supabase
+                .from('profiles')
+                .update({
+                  active_plan_id: planId,
+                  subscription_tier: activePlanTitle,
+                  is_premium: true,
+                })
+                .eq('user_id', user.id);
+            } catch {}
+
+            try {
+              await supabase
+                .from('payments')
+                .insert({
+                  user_id: user.id,
+                  revenuecat_original_transaction_id: txnId,
+                  plan_name: activePlanTitle,
+                  amount_paise: amountPaise,
+                  currency: 'USD',
+                  status: 'success',
+                });
+            } catch {}
+
+            fetchPaymentHistory();
+          }
+
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          setSuccessBanner(`VIP Unlocked: ${plan?.name || selectedPlanId}!`);
+          setSuccessBanner(`VIP Unlocked: ${activePlanTitle}!`);
           setTimeout(() => setSuccessBanner(null), 3500);
           setIsLoading(false);
           return;
         }
       }
 
-      // Fallback removal: Do not grant premium on missing package or failed purchase
       setIsLoading(false);
       Alert.alert(
-        'Purchase Failed',
-        'Could not complete purchase. Please try again or restore purchases.',
+        'Purchase Incomplete',
+        'Could not complete purchase. Please verify your payment details and try again.',
         [{ text: 'OK' }]
       );
       return;
@@ -236,64 +354,25 @@ export default function MembershipScreen() {
     }
   };
 
-  const handleLaunchNativePaywall = async () => {
-    try {
-      Haptics.selectionAsync().catch(() => {});
-      const res = await presentRevenueCatPaywall();
-      if (res.success) {
-        setPremium(true);
-        setSubscriptionTier('Pro Annual');
-        setSuccessBanner('Purchase verified via RevenueCat Paywall!');
-        setTimeout(() => setSuccessBanner(null), 3500);
-      }
-    } catch (e) {
-      console.warn('Paywall launch error:', e);
-    }
-  };
-
-  const handleOpenCustomerCenter = async () => {
-    try {
-      Haptics.selectionAsync().catch(() => {});
-      const success = await presentRevenueCatCustomerCenter();
-      if (!success) {
-        Alert.alert(
-          'Customer Center',
-          'Manage your subscriptions in your device App Store / Google Play account settings.'
-        );
-      }
-    } catch (e) {
-      console.warn('Customer center launch error:', e);
-    }
-  };
-
-  const handleRestore = async () => {
-    try {
-      Haptics.selectionAsync().catch(() => {});
-      setIsLoading(true);
-      const res = await restoreRevenueCatPurchases();
-      setIsLoading(false);
-
-      if (res.success) {
-        setPremium(true);
-        setSubscriptionTier('Pro Annual');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        setSuccessBanner('Purchases successfully restored!');
-        setTimeout(() => setSuccessBanner(null), 3500);
-      } else {
-        Alert.alert('Restore Purchases', 'No previous active subscriptions found for this account.');
-      }
-    } catch (e: any) {
-      setIsLoading(false);
-      Alert.alert('Restore Purchases', e?.message || 'Could not restore purchases.');
-    }
-  };
-
   const isCurrentActive =
     selectedPlanId === subscriptionTier ||
     (selectedPlanId === 'Pro Annual' && subscriptionTier.includes('Annual')) ||
     (selectedPlanId === 'Pro Monthly' && subscriptionTier.includes('Monthly')) ||
     (selectedPlanId === 'Lifetime VIP' && subscriptionTier.includes('Lifetime')) ||
     (selectedPlanId === 'Free' && !isPremium);
+
+  const formatPaymentDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <GlassBackgroundCanvas>
@@ -338,7 +417,7 @@ export default function MembershipScreen() {
                   <Crown size={22} color={isPremium ? '#D97706' : '#64748B'} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.activeLabel}>CURRENT ACTIVE STATUS</Text>
+                  <Text style={styles.activeLabel}>CURRENT ACTIVE PLAN</Text>
                   <Text style={styles.activeTierTitle}>{subscriptionTier}</Text>
                 </View>
                 <View
@@ -353,51 +432,28 @@ export default function MembershipScreen() {
                       isPremium ? styles.activeStatusTextPro : styles.activeStatusTextFree,
                     ]}
                   >
-                    {isPremium ? 'VIP UNLOCKED' : 'STANDARD'}
+                    {isPremium ? 'ACTIVE' : 'STANDARD'}
                   </Text>
                 </View>
               </View>
 
               <Text style={styles.activeSummaryDesc}>
                 {subscriptionTier.includes('Lifetime')
-                  ? 'Your Lifetime VIP access is permanently active. You have unrestricted lifetime access to all 6-week progressive routines, nocturnal Somatotropin sync, and priority AI updates with zero recurring charges.'
+                  ? 'Your Lifetime VIP access is permanently active. Unrestricted access to all 6-week progressive routines, nocturnal Somatotropin sync, and priority AI coaching with zero recurring charges.'
                   : subscriptionTier.includes('Annual')
-                  ? 'Your Annual VIP tier is active. You have full access to all 6 weeks of clinical biomechanics, daily Somatotropin pulse synchrony, and priority Tanner-Whitehouse calculations.'
+                  ? 'Your Annual VIP tier is active. Full access to all 6 weeks of clinical biomechanics, daily Somatotropin pulse synchrony, and priority 50 daily AI chats.'
                   : subscriptionTier.includes('Monthly')
-                  ? 'Your Monthly VIP tier is active. Full 6-week progressive routine and nutritional casein timing are enabled.'
-                  : 'You are currently on the Free Starter plan with baseline stature calculations. Upgrade to Pro to unlock the complete clinical growth protocol.'}
+                  ? 'Your Monthly VIP tier is active. Full 6-week progressive routine, nutritional casein timing, and 20 daily AI chats are enabled.'
+                  : 'You are currently on the Free Starter plan with baseline stature calculations and 5 daily AI queries. Select a plan below to upgrade.'}
               </Text>
-
-              {/* Quick Actions Row */}
-              <View style={styles.quickActionsRow}>
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={handleOpenCustomerCenter}
-                  activeOpacity={0.7}
-                >
-                  <Settings size={13} color="#2563EB" />
-                  <Text style={styles.quickActionBtnText}>Customer Center</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={handleRestore}
-                  activeOpacity={0.7}
-                >
-                  <RefreshCw size={13} color="#059669" />
-                  <Text style={[styles.quickActionBtnText, { color: '#059669' }]}>
-                    Restore Purchases
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </GlassCard>
           </Animated.View>
 
           {/* Section: Select a Tier */}
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionTitle}>Choose Your Training Tier</Text>
+            <Text style={styles.sectionTitle}>Upgrade or Change Plan</Text>
             <Text style={styles.sectionSubtitle}>
-              Monthly, Yearly or Lifetime plans powered securely by RevenueCat
+              Select your preferred tier and tap activate to apply immediately
             </Text>
           </View>
 
@@ -446,7 +502,7 @@ export default function MembershipScreen() {
                           <Text style={styles.planNameText}>{plan.name}</Text>
                           {isCurrent && (
                             <View style={styles.currentPlanPill}>
-                              <Text style={styles.currentPlanPillText}>ACTIVE</Text>
+                              <Text style={styles.currentPlanPillText}>CURRENT</Text>
                             </View>
                           )}
                         </View>
@@ -528,8 +584,8 @@ export default function MembershipScreen() {
                       : selectedPlanId === 'Free'
                       ? 'Switch to Free Starter Plan'
                       : selectedPlanId === 'Lifetime VIP'
-                      ? 'Unlock Lifetime VIP Access 👑'
-                      : `Activate ${selectedPlanId} ⚡`}
+                      ? 'Upgrade to Lifetime VIP Access'
+                      : `Activate ${selectedPlanId}`}
                   </Text>
                   {!isCurrentActive && <ArrowRight size={16} color="#FFFFFF" />}
                 </>
@@ -537,51 +593,57 @@ export default function MembershipScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Alternative: Launch Native RevenueCat Paywall */}
-          <TouchableOpacity
-            style={styles.paywallAltBtn}
-            onPress={handleLaunchNativePaywall}
-            activeOpacity={0.8}
-          >
-            <Sparkles size={14} color="#2563EB" />
-            <Text style={styles.paywallAltBtnText}>
-              Preview RevenueCat Paywall Modal
-            </Text>
-          </TouchableOpacity>
-
           {/* Feature Comparison Matrix */}
           <Animated.View entering={FadeInDown.delay(300).springify()}>
             <GlassCard style={styles.comparisonCard}>
               <View style={styles.comparisonHeader}>
                 <Dna size={16} color="#2563EB" />
-                <Text style={styles.comparisonTitle}>Clinical Tier Comparison</Text>
+                <Text style={styles.comparisonTitle}>Plan Comparison Matrix</Text>
               </View>
 
               <View style={styles.comparisonTable}>
                 <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableColHeader, { flex: 2 }]}>Capability</Text>
+                  <Text style={[styles.tableColHeader, { flex: 2.2 }]}>Capability</Text>
                   <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>Free</Text>
-                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#0284C7' }]}>Pro</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#0284C7' }]}>Monthly</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#10B981' }]}>Annual</Text>
                   <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#7C3AED' }]}>VIP</Text>
                 </View>
 
                 {COMPARISON_ROWS.map((row, idx) => (
                   <View key={idx} style={styles.tableRow}>
-                    <Text style={styles.tableFeatureName} numberOfLines={1}>
+                    <Text style={styles.tableFeatureName} numberOfLines={2}>
                       {row.feature}
                     </Text>
                     <View style={styles.tableIconCell}>
-                      {row.free ? (
-                        <Check size={13} color="#10B981" />
+                      {typeof row.free === 'string' ? (
+                        <Text style={styles.tableValueText}>{row.free}</Text>
+                      ) : row.free ? (
+                        <Check size={12} color="#10B981" strokeWidth={2.5} />
                       ) : (
                         <Text style={styles.tableMinusText}>–</Text>
                       )}
                     </View>
                     <View style={styles.tableIconCell}>
-                      <Check size={13} color="#0284C7" strokeWidth={2.5} />
+                      {typeof row.monthly === 'string' ? (
+                        <Text style={[styles.tableValueText, { color: '#0284C7' }]}>{row.monthly}</Text>
+                      ) : (
+                        <Check size={12} color="#0284C7" strokeWidth={2.5} />
+                      )}
                     </View>
                     <View style={styles.tableIconCell}>
-                      <Check size={13} color="#7C3AED" strokeWidth={2.5} />
+                      {typeof row.annual === 'string' ? (
+                        <Text style={[styles.tableValueText, { color: '#10B981', fontWeight: '800' }]}>{row.annual}</Text>
+                      ) : (
+                        <Check size={12} color="#10B981" strokeWidth={2.5} />
+                      )}
+                    </View>
+                    <View style={styles.tableIconCell}>
+                      {typeof row.lifetime === 'string' ? (
+                        <Text style={[styles.tableValueText, { color: '#7C3AED', fontWeight: '800' }]}>{row.lifetime}</Text>
+                      ) : (
+                        <Check size={12} color="#7C3AED" strokeWidth={2.5} />
+                      )}
                     </View>
                   </View>
                 ))}
@@ -589,16 +651,76 @@ export default function MembershipScreen() {
             </GlassCard>
           </Animated.View>
 
-          {/* Guarantee & Medical Transparency Notice */}
+          {/* Payment History Section */}
           <Animated.View entering={FadeInDown.delay(350).springify()}>
+            <GlassCard style={styles.historyCard}>
+              <View style={styles.historyHeader}>
+                <Receipt size={16} color="#0F172A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyTitle}>Payment History</Text>
+                  <Text style={styles.historySubtitle}>Past purchases and subscription charges</Text>
+                </View>
+              </View>
+
+              {isLoadingHistory ? (
+                <View style={styles.historyLoadingWrap}>
+                  <ActivityIndicator size="small" color="#2563EB" />
+                </View>
+              ) : paymentHistory.length === 0 ? (
+                <View style={styles.historyEmptyWrap}>
+                  <CreditCard size={28} color="#94A3B8" />
+                  <Text style={styles.historyEmptyTitle}>No Previous Invoices</Text>
+                  <Text style={styles.historyEmptySub}>
+                    When you subscribe or upgrade, your transaction receipts and invoices will appear here.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.historyList}>
+                  {paymentHistory.map((item) => {
+                    const displayAmount =
+                      item.currency === 'USD'
+                        ? `$${(item.amount_paise / 100).toFixed(2)}`
+                        : `₹${(item.amount_paise / 100).toFixed(0)}`;
+
+                    return (
+                      <View key={item.id} style={styles.historyItemRow}>
+                        <View style={styles.historyItemLeft}>
+                          <Text style={styles.historyItemPlan}>{item.plan_name}</Text>
+                          <View style={styles.historyItemMeta}>
+                            <Calendar size={11} color="#64748B" />
+                            <Text style={styles.historyItemDate}>{formatPaymentDate(item.created_at)}</Text>
+                            {item.revenuecat_original_transaction_id && (
+                              <Text style={styles.historyTxnId}>
+                                • ID: {item.revenuecat_original_transaction_id.slice(-8)}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        <View style={styles.historyItemRight}>
+                          <Text style={styles.historyItemAmount}>{displayAmount}</Text>
+                          <View style={styles.historyStatusPill}>
+                            <CheckCircle2 size={10} color="#059669" />
+                            <Text style={styles.historyStatusText}>
+                              {item.status?.toUpperCase() || 'COMPLETED'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </GlassCard>
+          </Animated.View>
+
+          {/* Guarantee Notice */}
+          <Animated.View entering={FadeInDown.delay(380).springify()}>
             <View style={styles.guaranteeCard}>
               <ShieldCheck size={20} color="#059669" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.guaranteeTitle}>Clinical Science &amp; RevenueCat Guarantee</Text>
+                <Text style={styles.guaranteeTitle}>Secure Billing &amp; Privacy Guarantee</Text>
                 <Text style={styles.guaranteeText}>
-                  Entitlements are verified securely via RevenueCat (`testing_pro`).
-                  Subscriptions auto-renew until cancelled in your App Store or Google Play account.
-                  Lifetime purchase is a one-time non-recurring charge.
+                  All payments are processed securely with 256-bit encryption. Subscriptions can be managed or cancelled at any time directly through your app store settings.
                 </Text>
               </View>
             </View>
@@ -690,7 +812,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 12,
+    gap: 10,
   },
   activeSummaryHeader: {
     flexDirection: 'row',
@@ -723,9 +845,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeStatusPillPro: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: '#93C5FD',
+    borderColor: '#86EFAC',
   },
   activeStatusPillFree: {
     backgroundColor: '#F1F5F9',
@@ -737,7 +859,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   activeStatusTextPro: {
-    color: '#1D4ED8',
+    color: '#15803D',
   },
   activeStatusTextFree: {
     color: '#64748B',
@@ -746,31 +868,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#475569',
     lineHeight: 17,
-  },
-  quickActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  quickActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  quickActionBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563EB',
   },
   sectionHeading: {
     marginTop: 4,
@@ -907,7 +1004,7 @@ const styles = StyleSheet.create({
   },
   featuresList: {
     gap: 8,
-    paddingTop: 4,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -950,22 +1047,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
-  paywallAltBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 246, 255, 0.7)',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  paywallAltBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
   comparisonCard: {
     padding: 16,
     borderRadius: 22,
@@ -996,7 +1077,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   tableColHeader: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#94A3B8',
     textTransform: 'uppercase',
@@ -1009,7 +1090,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F8FAFC',
   },
   tableFeatureName: {
-    flex: 2,
+    flex: 2.2,
     fontSize: 10.5,
     color: '#475569',
   },
@@ -1018,10 +1099,120 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  tableValueText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
   tableMinusText: {
     fontSize: 12,
     color: '#CBD5E1',
     fontWeight: '700',
+  },
+  historyCard: {
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 14,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  historySubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  historyLoadingWrap: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  historyEmptyWrap: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  historyEmptyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    marginTop: 4,
+  },
+  historyEmptySub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textAlign: 'center',
+    maxWidth: 260,
+    lineHeight: 15,
+  },
+  historyList: {
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  historyItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  historyItemLeft: {
+    flex: 1,
+    gap: 3,
+  },
+  historyItemPlan: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  historyItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  historyItemDate: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  historyTxnId: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  historyItemRight: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  historyItemAmount: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  historyStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  historyStatusText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#059669',
   },
   guaranteeCard: {
     flexDirection: 'row',

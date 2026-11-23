@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import BottomSheet from './ui/BottomSheet';
 import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
 interface AIChatModalProps {
@@ -82,6 +83,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const chatMessages = useAppStore((state) => state.chatMessages);
   const addChatMessage = useAppStore((state) => state.addChatMessage);
   const quizData = useAppStore((state) => state.quizData);
+  const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
   const getAiQuota = useAppStore((state) => state.getAiQuota);
   const incrementAiQuestionsUsed = useAppStore((state) => state.incrementAiQuestionsUsed);
@@ -133,7 +135,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     if (!query || quota.isExhausted) return;
 
     Haptics.selectionAsync().catch(() => {});
-    incrementAiQuestionsUsed();
 
     addChatMessage({
       role: 'user',
@@ -155,10 +156,20 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         role: 'assistant',
         text: response.text,
       });
+
+      // Atomically consume quota only after successful AI response
+      incrementAiQuestionsUsed();
+      if (
+        isSupabaseConfigured() &&
+        user?.id &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)
+      ) {
+        supabase.rpc('consume_user_ai_quota', { p_user_id: user.id }).then(() => {}, () => {});
+      }
     } catch {
       addChatMessage({
         role: 'assistant',
-        text: 'Consistent deep sleep, good nutrition, and daily stretching best support your natural growth.',
+        text: 'Unable to reach Dr. Jack growth advisor right now. Please check your network connection and try again.',
       });
     } finally {
       setIsTyping(false);
@@ -167,12 +178,12 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     }
   };
 
-  // Badge color based on questions used: green 0-2, amber 3-4, red 5
+  // Badge color based on dynamic quota exhaustion
   const getBadgeStyle = () => {
-    if (quota.used >= 5) {
+    if (quota.isExhausted) {
       return { bg: '#FEE2E2', border: '#FCA5A5', text: '#DC2626' };
     }
-    if (quota.used >= 3) {
+    if (quota.remaining <= 3) {
       return { bg: '#FEF3C7', border: '#FCD34D', text: '#D97706' };
     }
     return { bg: '#DCFCE7', border: '#86EFAC', text: '#16A34A' };

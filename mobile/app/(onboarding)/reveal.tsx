@@ -258,7 +258,7 @@ export default function RevealScreen() {
             </View>
           </Animated.View>
 
-          {/* Growth Profile Creation Option */}
+          {/* Growth Profile Link or Sign In for Existing Users */}
           <Animated.View entering={FadeInDown.delay(450).springify()}>
             {user?.isLoggedIn ? (
               <GlassCard style={styles.profileSavedCard}>
@@ -273,42 +273,18 @@ export default function RevealScreen() {
                 </View>
               </GlassCard>
             ) : (
-              <GlassCard style={styles.createProfileCard}>
-                <View style={styles.createProfileHeader}>
-                  <View style={styles.createProfileIconWrap}>
-                    <UserPlus size={18} color="#0284C7" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.createProfileTitle}>Save Your Growth Profile</Text>
-                    <Text style={styles.createProfileSub}>
-                      Save your Tanner-Whitehouse trajectory & sync across devices.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.createProfileButtonsRow}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setAuthDefaultMode('signup');
-                      setAuthModalVisible(true);
-                    }}
-                    style={styles.signupButton}
-                  >
-                    <Sparkles size={14} color="#FFFFFF" />
-                    <Text style={styles.signupButtonText}>Create Account</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      setAuthDefaultMode('signin');
-                      setAuthModalVisible(true);
-                    }}
-                    style={styles.signinButton}
-                  >
-                    <Text style={styles.signinButtonText}>Sign In</Text>
-                  </TouchableOpacity>
-                </View>
-              </GlassCard>
+              <TouchableOpacity
+                onPress={() => {
+                  setAuthDefaultMode('signin');
+                  setAuthModalVisible(true);
+                }}
+                style={{ alignItems: 'center', paddingVertical: 8, marginBottom: 8 }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>
+                  Already have a GoTall account? <Text style={{ color: '#0284C7', fontWeight: '700' }}>Sign In</Text>
+                </Text>
+              </TouchableOpacity>
             )}
           </Animated.View>
 

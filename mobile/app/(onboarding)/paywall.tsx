@@ -17,43 +17,91 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
-  CreditCard,
-  Sparkles,
   Lock,
+  Dna,
+  Sparkles,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { useAppStore } from '../../lib/store';
-import { openRazorpayCheckout } from '../../lib/razorpay';
 import {
   initRevenueCat,
   getRevenueCatOfferings,
   purchaseRevenueCatPackage,
   restoreRevenueCatPurchases,
-  isRevenueCatConfigured,
 } from '../../lib/revenuecat';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import AuthModal from '../../components/AuthModal';
 
+const COMPARISON_ROWS = [
+  { feature: 'Dr. Jack AI Growth Chat Quota', free: '5/day', monthly: '20/day', annual: '50/day', lifetime: '100/day' },
+  { feature: 'Spinal Decompression Protocol', free: '2 Weeks', monthly: 'Full 6 Wks', annual: 'Full 6 Wks', lifetime: 'Full 6 Wks' },
+  { feature: 'Somatotropin (hGH) Pulse Sync', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Clinical Bone Nutrition Matrix', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Tanner-Whitehouse Biological Calc', free: true, monthly: true, annual: true, lifetime: true },
+  { feature: 'AI Pelvic Posture Calibration', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Height Trajectory Scans', free: '1 Baseline', monthly: 'Monthly', annual: 'Unlimited', lifetime: 'Unlimited' },
+  { feature: 'VIP Priority Cloud Sync', free: false, monthly: true, annual: true, lifetime: true },
+  { feature: 'Recurring Charges', free: '$0 Forever', monthly: '$9.99/mo', annual: '$4.99/mo', lifetime: 'Zero (One-Time)' },
+];
+
+const PLAN_FEATURES = {
+  annual: [
+    '50 Dr. Jack AI Growth chats per day',
+    'Complete 6-week progressive spinal decompression protocol',
+    'Nocturnal Somatotropin (hGH) peak pulse synchronization',
+    'Clinical bone mineralization & bedtime casein timing',
+    'AI-powered pelvic & cervical posture calibration',
+    'Save 50% ($4.99/mo billed $59.99/year)',
+  ],
+  monthly: [
+    '20 Dr. Jack AI Growth chats per day',
+    'Complete 6-week progressive spinal decompression protocol',
+    'Nocturnal Somatotropin (hGH) peak pulse synchronization',
+    'Clinical bone mineralization nutrition matrix',
+    'Cancel anytime with zero recurring commitment',
+  ],
+  lifetime: [
+    '100 Dr. Jack AI Growth chats per day',
+    'Permanent lifetime access to all 6-week protocols',
+    'Nocturnal Somatotropin (hGH) peak pulse synchronization',
+    'Clinical bone mineralization & bedtime casein timing',
+    'Unlimited height trajectory recalculations forever',
+    'One-time payment with zero recurring charges',
+  ],
+  free: [
+    '5 Dr. Jack AI Growth chats per day',
+    '2-week baseline spinal decompression routine',
+    'Tanner-Whitehouse III biometric calculations',
+    'Daily water intake & streak logging',
+  ],
+};
+
 export default function PaywallScreen() {
   const router = useRouter();
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const setPremium = useAppStore((state) => state.setPremium);
-  const setPaymentOrderId = useAppStore((state) => state.setPaymentOrderId);
   const pendingRegistration = useAppStore((state) => state.pendingRegistration);
   const user = useAppStore((state) => state.user);
   const completeSubscriptionAndCreateAccount = useAppStore(
     (state) => state.completeSubscriptionAndCreateAccount
   );
 
-  const [tier, setTier] = useState<'annual' | 'monthly' | 'lifetime'>('annual');
+  const [tier, setTier] = useState<'annual' | 'monthly' | 'lifetime' | 'free'>('annual');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [rcPackage, setRcPackage] = useState<any>(null);
+
+  // If user navigated directly without credentials, guide them back to details first
+  React.useEffect(() => {
+    if (!pendingRegistration?.email && !user?.isLoggedIn) {
+      router.replace('/(onboarding)/details');
+    }
+  }, [pendingRegistration, user]);
 
   React.useEffect(() => {
     initRevenueCat()
@@ -69,12 +117,14 @@ export default function PaywallScreen() {
   const getTierPricing = () => {
     switch (tier) {
       case 'annual':
-        return { name: 'Tallgrame Pro Annual', display: '$59.99', monthlyEquivalent: '$4.99/mo' };
+        return { id: 'plan_pro_annual', name: 'Tallgrame Pro Annual', display: '$59.99', monthlyEquivalent: '$4.99/mo', chats: '50 chats/day' };
       case 'lifetime':
-        return { name: 'Tallgrame Lifetime VIP', display: '$149.99', monthlyEquivalent: 'One-time' };
+        return { id: 'plan_lifetime', name: 'Tallgrame Lifetime VIP', display: '$149.99', monthlyEquivalent: 'One-time', chats: '100 chats/day' };
+      case 'free':
+        return { id: 'plan_free', name: 'Free Starter', display: '$0', monthlyEquivalent: 'Forever', chats: '5 chats/day' };
       case 'monthly':
       default:
-        return { name: 'Tallgrame Pro Monthly', display: '$9.99', monthlyEquivalent: '$9.99/mo' };
+        return { id: 'plan_pro_monthly', name: 'Tallgrame Pro Monthly', display: '$9.99', monthlyEquivalent: '$9.99/mo', chats: '20 chats/day' };
     }
   };
 
@@ -85,6 +135,18 @@ export default function PaywallScreen() {
       setPaymentError(null);
 
       const plan = getTierPricing();
+
+      // If user selected Free Starter plan, create account immediately without billing
+      if (tier === 'free') {
+        await completeSubscriptionAndCreateAccount('free_starter', plan.name);
+        setIsProcessing(false);
+        setPaymentSuccess(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setTimeout(() => {
+          router.replace('/(tabs)/home');
+        }, 1000);
+        return;
+      }
 
       // Find matching package or use available package
       const offerings = await getRevenueCatOfferings();
@@ -112,28 +174,22 @@ export default function PaywallScreen() {
             router.replace('/(tabs)/home');
           }, 1200);
           return;
+        } else {
+          setIsProcessing(false);
+          setPaymentError('Payment was not completed. Select your plan when ready to activate.');
+          return;
         }
       }
 
-      // Safe test simulation fallback
-      await completeSubscriptionAndCreateAccount(`trial_${Date.now()}`, plan.name);
       setIsProcessing(false);
-      setPaymentSuccess(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setTimeout(() => {
-        router.replace('/(tabs)/home');
-      }, 1200);
+      setPaymentError('Payment service temporarily unavailable. Please try again or select Free Starter.');
     } catch (err: any) {
+      setIsProcessing(false);
       if (err?.userCancelled) {
-        setIsProcessing(false);
+        setPaymentError('Payment was cancelled. Your card was not charged.');
         return;
       }
-      setIsProcessing(false);
-      Alert.alert(
-        'Payment Failed',
-        'Something went wrong. Please try again.',
-        [{ text: 'OK' }]
-      );
+      setPaymentError('Payment could not be completed. Please try again or choose Free Starter.');
     }
   };
 
@@ -178,10 +234,22 @@ export default function PaywallScreen() {
           {/* Pending Account Notice */}
           {pendingRegistration?.email && (
             <View style={styles.pendingAccountPill}>
-              <Lock size={12} color="#0284C7" />
-              <Text style={styles.pendingAccountText}>
-                Account for <Text style={styles.pendingAccountBold}>{pendingRegistration.email}</Text> will activate upon subscription
-              </Text>
+              <View style={styles.pendingAccountLeft}>
+                <Lock size={14} color="#0284C7" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingAccountLabel}>ACCOUNT READY FOR</Text>
+                  <Text style={styles.pendingAccountEmail} numberOfLines={1}>
+                    {pendingRegistration.name} ({pendingRegistration.email})
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.editCredentialsButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.editCredentialsText}>Edit Details</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -201,40 +269,8 @@ export default function PaywallScreen() {
             </Text>
           </View>
 
-          {/* Clinical Benefits Checklist (Glass Cards) */}
-          <View style={styles.benefitsList}>
-            {[
-              {
-                title: 'Biological Age-Adjusted Protein Targets',
-                sub: 'Calculated using pediatric nitrogen retention benchmarks for bone matrix synthesis.',
-              },
-              {
-                title: 'Slow-Wave Sleep Somatotropin Optimization',
-                sub: 'Circadian timing cues aligned to peak slow-wave N3 stage HGH pulsatile release.',
-              },
-              {
-                title: 'Targeted Spinal Decompression Protocols',
-                sub: '8 step-by-step spinal exercises to decompress discs and correct posture deficits.',
-              },
-              {
-                title: 'Dr. Jack: 24/7 AI Pediatric Growth Advisor',
-                sub: 'Personalized nutritional and biomechanical growth guidance with clinical citations.',
-              },
-            ].map((b, i) => (
-              <GlassCard key={i} style={styles.benefitCard}>
-                <View style={styles.benefitIconBox}>
-                  <Check size={14} color="#16A34A" strokeWidth={3} />
-                </View>
-                <View style={styles.benefitTextBox}>
-                  <Text style={styles.benefitTitle}>{b.title}</Text>
-                  <Text style={styles.benefitSub}>{b.sub}</Text>
-                </View>
-              </GlassCard>
-            ))}
-          </View>
-
-          {/* Pricing Tiers Hierarchy */}
-          <Text style={styles.tierSectionTitle}>Select Growth Protocol Membership</Text>
+          {/* Pricing Tiers Hierarchy with Detailed Features */}
+          <Text style={styles.tierSectionTitle}>Choose Your Plan</Text>
           <View style={styles.tierList}>
             {/* Annual Plan (Featured) */}
             <TouchableOpacity
@@ -247,20 +283,33 @@ export default function PaywallScreen() {
                 setTier('annual');
                 Haptics.selectionAsync().catch(() => {});
               }}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               <View style={styles.bestValueBadge}>
                 <Text style={styles.bestValueText}>BEST VALUE • SAVE 50%</Text>
               </View>
 
-              <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Tallgrame Pro Annual</Text>
-                <Text style={styles.tierBilling}>$59.99 billed yearly ($4.99/mo)</Text>
+              <View style={styles.tierCardHeader}>
+                <View style={styles.tierRadio}>
+                  {tier === 'annual' && <View style={styles.tierRadioInner} />}
+                </View>
+                <View style={styles.tierLeft}>
+                  <Text style={styles.tierName}>Tallgrame Pro Annual</Text>
+                  <Text style={styles.tierBilling}>$59.99 billed yearly ($4.99/mo) • 50 AI chats/day</Text>
+                </View>
+                <View style={styles.tierRight}>
+                  <Text style={styles.tierPrice}>$4.99</Text>
+                  <Text style={styles.tierPeriod}>/month</Text>
+                </View>
               </View>
 
-              <View style={styles.tierRight}>
-                <Text style={styles.tierPrice}>$4.99</Text>
-                <Text style={styles.tierPeriod}>/month</Text>
+              <View style={styles.tierFeatureBox}>
+                {PLAN_FEATURES.annual.map((feat, fIdx) => (
+                  <View key={fIdx} style={styles.featureLine}>
+                    <Check size={13} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.featureLineText}>{feat}</Text>
+                  </View>
+                ))}
               </View>
             </TouchableOpacity>
 
@@ -275,16 +324,33 @@ export default function PaywallScreen() {
                 setTier('monthly');
                 Haptics.selectionAsync().catch(() => {});
               }}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
-              <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Tallgrame Pro Monthly</Text>
-                <Text style={styles.tierBilling}>Cancel anytime with 1 tap</Text>
+              <View style={[styles.bestValueBadge, { backgroundColor: '#0284C7' }]}>
+                <Text style={styles.bestValueText}>FLEXIBLE</Text>
               </View>
 
-              <View style={styles.tierRight}>
-                <Text style={styles.tierPrice}>$9.99</Text>
-                <Text style={styles.tierPeriod}>/month</Text>
+              <View style={styles.tierCardHeader}>
+                <View style={styles.tierRadio}>
+                  {tier === 'monthly' && <View style={styles.tierRadioInner} />}
+                </View>
+                <View style={styles.tierLeft}>
+                  <Text style={styles.tierName}>Tallgrame Pro Monthly</Text>
+                  <Text style={styles.tierBilling}>Cancel anytime • 20 AI chats/day</Text>
+                </View>
+                <View style={styles.tierRight}>
+                  <Text style={styles.tierPrice}>$9.99</Text>
+                  <Text style={styles.tierPeriod}>/month</Text>
+                </View>
+              </View>
+
+              <View style={styles.tierFeatureBox}>
+                {PLAN_FEATURES.monthly.map((feat, fIdx) => (
+                  <View key={fIdx} style={styles.featureLine}>
+                    <Check size={13} color="#0284C7" strokeWidth={2.5} />
+                    <Text style={styles.featureLineText}>{feat}</Text>
+                  </View>
+                ))}
               </View>
             </TouchableOpacity>
 
@@ -299,23 +365,133 @@ export default function PaywallScreen() {
                 setTier('lifetime');
                 Haptics.selectionAsync().catch(() => {});
               }}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               <View style={[styles.bestValueBadge, { backgroundColor: '#8B5CF6' }]}>
-                <Text style={styles.bestValueText}>ONE-TIME • LIFETIME VIP</Text>
+                <Text style={styles.bestValueText}>ONE-TIME • VIP</Text>
               </View>
 
-              <View style={styles.tierLeft}>
-                <Text style={styles.tierName}>Tallgrame Lifetime VIP</Text>
-                <Text style={styles.tierBilling}>One-time payment • Zero recurring fees</Text>
+              <View style={styles.tierCardHeader}>
+                <View style={styles.tierRadio}>
+                  {tier === 'lifetime' && <View style={styles.tierRadioInner} />}
+                </View>
+                <View style={styles.tierLeft}>
+                  <Text style={styles.tierName}>Tallgrame Lifetime VIP</Text>
+                  <Text style={styles.tierBilling}>One-time fee • 100 AI chats/day</Text>
+                </View>
+                <View style={styles.tierRight}>
+                  <Text style={[styles.tierPrice, { color: '#7C3AED' }]}>$149.99</Text>
+                  <Text style={styles.tierPeriod}>forever</Text>
+                </View>
               </View>
 
-              <View style={styles.tierRight}>
-                <Text style={[styles.tierPrice, { color: '#7C3AED' }]}>$149.99</Text>
-                <Text style={styles.tierPeriod}>forever</Text>
+              <View style={styles.tierFeatureBox}>
+                {PLAN_FEATURES.lifetime.map((feat, fIdx) => (
+                  <View key={fIdx} style={styles.featureLine}>
+                    <Check size={13} color="#7C3AED" strokeWidth={2.5} />
+                    <Text style={styles.featureLineText}>{feat}</Text>
+                  </View>
+                ))}
+              </View>
+            </TouchableOpacity>
+
+            {/* Free Starter Plan */}
+            <TouchableOpacity
+              key="tier-free"
+              style={[
+                styles.tierCard,
+                tier === 'free' ? styles.tierCardActive : styles.tierCardInactive,
+              ]}
+              onPress={() => {
+                setTier('free');
+                Haptics.selectionAsync().catch(() => {});
+              }}
+              activeOpacity={0.88}
+            >
+              <View style={[styles.bestValueBadge, { backgroundColor: '#64748B' }]}>
+                <Text style={styles.bestValueText}>FREE FOREVER</Text>
+              </View>
+
+              <View style={styles.tierCardHeader}>
+                <View style={styles.tierRadio}>
+                  {tier === 'free' && <View style={styles.tierRadioInner} />}
+                </View>
+                <View style={styles.tierLeft}>
+                  <Text style={styles.tierName}>Free Starter</Text>
+                  <Text style={styles.tierBilling}>Essential stature tracking • 5 AI chats/day</Text>
+                </View>
+                <View style={styles.tierRight}>
+                  <Text style={[styles.tierPrice, { color: '#64748B' }]}>$0</Text>
+                  <Text style={styles.tierPeriod}>forever</Text>
+                </View>
+              </View>
+
+              <View style={styles.tierFeatureBox}>
+                {PLAN_FEATURES.free.map((feat, fIdx) => (
+                  <View key={fIdx} style={styles.featureLine}>
+                    <Check size={13} color="#64748B" strokeWidth={2.5} />
+                    <Text style={styles.featureLineText}>{feat}</Text>
+                  </View>
+                ))}
               </View>
             </TouchableOpacity>
           </View>
+
+          {/* Feature Comparison Matrix */}
+          <GlassCard style={styles.comparisonCard}>
+            <View style={styles.comparisonHeader}>
+              <Dna size={16} color="#2563EB" />
+              <Text style={styles.comparisonTitle}>Side-by-Side Plan Comparison</Text>
+            </View>
+
+            <View style={styles.comparisonTable}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.tableColHeader, { flex: 2.2 }]}>Feature</Text>
+                <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>Free</Text>
+                <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#0284C7' }]}>Monthly</Text>
+                <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#10B981' }]}>Annual</Text>
+                <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#7C3AED' }]}>VIP</Text>
+              </View>
+
+              {COMPARISON_ROWS.map((row, idx) => (
+                <View key={idx} style={styles.tableRow}>
+                  <Text style={styles.tableFeatureName} numberOfLines={2}>
+                    {row.feature}
+                  </Text>
+                  <View style={styles.tableIconCell}>
+                    {typeof row.free === 'string' ? (
+                      <Text style={styles.tableValueText}>{row.free}</Text>
+                    ) : row.free ? (
+                      <Check size={12} color="#10B981" strokeWidth={2.5} />
+                    ) : (
+                      <Text style={styles.tableMinusText}>–</Text>
+                    )}
+                  </View>
+                  <View style={styles.tableIconCell}>
+                    {typeof row.monthly === 'string' ? (
+                      <Text style={[styles.tableValueText, { color: '#0284C7' }]}>{row.monthly}</Text>
+                    ) : (
+                      <Check size={12} color="#0284C7" strokeWidth={2.5} />
+                    )}
+                  </View>
+                  <View style={styles.tableIconCell}>
+                    {typeof row.annual === 'string' ? (
+                      <Text style={[styles.tableValueText, { color: '#10B981', fontWeight: '800' }]}>{row.annual}</Text>
+                    ) : (
+                      <Check size={12} color="#10B981" strokeWidth={2.5} />
+                    )}
+                  </View>
+                  <View style={styles.tableIconCell}>
+                    {typeof row.lifetime === 'string' ? (
+                      <Text style={[styles.tableValueText, { color: '#7C3AED', fontWeight: '800' }]}>{row.lifetime}</Text>
+                    ) : (
+                      <Check size={12} color="#7C3AED" strokeWidth={2.5} />
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
 
           {/* Security & In-App Purchase Guarantee */}
           <View style={styles.trustBanner}>
@@ -338,7 +514,7 @@ export default function PaywallScreen() {
               style={styles.ctaButton}
             >
               <LinearGradient
-                colors={['#2563EB', '#1D4ED8']}
+                colors={tier === 'free' ? ['#0284C7', '#0369A1'] : ['#2563EB', '#1D4ED8']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFill}
@@ -348,7 +524,13 @@ export default function PaywallScreen() {
               ) : (
                 <>
                   <Text style={styles.ctaButtonText}>
-                    Start My 7-Day Growth Trial
+                    {tier === 'annual'
+                      ? 'Activate Pro Annual • $59.99/yr ($4.99/mo)'
+                      : tier === 'monthly'
+                      ? 'Activate Pro Monthly • $9.99/mo'
+                      : tier === 'lifetime'
+                      ? 'Activate Lifetime VIP • $149.99'
+                      : 'Activate Free Account (5 AI chats/day)'}
                   </Text>
                   <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />
                 </>
@@ -357,7 +539,7 @@ export default function PaywallScreen() {
           )}
 
           <Text style={styles.termsDisclaimer}>
-            Recurring billing. Cancel anytime from App Store or Play Store subscriptions settings.
+            Recurring billing for monthly/annual plans. Cancel anytime from App Store or Play Store subscriptions. Lifetime plan is a one-time charge.
           </Text>
 
           {/* Restore / Sign In Row */}
@@ -384,10 +566,6 @@ export default function PaywallScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenWrapper: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
   safeArea: {
     flex: 1,
   },
@@ -432,90 +610,54 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 10,
   },
   heroTitle: {
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'center',
     letterSpacing: -0.5,
-    lineHeight: 30,
+    lineHeight: 29,
   },
   heroSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
+    marginTop: 5,
+    lineHeight: 17,
     paddingHorizontal: 8,
-  },
-  benefitsList: {
-    gap: 8,
-    marginVertical: 12,
-  },
-  benefitCard: {
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  benefitIconBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(220, 252, 231, 0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  benefitTextBox: {
-    flex: 1,
-  },
-  benefitTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  benefitSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 1,
-    lineHeight: 15,
   },
   tierSectionTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 10,
   },
   tierList: {
-    gap: 10,
+    gap: 12,
     marginBottom: 14,
   },
   tierCard: {
     padding: 16,
     borderRadius: 20,
     borderWidth: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     position: 'relative',
+    gap: 10,
   },
   tierCardInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderColor: 'rgba(226, 232, 240, 0.85)',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
   },
   tierCardActive: {
-    backgroundColor: 'rgba(239, 246, 255, 0.85)',
+    backgroundColor: '#F8FAFC',
     borderColor: '#2563EB',
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 3,
   },
   bestValueBadge: {
@@ -533,17 +675,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.8,
   },
+  tierCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  tierRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tierRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#2563EB',
+  },
   tierLeft: {
     flex: 1,
-    marginRight: 8,
   },
   tierName: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   tierBilling: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: '#64748B',
     marginTop: 2,
@@ -552,7 +714,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   tierPrice: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '900',
     color: '#2563EB',
   },
@@ -560,6 +722,86 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#94A3B8',
+  },
+  tierFeatureBox: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 6,
+  },
+  featureLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  featureLineText: {
+    fontSize: 11,
+    color: '#334155',
+    flex: 1,
+    lineHeight: 15,
+  },
+  comparisonCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+    marginBottom: 14,
+  },
+  comparisonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  comparisonTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  comparisonTable: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  tableColHeader: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6.5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  tableFeatureName: {
+    flex: 2.2,
+    fontSize: 10.5,
+    color: '#475569',
+  },
+  tableIconCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tableValueText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tableMinusText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    fontWeight: '700',
   },
   trustBanner: {
     flexDirection: 'row',
@@ -580,8 +822,8 @@ const styles = StyleSheet.create({
     color: '#1E40AF',
   },
   ctaButton: {
-    height: 54,
-    borderRadius: 27,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
@@ -594,13 +836,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   ctaButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   successBanner: {
-    height: 54,
-    borderRadius: 27,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#16A34A',
     flexDirection: 'row',
     alignItems: 'center',
@@ -608,7 +850,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   successText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -618,26 +860,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     fontWeight: '500',
+    lineHeight: 14,
   },
   pendingAccountPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 8,
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#BAE6FD',
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: 14,
   },
-  pendingAccountText: {
-    fontSize: 11,
-    color: '#0369A1',
-    fontWeight: '500',
+  pendingAccountLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     flex: 1,
   },
-  pendingAccountBold: {
+  pendingAccountLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#0284C7',
+    letterSpacing: 0.5,
+  },
+  pendingAccountEmail: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  editCredentialsButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  editCredentialsText: {
+    fontSize: 11,
     fontWeight: '800',
     color: '#0284C7',
   },

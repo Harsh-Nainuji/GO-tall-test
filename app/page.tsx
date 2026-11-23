@@ -8,12 +8,13 @@ import { OverviewDashboard } from '@/components/admin/OverviewDashboard'
 import { BadgesCMS } from '@/components/admin/BadgesCMS'
 import { StretchesCMS } from '@/components/admin/StretchesCMS'
 import { NutritionCMS } from '@/components/admin/NutritionCMS'
+import { PlansCMS } from '@/components/admin/PlansCMS'
+import { RevenueCMS } from '@/components/admin/RevenueCMS'
 import { UsersCRM } from '@/components/admin/UsersCRM'
 import { DatabaseStorageInspector } from '@/components/admin/DatabaseStorageInspector'
 import { AdminSpotlightTour } from '@/components/admin/AdminSpotlightTour'
 import { AdminAuthGate } from '@/components/admin/AdminAuthGate'
 import { useAdminData } from '@/lib/admin-store'
-import { ADMIN_COPY } from '@/lib/admin-copy'
 
 export default function AdminPortalPage() {
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview')
@@ -34,49 +35,64 @@ export default function AdminPortalPage() {
     setFoods,
     users,
     setUsers,
+    plans,
+    setPlans,
+    payments,
+    setPayments,
     aiChips,
-    setAiChips,
     resetToSeeds,
     clearDummyData,
   } = useAdminData()
 
-  // Simplified bilingual metadata for non-technical clients
+  // Clean, professional metadata for all console sections
   const getTabMetadata = (tab: AdminTab) => {
     switch (tab) {
       case 'overview':
         return {
-          title: `${ADMIN_COPY.pages.overview.title.en} / ${ADMIN_COPY.pages.overview.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.overview.subtitle.en} • ${ADMIN_COPY.pages.overview.subtitle.gu}`,
+          title: 'Console Overview',
+          subtitle: 'Executive metrics, active subscribers, and real-time system status',
           quickActionLabel: undefined,
         }
       case 'stretches':
         return {
-          title: `${ADMIN_COPY.pages.stretches.title.en} / ${ADMIN_COPY.pages.stretches.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.stretches.subtitle.en} • ${ADMIN_COPY.pages.stretches.subtitle.gu}`,
-          quickActionLabel: ADMIN_COPY.pages.stretches.addBtn.en,
+          title: 'Workouts & Spinal Stretches',
+          subtitle: 'Biomechanical cues, traction duration, and exercise demonstration media',
+          quickActionLabel: 'Add Stretch',
         }
       case 'nutrition':
         return {
-          title: `${ADMIN_COPY.pages.nutrition.title.en} / ${ADMIN_COPY.pages.nutrition.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.nutrition.subtitle.en} • ${ADMIN_COPY.pages.nutrition.subtitle.gu}`,
-          quickActionLabel: ADMIN_COPY.pages.nutrition.addBtn.en,
+          title: 'Clinical Nutrition Matrix',
+          subtitle: 'Bone mineralization, growth micronutrients, and bedtime casein foods',
+          quickActionLabel: 'Add Food',
         }
       case 'badges':
         return {
-          title: `${ADMIN_COPY.pages.badges.title.en} / ${ADMIN_COPY.pages.badges.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.badges.subtitle.en} • ${ADMIN_COPY.pages.badges.subtitle.gu}`,
-          quickActionLabel: ADMIN_COPY.pages.badges.addBtn.en,
+          title: 'Achievements & Milestones',
+          subtitle: 'Habit streaks, gamification levels, and milestone XP rewards',
+          quickActionLabel: 'Add Badge',
         }
-      case 'storage':
+      case 'plans':
         return {
-          title: `${ADMIN_COPY.pages.storage.title.en} / ${ADMIN_COPY.pages.storage.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.storage.subtitle.en} • ${ADMIN_COPY.pages.storage.subtitle.gu}`,
+          title: 'Subscription Plans & Entitlements',
+          subtitle: 'Dynamic paywall pricing, daily AI chat quotas, and program week access',
+          quickActionLabel: 'Add Plan',
+        }
+      case 'revenue':
+        return {
+          title: 'Revenue & Billing Ledger',
+          subtitle: 'Gross revenue, estimated MRR, paying subscribers, and real-time transaction ledger',
           quickActionLabel: undefined,
         }
       case 'users':
         return {
-          title: `${ADMIN_COPY.pages.users.title.en} / ${ADMIN_COPY.pages.users.title.gu}`,
-          subtitle: `${ADMIN_COPY.pages.users.subtitle.en} • ${ADMIN_COPY.pages.users.subtitle.gu}`,
+          title: 'Subscribers & Profiles CRM',
+          subtitle: 'Adult stature predictions, Tanner stage progress, and user engagement',
+          quickActionLabel: undefined,
+        }
+      case 'storage':
+        return {
+          title: 'Database & Media Storage',
+          subtitle: 'PostgreSQL table health, exercise-media storage bucket, and quotas',
           quickActionLabel: undefined,
         }
     }
@@ -88,6 +104,22 @@ export default function AdminPortalPage() {
     if (currentTab === 'overview') {
       setCurrentTab('stretches')
     }
+  }
+
+  const handleRefreshSync = () => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
+    fetch('/api/admin/sync', {
+      headers: { 'x-admin-token': token },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return
+        if (data.stretches) setStretches(data.stretches)
+        if (data.plans) setPlans(data.plans)
+        if (data.payments) setPayments(data.payments)
+        if (data.users) setUsers(data.users)
+      })
+      .catch(() => {})
   }
 
   return (
@@ -113,6 +145,8 @@ export default function AdminPortalPage() {
           foodsCount={foods.length}
           usersCount={users.length}
           aiChipsCount={aiChips.length}
+          plansCount={plans.length}
+          paymentsCount={payments.length}
           onResetSeeds={resetToSeeds}
           onQuickAdd={handleQuickAction}
         />
@@ -129,12 +163,12 @@ export default function AdminPortalPage() {
             onOpenTour={() => setIsTourOpen(true)}
           />
 
-          <main className="flex-1 p-8 overflow-y-auto smooth-scroll-container">
+          <main className="flex-1 p-6 overflow-y-auto smooth-scroll-container">
             {!isLoaded ? (
               <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
                 <div className="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm font-bold text-slate-300">
-                  Connecting to live Tallgrame database... / કનેક્ટ થઈ રહ્યું છે...
+                  Connecting to live database...
                 </span>
               </div>
             ) : (
@@ -144,7 +178,7 @@ export default function AdminPortalPage() {
                   initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  transition={{ duration: 0.18, ease: 'easeInOut' }}
                   className="scroll-anchor-new"
                 >
                   {currentTab === 'overview' && (
@@ -176,6 +210,19 @@ export default function AdminPortalPage() {
 
                   {currentTab === 'nutrition' && (
                     <NutritionCMS foods={foods} onUpdateFoods={setFoods} />
+                  )}
+
+                  {currentTab === 'plans' && (
+                    <PlansCMS plans={plans} onUpdatePlans={setPlans} />
+                  )}
+
+                  {currentTab === 'revenue' && (
+                    <RevenueCMS
+                      payments={payments}
+                      plans={plans}
+                      users={users}
+                      onRefresh={handleRefreshSync}
+                    />
                   )}
 
                   {currentTab === 'users' && (

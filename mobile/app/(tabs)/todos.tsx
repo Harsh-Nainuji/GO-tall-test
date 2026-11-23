@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -52,12 +52,18 @@ const QUICK_SUGGESTIONS = [
 ];
 
 export default function TodosScreen() {
-  const todos = useAppStore((state) => state.todos ?? []);
+  const todosRaw = useAppStore((state) => state.todos);
+  const todos = useMemo(() => todosRaw || [], [todosRaw]);
   const toggleTodo = useAppStore((state) => state.toggleTodo);
   const addTodo = useAppStore((state) => state.addTodo);
   const deleteTodo = useAppStore((state) => state.deleteTodo);
   const resetDailyTodos = useAppStore((state) => state.resetDailyTodos);
+  const checkDailyReset = useAppStore((state) => state.checkDailyReset);
   const streakDays = useAppStore((state) => state.streakDays);
+
+  useEffect(() => {
+    checkDailyReset();
+  }, [checkDailyReset]);
 
   const [selectedFilter, setSelectedFilter] = useState<'All' | DailyTodo['category']>('All');
   const [modalVisible, setModalVisible] = useState(false);

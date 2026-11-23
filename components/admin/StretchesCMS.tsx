@@ -1122,9 +1122,9 @@ export function StretchesCMS({
             {filteredStretches.length === 0 ? (
               <div className="col-span-full py-16 text-center rounded-3xl glass p-8 shadow-xs">
                 <Activity className="w-10 h-10 mx-auto mb-3 opacity-30 text-cyan-400" />
-                <h3 className="text-base font-bold text-slate-100">No exercises in database yet / કોઈ કસરત નથી</h3>
+                <h3 className="text-base font-bold text-slate-100">No exercises in database yet</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Click &quot;Add Exercise&quot; or &quot;Add many exercises&quot; to populate your active stretching library.
+                  Click &quot;Add Exercise&quot; or &quot;Bulk Upload Exercises&quot; to populate your active stretching library.
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-3">
                   <button
@@ -1248,7 +1248,7 @@ export function StretchesCMS({
 
                   {/* Benefit Box */}
                   <div className="mt-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                    <span className="font-bold text-cyan-300 block mb-0.5">Biomechanical Benefit / ફાયદો:</span>
+                    <span className="font-bold text-cyan-300 block mb-0.5">Biomechanical Benefit:</span>
                     <p className="text-slate-300 leading-relaxed font-medium">{stretch.clinicalBenefit}</p>
                   </div>
                 </div>
@@ -2188,7 +2188,7 @@ export function StretchesCMS({
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-100">
-                      Add many exercises / ઘણી કસરતો ઉમેરો
+                      Bulk Upload Exercises
                     </h3>
                     <p className="text-xs text-slate-400 font-medium">
                       Upload standard CSV/JSON with 100% strict clinical schema validation
@@ -2212,7 +2212,7 @@ export function StretchesCMS({
                   <div>
                     <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-bold uppercase tracking-wider">
                       <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Standard Templates / ટેમ્પલેટ</span>
+                      <span>Standard Templates</span>
                     </div>
                     <p className="text-xs text-slate-400 font-medium mt-0.5">
                       Download template, add your exercises, and upload directly.
@@ -2322,7 +2322,7 @@ export function StretchesCMS({
                       Drag and drop or select file from device
                     </p>
                     <label className="px-4 py-2 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-xs font-bold text-slate-200 cursor-pointer shadow-xs transition-all">
-                      Browse File / ફાઈલ પસંદ કરો
+                      Browse File
                       <input
                         type="file"
                         accept=".csv,.json,text/csv,application/json"
@@ -2452,7 +2452,7 @@ export function StretchesCMS({
                     onClick={() => setIsBulkModalOpen(false)}
                     className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                   >
-                    Cancel / રદ કરો
+                    Cancel
                   </button>
 
                   <button
@@ -2463,7 +2463,7 @@ export function StretchesCMS({
                   >
                     <CheckCheck className="w-4 h-4 stroke-[2.5]" />
                     <span>
-                      Save all / બધું સાચવો ({bulkValidatedRows.filter((r) => r.isValid).length})
+                      Save Valid Exercises ({bulkValidatedRows.filter((r) => r.isValid).length})
                     </span>
                   </button>
                 </div>

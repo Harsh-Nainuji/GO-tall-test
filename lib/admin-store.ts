@@ -112,6 +112,198 @@ export interface AiPromptChip {
   order: number
 }
 
+export interface SubscriptionPlan {
+  id: string
+  name: string
+  tagline: string
+  priceUsd: number
+  priceInr: number
+  interval: 'free' | 'monthly' | 'quarterly' | 'yearly' | 'lifetime'
+  revenuecatProductId?: string
+  badgeLabel?: string
+  badgeColor?: string
+  sortOrder: number
+  active: boolean
+  aiChatDailyLimit: number
+  maxProgramWeeks: number
+  canAccessAdvancedStretches: boolean
+  canAccessAiBiomechanicalCalibration: boolean
+  canAccessSomatotropinSleepSync: boolean
+  canAccessClinicalNutrition: boolean
+  canAccessPrioritySupport: boolean
+  marketingFeatures: string[]
+  updatedAt?: string
+}
+
+export interface AdminPayment {
+  id: string
+  userId?: string
+  userEmail?: string
+  userName?: string
+  originalTransactionId?: string
+  productId?: string
+  planName: string
+  amountPaise: number
+  currency: string
+  status: string
+  createdAt: string
+}
+
+export const INITIAL_PAYMENTS: AdminPayment[] = [
+  {
+    id: 'pay-101',
+    userId: 'usr-1',
+    userEmail: 'dev.growth@gotall.app',
+    userName: 'Aarav Patel',
+    originalTransactionId: 'rc_tx_78891024',
+    productId: 'yearly',
+    planName: 'Tallgrame Pro Annual',
+    amountPaise: 599900,
+    currency: 'USD',
+    status: 'success',
+    createdAt: '2026-11-23T14:22:10Z',
+  },
+  {
+    id: 'pay-102',
+    userId: 'usr-2',
+    userEmail: 'athlete.jordan@gotall.app',
+    userName: 'Jordan Lee',
+    originalTransactionId: 'rc_tx_67291033',
+    productId: 'monthly',
+    planName: 'Tallgrame Pro Monthly',
+    amountPaise: 99900,
+    currency: 'USD',
+    status: 'success',
+    createdAt: '2026-11-22T09:15:40Z',
+  },
+  {
+    id: 'pay-103',
+    userId: 'usr-3',
+    userEmail: 'vip.elena@gotall.app',
+    userName: 'Elena Rostova',
+    originalTransactionId: 'rc_tx_99812401',
+    productId: 'lifetime',
+    planName: 'Tallgrame Lifetime VIP',
+    amountPaise: 1499900,
+    currency: 'USD',
+    status: 'success',
+    createdAt: '2026-11-20T18:45:00Z',
+  },
+]
+
+export const INITIAL_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'plan_free',
+    name: 'Free Starter',
+    tagline: 'Essential stature estimation and basic daily logging',
+    priceUsd: 0,
+    priceInr: 0,
+    interval: 'free',
+    revenuecatProductId: undefined,
+    badgeLabel: undefined,
+    badgeColor: '#64748B',
+    sortOrder: 1,
+    active: true,
+    aiChatDailyLimit: 5,
+    maxProgramWeeks: 2,
+    canAccessAdvancedStretches: false,
+    canAccessAiBiomechanicalCalibration: false,
+    canAccessSomatotropinSleepSync: false,
+    canAccessClinicalNutrition: false,
+    canAccessPrioritySupport: false,
+    marketingFeatures: [
+      'Tanner-Whitehouse III biological calculation',
+      'Basic 2-week spinal decompression routine',
+      'Daily water intake & streak tracking',
+      '5 daily AI Clinical Advisor queries',
+    ],
+  },
+  {
+    id: 'plan_pro_monthly',
+    name: 'Tallgrame Pro Monthly',
+    tagline: 'Full progressive protocol with daily AI clinical coaching',
+    priceUsd: 9.99,
+    priceInr: 899,
+    interval: 'monthly',
+    revenuecatProductId: 'monthly',
+    badgeLabel: 'FLEXIBLE',
+    badgeColor: '#0284C7',
+    sortOrder: 2,
+    active: true,
+    aiChatDailyLimit: 20,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: false,
+    marketingFeatures: [
+      'Full 6-week progressive spinal elongation protocol',
+      '20 daily Dr. Jack AI Growth Advisor queries',
+      'Nocturnal Somatotropin (hGH) peak sync',
+      'Clinical bone mineralization nutrition matrix',
+      'AI-powered pelvic & cervical posture calibration',
+      'Cancel anytime with zero commitment',
+    ],
+  },
+  {
+    id: 'plan_pro_annual',
+    name: 'Tallgrame Pro Annual',
+    tagline: 'Maximum biological stature optimization with 50% savings',
+    priceUsd: 59.99,
+    priceInr: 4999,
+    interval: 'yearly',
+    revenuecatProductId: 'yearly',
+    badgeLabel: 'BEST VALUE',
+    badgeColor: '#10B981',
+    sortOrder: 3,
+    active: true,
+    aiChatDailyLimit: 50,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: true,
+    marketingFeatures: [
+      'Everything in Pro Monthly included',
+      '50 daily Dr. Jack AI Growth Advisor queries',
+      'Save 50% compared to monthly billing',
+      'Unlimited stature trajectory recalculations',
+      'Parental genetics & epiphyseal plate monitoring',
+      'Exclusive VIP Gold status',
+      '7-day risk-free trial guarantee',
+    ],
+  },
+  {
+    id: 'plan_lifetime',
+    name: 'Tallgrame Lifetime VIP',
+    tagline: 'Permanent lifetime access with zero recurring fees',
+    priceUsd: 149.99,
+    priceInr: 12999,
+    interval: 'lifetime',
+    revenuecatProductId: 'lifetime',
+    badgeLabel: 'VIP PERMANENT',
+    badgeColor: '#8B5CF6',
+    sortOrder: 4,
+    active: true,
+    aiChatDailyLimit: 100,
+    maxProgramWeeks: 6,
+    canAccessAdvancedStretches: true,
+    canAccessAiBiomechanicalCalibration: true,
+    canAccessSomatotropinSleepSync: true,
+    canAccessClinicalNutrition: true,
+    canAccessPrioritySupport: true,
+    marketingFeatures: [
+      'Permanent lifetime access to all features',
+      '100 daily Dr. Jack AI Growth Advisor queries',
+      'Zero recurring subscription fees',
+      'All future AI upgrades & protocols included',
+      'Lifetime priority cloud backup',
+    ],
+  },
+]
+
 export const INITIAL_BADGES: AchievementBadge[] = [
   {
     id: 'badge-1',
@@ -1101,6 +1293,8 @@ export function useAdminData() {
   const [foods, setFoods] = useState<FoodItem[]>([])
   const [users, setUsers] = useState<UserBiometricProfile[]>([])
   const [aiChips, setAiChips] = useState<AiPromptChip[]>([])
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(INITIAL_PLANS)
+  const [payments, setPayments] = useState<AdminPayment[]>(INITIAL_PAYMENTS)
   const [isLoaded, setIsLoaded] = useState(false)
 
   // Load from localStorage on client mount, filtering out legacy mock data
@@ -1114,6 +1308,8 @@ export function useAdminData() {
       const savedFoods = localStorage.getItem('gotall_admin_foods')
       const savedUsers = localStorage.getItem('gotall_admin_users')
       const savedAiChips = localStorage.getItem('gotall_admin_aichips')
+      const savedPlans = localStorage.getItem('gotall_admin_plans')
+      const savedPayments = localStorage.getItem('gotall_admin_payments')
 
       if (savedBadges) setBadges(JSON.parse(savedBadges))
       if (savedStretches) setStretches(JSON.parse(savedStretches))
@@ -1122,6 +1318,8 @@ export function useAdminData() {
       if (savedFoods) setFoods(JSON.parse(savedFoods))
       if (savedUsers) setUsers(JSON.parse(savedUsers))
       if (savedAiChips) setAiChips(JSON.parse(savedAiChips))
+      if (savedPlans) setPlans(JSON.parse(savedPlans))
+      if (savedPayments) setPayments(JSON.parse(savedPayments))
 
       // Sync live catalog & CRM data from Supabase database
       const token = typeof window !== 'undefined' ? sessionStorage.getItem('gotall_admin_token') || 'GoTall@Admin2026' : ''
@@ -1150,6 +1348,14 @@ export function useAdminData() {
           if (data.users && Array.isArray(data.users) && data.users.length > 0) {
             setUsers(data.users)
             try { localStorage.setItem('gotall_admin_users', JSON.stringify(data.users)) } catch (e) {}
+          }
+          if (data.plans && Array.isArray(data.plans) && data.plans.length > 0) {
+            setPlans(data.plans)
+            try { localStorage.setItem('gotall_admin_plans', JSON.stringify(data.plans)) } catch (e) {}
+          }
+          if (data.payments && Array.isArray(data.payments) && data.payments.length > 0) {
+            setPayments(data.payments)
+            try { localStorage.setItem('gotall_admin_payments', JSON.stringify(data.payments)) } catch (e) {}
           }
         })
         .catch((err) => console.warn('Could not sync live catalog from Supabase:', err))
@@ -1268,6 +1474,21 @@ export function useAdminData() {
     } catch (e) {}
   }
 
+  const savePlans = (newPlans: SubscriptionPlan[]) => {
+    setPlans(newPlans)
+    try {
+      localStorage.setItem('gotall_admin_plans', JSON.stringify(newPlans))
+    } catch (e) {}
+    syncToSupabase('plans', newPlans)
+  }
+
+  const savePayments = (newPayments: AdminPayment[]) => {
+    setPayments(newPayments)
+    try {
+      localStorage.setItem('gotall_admin_payments', JSON.stringify(newPayments))
+    } catch (e) {}
+  }
+
   const resetToSeeds = () => {
     saveBadges(INITIAL_BADGES)
     saveStretches(INITIAL_STRETCHES)
@@ -1276,6 +1497,8 @@ export function useAdminData() {
     saveFoods(INITIAL_FOODS)
     saveUsers(INITIAL_USERS)
     saveAiChips(INITIAL_AI_CHIPS)
+    savePlans(INITIAL_PLANS)
+    savePayments(INITIAL_PAYMENTS)
   }
 
   const clearAllData = () => {
@@ -1286,6 +1509,8 @@ export function useAdminData() {
     saveFoods([])
     saveUsers([])
     saveAiChips([])
+    savePlans([])
+    savePayments([])
   }
 
   const clearDummyData = () => {
@@ -1311,6 +1536,10 @@ export function useAdminData() {
     setUsers: saveUsers,
     aiChips,
     setAiChips: saveAiChips,
+    plans,
+    setPlans: savePlans,
+    payments,
+    setPayments: savePayments,
     resetToSeeds,
     clearAllData,
     clearDummyData,

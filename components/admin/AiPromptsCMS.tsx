@@ -134,7 +134,7 @@ Guardrails:
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search prompt chips / શોધો..."
+              placeholder="Search prompt chips..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 pr-3 py-2 bg-slate-900/60 border border-slate-700/80 rounded-xl text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-cyan-500/50 w-56"
@@ -146,11 +146,11 @@ Guardrails:
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="px-3 py-2 bg-slate-900/60 border border-slate-700/80 rounded-xl text-xs text-slate-200 font-medium focus:outline-none focus:border-cyan-500/50"
           >
-            <option value="all" className="bg-slate-900 text-slate-100">All Prompt Categories / બધી કેટેગરી</option>
-            <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics / બાયોમેટ્રિક્સ</option>
-            <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition / પોષણ</option>
-            <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep & Hormones / ઊંઘ અને હોર્મોન્સ</option>
-            <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture & Spine / મુદ્રા અને કરોડરજ્જુ</option>
+            <option value="all" className="bg-slate-900 text-slate-100">All Categories</option>
+            <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics</option>
+            <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition</option>
+            <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep &amp; Hormones</option>
+            <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture &amp; Spine</option>
           </select>
         </div>
 
@@ -323,7 +323,7 @@ Guardrails:
               </div>
               {guardrailSaved && (
                 <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Saved! / સાચવ્યું!
+                  <Check className="w-3 h-3" /> Saved
                 </span>
               )}
             </div>
@@ -343,10 +343,7 @@ Guardrails:
               onClick={handleSaveGuardrails}
               className="glow-button w-full py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
             >
-              <div className="flex flex-col items-center justify-center leading-tight">
-                <span>Update AI Guardrails</span>
-                <span className="text-[10px] font-normal opacity-85">AI નિયમો સાચવો</span>
-              </div>
+              <span>Update AI Guardrails</span>
             </button>
           </div>
         </div>
@@ -355,12 +352,12 @@ Guardrails:
       {/* Modal: Add or Edit Prompt Chip */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="glass w-full max-w-lg overflow-hidden border border-slate-700/70 bg-slate-950/95 p-0 text-slate-100 shadow-2xl modal-content-animate">
+          <div className="glass w-full max-w-lg overflow-hidden border border-slate-700/70 bg-slate-950/95 p-0 text-slate-100 shadow-2xl modal-content-animate rounded-2xl">
             <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bot className="w-5 h-5 text-cyan-400" />
                 <h2 className="text-base font-bold text-slate-100">
-                  {editingChip ? 'Edit Prompt Chip / પ્રશ્ન સંપાદિત કરો' : 'Add 1-Tap Prompt Chip / નવો પ્રશ્ન ઉમેરો'}
+                  {editingChip ? 'Edit Prompt Chip' : 'Add 1-Tap Prompt Chip'}
                 </h2>
               </div>
               <button
@@ -392,10 +389,10 @@ Guardrails:
                     onChange={(e) => setFormCategory(e.target.value as any)}
                     className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/80 rounded-xl text-slate-100 focus:outline-none focus:border-cyan-500/60"
                   >
-                    <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics / બાયોમેટ્રિક્સ</option>
-                    <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition / પોષણ</option>
-                    <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep & Hormones / ઊંઘ અને હોર્મોન્સ</option>
-                    <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture & Spine / મુદ્રા અને કરોડરજ્જુ</option>
+                    <option value="Biometrics" className="bg-slate-900 text-slate-100">Biometrics</option>
+                    <option value="Nutrition" className="bg-slate-900 text-slate-100">Nutrition</option>
+                    <option value="Sleep & Hormones" className="bg-slate-900 text-slate-100">Sleep &amp; Hormones</option>
+                    <option value="Posture & Spine" className="bg-slate-900 text-slate-100">Posture &amp; Spine</option>
                   </select>
                 </div>
               </div>
@@ -447,16 +444,13 @@ Guardrails:
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 font-medium cursor-pointer"
                 >
-                  Cancel / રદ કરો
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="glow-button px-5 py-2 text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  <div className="flex flex-col text-left leading-tight">
-                    <span>{editingChip ? 'Save Changes' : 'Add Prompt Chip'}</span>
-                    <span className="text-[10px] font-normal opacity-85">{editingChip ? 'ફેરફાર સાચવો' : 'પ્રશ્ન ઉમેરો'}</span>
-                  </div>
+                  <span>{editingChip ? 'Save Changes' : 'Add Prompt Chip'}</span>
                 </button>
               </div>
             </form>

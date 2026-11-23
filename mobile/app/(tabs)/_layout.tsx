@@ -1,21 +1,29 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Home, Apple, BedDouble, AlignJustify, ListTodo, User } from 'lucide-react-native';
 import { useAppStore } from '../../lib/store';
+import { resolvePlanEntitlements } from '../../lib/entitlements';
 
 export default function TabLayout() {
   const router = useRouter();
   const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
+  const activePlanId = useAppStore((state) => state.activePlanId);
+  const subscriptionTier = useAppStore((state) => state.subscriptionTier);
+  const liveCatalogPlans = useAppStore((state) => state.liveCatalogPlans);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
+
+  const entitlements = useMemo(() => {
+    return resolvePlanEntitlements(activePlanId, isPremium, subscriptionTier, liveCatalogPlans);
+  }, [activePlanId, isPremium, subscriptionTier, liveCatalogPlans]);
 
   // Protected route guard: if user has no account at all, redirect to landing page
   useEffect(() => {
-    const hasAccount = Boolean(user?.isLoggedIn || user?.email || user?.id || isPremium);
-    if (hasHydrated && !hasAccount) {
+    const isLoggedIn = Boolean(user?.isLoggedIn && (user?.id || user?.email));
+    if (hasHydrated && !isLoggedIn) {
       router.replace('/');
     }
-  }, [hasHydrated, user, isPremium]);
+  }, [hasHydrated, user?.isLoggedIn, user?.email, user?.id]);
 
   return (
     <Tabs
@@ -54,6 +62,17 @@ export default function TabLayout() {
         options={{
           title: 'Nutrition',
           tabBarIcon: ({ color, size }) => <Apple color={color} size={size} strokeWidth={2.3} />,
+          tabBarBadge: !entitlements.canAccessClinicalNutrition ? 'PRO' : undefined,
+          tabBarBadgeStyle: {
+            fontSize: 7.5,
+            fontWeight: '800',
+            backgroundColor: '#D97706',
+            color: '#FFFFFF',
+            minWidth: 26,
+            height: 14,
+            lineHeight: 14,
+            borderRadius: 7,
+          },
         }}
       />
       <Tabs.Screen

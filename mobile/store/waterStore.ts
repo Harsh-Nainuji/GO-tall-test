@@ -27,6 +27,7 @@ interface WaterState {
   loadMonth: (year: number, month: number) => Promise<void>;
   addLog: (amount_ml: number, size_label?: string) => Promise<boolean>;
   undoLast: () => Promise<boolean>;
+  resetWaterData: () => void;
   getTodayTotal: () => number;
   getStreak: () => number;
 }
@@ -208,6 +209,10 @@ export const useWaterStore = create<WaterState>()(
         }
 
         return true;
+      },
+
+      resetWaterData: () => {
+        set({ todayLogs: [], monthLogs: [] });
       },
 
       getTodayTotal: () => {

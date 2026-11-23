@@ -17,6 +17,8 @@ import * as Haptics from 'expo-haptics';
 import GlassCard from '../../components/ui/GlassCard';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../lib/store';
+import { useWaterStore } from '../../store/waterStore';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { colors } from '../../lib/theme';
 
 const DARK_GRADIENT = ['#0F172A', '#1E293B', '#0F172A'] as const;
@@ -53,14 +55,46 @@ export default function SignInScreen() {
       return;
     }
 
+    const authUser = useAuthStore.getState().user;
+    const userId = authUser?.id || `user-${Date.now()}`;
+    const userName = authUser?.user_metadata?.display_name || email.split('@')[0];
+
+    let isUserPremium = false;
+    let userTier = 'Free';
+    let userPlanId = 'plan_free';
+
+    if (isSupabaseConfigured() && authUser?.id) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_premium, subscription_tier, active_plan_id, name')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (profile) {
+          isUserPremium = Boolean(profile.is_premium);
+          userTier = profile.subscription_tier || (isUserPremium ? 'Pro Monthly' : 'Free');
+          userPlanId = profile.active_plan_id || (isUserPremium ? 'plan_pro_monthly' : 'plan_free');
+        }
+      } catch (err) {
+        console.warn('Failed to fetch profile on sign in:', err);
+      }
+    }
+
+    // Reset any previous account's local state before hydrating the newly signed-in user
+    useAppStore.getState().resetAccountData(false);
+    useWaterStore.getState().resetWaterData();
+
     setUser({
-      id: `user-${Date.now()}`,
-      name: email.split('@')[0],
+      id: userId,
+      name: userName,
       email,
       provider: 'email',
       isLoggedIn: true,
     });
-    setPremium(true);
+    useAppStore.getState().setPremium(isUserPremium);
+    useAppStore.getState().setSubscriptionTier(userTier);
+    useAppStore.getState().setActivePlanId(userPlanId);
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     router.replace('/(tabs)/home');
