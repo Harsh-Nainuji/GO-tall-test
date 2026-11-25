@@ -132,16 +132,16 @@ export default function ProfileScreen() {
     liveCatalogBadges && liveCatalogBadges.length > 0
       ? liveCatalogBadges
       : liveBadges !== null
-      ? liveBadges
-      : isSupabaseConfigured()
-      ? []
-      : storeStaticBadges;
+        ? liveBadges
+        : isSupabaseConfigured()
+          ? []
+          : storeStaticBadges;
 
   const unlockedCount = unlockedBadgeIds.length;
   const totalBadges = displayBadges.length;
 
   const handleDownloadAllData = async () => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     try {
       const jsonString = downloadAllUserData();
       let data: any = {};
@@ -225,7 +225,7 @@ export default function ProfileScreen() {
       });
 
       setExportSuccessMessage('Data exported successfully!');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
       setTimeout(() => setExportSuccessMessage(null), 5000);
     } catch (err: any) {
       // User dismissed share sheet
@@ -233,13 +233,13 @@ export default function ProfileScreen() {
   };
 
   const handleConfirmDelete = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => { });
     setIsDeleting(true);
     try {
       await deleteAccount();
       setIsDeleting(false);
       setDeleteModalVisible(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
       router.replace('/');
     } catch (err) {
       setIsDeleting(false);
@@ -321,11 +321,11 @@ export default function ProfileScreen() {
                   <Text style={styles.avatarInitials}>
                     {user?.name
                       ? user.name
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')
-                          .toUpperCase()
-                          .slice(0, 2)
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2)
                       : 'HM'}
                   </Text>
                 </View>
@@ -342,8 +342,8 @@ export default function ProfileScreen() {
                           {user.provider === 'google'
                             ? 'Google'
                             : user.provider === 'apple'
-                            ? 'Apple'
-                            : 'Verified'}
+                              ? 'Apple'
+                              : 'Verified'}
                         </Text>
                       </View>
                     )}
@@ -377,7 +377,7 @@ export default function ProfileScreen() {
                     style={styles.signOutBtn}
                     onPress={async () => {
                       try {
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                         await useAuthStore.getState().signOut();
                         signOut();
                         router.replace('/');
@@ -405,7 +405,7 @@ export default function ProfileScreen() {
                     <TouchableOpacity
                       style={styles.createAccBtn}
                       onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                         setAuthDefaultMode('signup');
                         setAuthModalVisible(true);
                       }}
@@ -418,7 +418,7 @@ export default function ProfileScreen() {
                     <TouchableOpacity
                       style={styles.signInBtnOutline}
                       onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
+                        Haptics.selectionAsync().catch(() => { });
                         setAuthDefaultMode('signin');
                         setAuthModalVisible(true);
                       }}
@@ -440,7 +440,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
+                Haptics.selectionAsync().catch(() => { });
                 router.push('/membership' as any);
               }}
               style={styles.membershipTile}
@@ -477,10 +477,10 @@ export default function ProfileScreen() {
                     {subscriptionTier === 'Pro Annual'
                       ? `Tallgrame Pro Annual • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
                       : subscriptionTier === 'Pro Monthly'
-                      ? `Tallgrame Pro Monthly • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
-                      : subscriptionTier === 'Lifetime VIP'
-                      ? `Tallgrame Lifetime VIP • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
-                      : `Free Starter Plan • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`}
+                        ? `Tallgrame Pro Monthly • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
+                        : subscriptionTier === 'Lifetime VIP'
+                          ? `Tallgrame Lifetime VIP • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`
+                          : `Free Starter Plan • ${getAiQuota().remaining}/${getAiQuota().limit} AI queries left today`}
                   </Text>
                 </View>
               </View>
@@ -729,8 +729,8 @@ export default function ProfileScreen() {
                             isUnlocked
                               ? styles.badgeStatusUnlocked
                               : badge.tier !== 'bronze' && !isPremium
-                              ? { color: '#D97706', fontWeight: '700' }
-                              : styles.badgeStatusLocked,
+                                ? { color: '#D97706', fontWeight: '700' }
+                                : styles.badgeStatusLocked,
                           ]}
                         >
                           {isUnlocked ? 'Unlocked ✓' : badge.tier !== 'bronze' && !isPremium ? 'Pro Locked' : 'Locked'}
@@ -792,7 +792,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={styles.tourReplayBtn}
                 onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
+                  Haptics.selectionAsync().catch(() => { });
                   setTourVisible(true);
                 }}
                 activeOpacity={0.8}
@@ -810,74 +810,62 @@ export default function ProfileScreen() {
             </Animated.View>
           ) : null}
 
-          {/* Data Privacy & GDPR Section (Download All Data & Delete Account) */}
-          <Animated.View entering={FadeInDown.delay(470).springify()}>
-            <GlassCard style={styles.dataPrivacyCard}>
-              <View style={styles.privacyHeaderRow}>
-                <View style={styles.privacyIconBadge}>
-                  <Database size={15} color="#0284C7" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.privacyTitle}>Data Privacy & Account Control</Text>
-                  <Text style={styles.privacySub}>
-                    Download your complete biometric history or permanently delete your account.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.privacyButtonsCol}>
-                {/* 1-Click Download All Data */}
-                <TouchableOpacity
-                  style={styles.downloadDataBtn}
-                  onPress={handleDownloadAllData}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.privacyBtnLeft}>
-                    <Download size={15} color="#2563EB" />
-                    <View>
-                      <Text style={styles.downloadDataBtnText}>Export My Data</Text>
-                      <Text style={styles.downloadDataBtnSub}>
-                        Human-readable export of biometrics, meals, sleep, and badges
-                      </Text>
-                    </View>
+          {/* Data Privacy & Account Control (Unified Single Card - No nested boxes) */}
+          <Animated.View entering={FadeInDown.delay(470).springify()} style={styles.privacySectionWrap}>
+            <View style={styles.privacyCardUnified}>
+              {/* 1-Click Download All Data */}
+              <TouchableOpacity
+                style={styles.privacyRow}
+                onPress={handleDownloadAllData}
+                activeOpacity={0.7}
+              >
+                <View style={styles.privacyBtnLeft}>
+                  <View style={styles.privacyIconBadgeBlue}>
+                    <Download size={16} color="#2563EB" />
                   </View>
-                  <ChevronRight size={14} color="#94A3B8" />
-                </TouchableOpacity>
-
-                {/* Delete Account (Danger Zone) */}
-                <TouchableOpacity
-                  style={styles.deleteAccountBtn}
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setDeleteModalVisible(true);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.privacyBtnLeft}>
-                    <Trash2 size={15} color="#EF4444" />
-                    <View>
-                      <Text style={styles.deleteAccountBtnText}>Delete Account & Data</Text>
-                      <Text style={styles.deleteAccountBtnSub}>
-                        Permanently erases all records from the Tallgrame cloud database
-                      </Text>
-                    </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.downloadDataBtnText}>Export My Data</Text>
+                    <Text style={styles.downloadDataBtnSub}>
+                      Human-readable export of biometrics, meals, sleep, and badges
+                    </Text>
                   </View>
-                  <ChevronRight size={14} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
-            </GlassCard>
+                </View>
+                <ChevronRight size={16} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <View style={styles.privacyRowDivider} />
+
+              {/* Delete Account (Danger Zone) */}
+              <TouchableOpacity
+                style={styles.privacyRow}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => { });
+                  setDeleteModalVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.privacyBtnLeft}>
+                  <View style={styles.privacyIconBadgeRed}>
+                    <Trash2 size={16} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.deleteAccountBtnText}>Delete Account & Data</Text>
+                    <Text style={styles.deleteAccountBtnSub}>
+                      Permanently erases all records from the Tallgrame cloud database
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
           </Animated.View>
 
-          {/* Scientific Disclaimer Card */}
-          <Animated.View entering={FadeInDown.delay(490).springify()}>
-            <GlassCard style={styles.citationCard}>
-              <View style={styles.citationRow}>
-                <ShieldCheck size={16} color="#2563EB" />
-                <Text style={styles.citationText}>
-                  All biometrics are calibrated to the Tanner–Whitehouse III model and CDC/WHO stature standards. Zero synthetic claims.
-                </Text>
-              </View>
-            </GlassCard>
+          {/* Scientific Disclaimer Pill */}
+          <Animated.View entering={FadeInDown.delay(490).springify()} style={styles.citationPill}>
+            <ShieldCheck size={16} color="#2563EB" />
+            <Text style={styles.citationText}>
+              All biometrics are calibrated to the Tanner–Whitehouse III model and CDC/WHO stature standards. Zero synthetic claims.
+            </Text>
           </Animated.View>
         </ScrollView>
 
@@ -1024,7 +1012,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 115,
   },
   userBioCard: {
     padding: 18,
@@ -1732,86 +1720,88 @@ const styles = StyleSheet.create({
     color: '#065F46',
     flex: 1,
   },
-  dataPrivacyCard: {
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+  privacySectionWrap: {
     marginTop: 14,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  privacyHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+  privacyCardUnified: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  privacyIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  privacyTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  privacySub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  privacyButtonsCol: {
-    gap: 8,
-  },
-  downloadDataBtn: {
+  privacyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    padding: 16,
+  },
+  privacyRowDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 66,
+  },
+  privacyIconBadgeBlue: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyIconBadgeRed: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   privacyBtnLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
     marginRight: 8,
   },
   downloadDataBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1E293B',
   },
   downloadDataBtnSub: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
   },
-  deleteAccountBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
   deleteAccountBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#DC2626',
   },
   deleteAccountBtnSub: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: '#991B1B',
     marginTop: 1,
+  },
+  citationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 6,
+    marginBottom: 20,
   },
   modalOverlay: {
     flex: 1,

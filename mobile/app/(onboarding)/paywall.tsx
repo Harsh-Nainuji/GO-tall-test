@@ -35,6 +35,7 @@ import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
 import AuthModal from '../../components/AuthModal';
+import { getAdvisorPersona } from '../../lib/advisorPersona';
 
 const COMPARISON_ROWS = [
   { feature: 'Dr. Jack AI Growth Chat Quota', free: '5/day', monthly: '20/day', annual: '50/day', lifetime: '100/day' },
@@ -86,9 +87,20 @@ export default function PaywallScreen() {
   const setPremium = useAppStore((state) => state.setPremium);
   const pendingRegistration = useAppStore((state) => state.pendingRegistration);
   const user = useAppStore((state) => state.user);
+  const quizData = useAppStore((state) => state.quizData);
+  const persona = getAdvisorPersona(quizData?.gender);
   const completeSubscriptionAndCreateAccount = useAppStore(
     (state) => state.completeSubscriptionAndCreateAccount
   );
+
+  const getPlanFeatures = (planTier: 'annual' | 'monthly' | 'lifetime' | 'free') => {
+    return PLAN_FEATURES[planTier].map((f) => f.replace('Dr. Jack', persona.name));
+  };
+
+  const comparisonRows = COMPARISON_ROWS.map((r) => ({
+    ...r,
+    feature: r.feature.replace('Dr. Jack', persona.name),
+  }));
 
   const [tier, setTier] = useState<'annual' | 'monthly' | 'lifetime' | 'free'>('annual');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -150,7 +162,12 @@ export default function PaywallScreen() {
 
       // Find matching package or use available package
       const offerings = await getRevenueCatOfferings();
-      const packages = offerings?.availablePackages || [];
+      const rawPackages = offerings?.availablePackages || [];
+      const packages = rawPackages.length > 0 ? rawPackages : [
+        { identifier: '$rc_annual', packageType: 'ANNUAL', product: { identifier: 'yearly' } },
+        { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { identifier: 'monthly' } },
+        { identifier: '$rc_lifetime', packageType: 'LIFETIME', product: { identifier: 'lifetime' } },
+      ];
       const pkgToBuy =
         packages.find((p: any) =>
           tier === 'annual'
@@ -304,7 +321,7 @@ export default function PaywallScreen() {
               </View>
 
               <View style={styles.tierFeatureBox}>
-                {PLAN_FEATURES.annual.map((feat, fIdx) => (
+                {getPlanFeatures('annual').map((feat, fIdx) => (
                   <View key={fIdx} style={styles.featureLine}>
                     <Check size={13} color="#10B981" strokeWidth={2.5} />
                     <Text style={styles.featureLineText}>{feat}</Text>
@@ -345,7 +362,7 @@ export default function PaywallScreen() {
               </View>
 
               <View style={styles.tierFeatureBox}>
-                {PLAN_FEATURES.monthly.map((feat, fIdx) => (
+                {getPlanFeatures('monthly').map((feat, fIdx) => (
                   <View key={fIdx} style={styles.featureLine}>
                     <Check size={13} color="#0284C7" strokeWidth={2.5} />
                     <Text style={styles.featureLineText}>{feat}</Text>
@@ -386,7 +403,7 @@ export default function PaywallScreen() {
               </View>
 
               <View style={styles.tierFeatureBox}>
-                {PLAN_FEATURES.lifetime.map((feat, fIdx) => (
+                {getPlanFeatures('lifetime').map((feat, fIdx) => (
                   <View key={fIdx} style={styles.featureLine}>
                     <Check size={13} color="#7C3AED" strokeWidth={2.5} />
                     <Text style={styles.featureLineText}>{feat}</Text>
@@ -427,7 +444,7 @@ export default function PaywallScreen() {
               </View>
 
               <View style={styles.tierFeatureBox}>
-                {PLAN_FEATURES.free.map((feat, fIdx) => (
+                {getPlanFeatures('free').map((feat, fIdx) => (
                   <View key={fIdx} style={styles.featureLine}>
                     <Check size={13} color="#64748B" strokeWidth={2.5} />
                     <Text style={styles.featureLineText}>{feat}</Text>
@@ -453,7 +470,7 @@ export default function PaywallScreen() {
                 <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center', color: '#7C3AED' }]}>VIP</Text>
               </View>
 
-              {COMPARISON_ROWS.map((row, idx) => (
+              {comparisonRows.map((row, idx) => (
                 <View key={idx} style={styles.tableRow}>
                   <Text style={styles.tableFeatureName} numberOfLines={2}>
                     {row.feature}

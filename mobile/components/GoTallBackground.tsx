@@ -38,17 +38,15 @@ export default function GoTallBackground({
   const glowColors = isFemale
     ? ([
         'transparent',
-        'rgba(237, 228, 250, 0.20)',
-        'rgba(216, 187, 248, 0.40)',
-        'rgba(178, 142, 240, 0.60)',
-        '#B28EF0',
+        'rgba(243, 232, 255, 0.12)',
+        'rgba(216, 187, 248, 0.20)',
+        'rgba(178, 142, 240, 0.28)',
       ] as const)
     : ([
         'transparent',
-        'rgba(191, 219, 254, 0.22)',
-        'rgba(96, 165, 250, 0.45)',
-        'rgba(29, 78, 216, 0.68)',
-        '#1D4ED8',
+        'rgba(219, 234, 254, 0.15)',
+        'rgba(147, 197, 253, 0.22)',
+        'rgba(59, 130, 246, 0.25)',
       ] as const);
 
   return (
@@ -94,6 +92,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '52%',
+    height: '24%',
   },
 });

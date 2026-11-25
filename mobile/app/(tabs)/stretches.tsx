@@ -134,6 +134,7 @@ const getCalendarWeekDays = (): CalendarDayItem[] => {
 export default function StretchesScreen() {
   const router = useRouter();
   const completedStretches = useAppStore((state) => state.completedStretches);
+  const completedStretchesByDate = useAppStore((state) => state.completedStretchesByDate) || {};
   const streakDays = useAppStore((state) => state.streakDays);
   const toggleStretch = useAppStore((state) => state.toggleStretch);
   const newlyUnlockedBadge = useAppStore((state) => state.newlyUnlockedBadge);
@@ -557,6 +558,9 @@ export default function StretchesScreen() {
                   {calendarWeek.map((dayItem) => {
                     const isSelected = currentDayKey === dayItem.fullDayName;
                     const isToday = dayItem.isToday;
+                    const dateStr = getLocalTodayDateStr(dayItem.rawDate);
+                    const dayDoneCount = (completedStretchesByDate[dateStr] || []).length;
+                    const isFullyCompleted = dayDoneCount >= 4;
 
                     return (
                       <TouchableOpacity
@@ -586,13 +590,25 @@ export default function StretchesScreen() {
                           {dayItem.dateNumber}
                         </Text>
 
-                        {isToday && (
+                        {dayDoneCount > 0 ? (
+                          <View
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: isFullyCompleted ? '#10B981' : isSelected ? '#FFFFFF' : '#3B82F6',
+                              marginTop: 4,
+                            }}
+                          />
+                        ) : isToday ? (
                           <View
                             style={[
                               styles.todayDot,
                               isSelected && styles.todayDotActive,
                             ]}
                           />
+                        ) : (
+                          <View style={{ width: 6, height: 6, marginTop: 4 }} />
                         )}
                       </TouchableOpacity>
                     );
@@ -1094,7 +1110,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 115,
   },
 
   // Week Hero Row (Image 2 "Week 1" Header)

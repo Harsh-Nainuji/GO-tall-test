@@ -1719,17 +1719,24 @@ export const useAppStore = create<AppState>()(
 
         const user = get().user;
         if (isSupabaseConfigured() && user?.id) {
+          const insertPayload: any = {
+            user_id: user.id,
+            bedtime: log.bedtime || null,
+            wakeup_time: log.wakeupTime || null,
+            hours: log.hours,
+            quality: log.quality,
+          };
           void supabase
             .from('sleep_logs')
-            .insert({
-              user_id: user.id,
-              logged_date: log.date,
-              bedtime: log.bedtime || null,
-              wakeup_time: log.wakeupTime || null,
-              hours: log.hours,
-              quality: log.quality,
-            })
-            .then(null, () => {});
+            .insert({ ...insertPayload, logged_date: log.date })
+            .then(({ error }) => {
+              if (error) {
+                void supabase
+                  .from('sleep_logs')
+                  .insert({ ...insertPayload, log_date: log.date })
+                  .then(null, () => {});
+              }
+            });
         }
       },
 
@@ -1893,28 +1900,74 @@ export const useAppStore = create<AppState>()(
         if (!isSupabaseConfigured() || !userId) return;
 
         try {
-          // 1. Hydrate sleep logs
+          // 1. Hydrate user profile, biometrics, streak, and tier
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`user_id.eq.${userId},id.eq.${userId}`)
+            .maybeSingle();
+
+          if (profile) {
+            const profileUpdates: Partial<AppState> = {};
+            if (typeof profile.streak_days === 'number') {
+              profileUpdates.streakDays = Math.max(1, profile.streak_days);
+            }
+            if (profile.last_active_date) {
+              profileUpdates.lastActiveDate = profile.last_active_date;
+            }
+            if (profile.subscription_tier) {
+              profileUpdates.subscriptionTier = profile.subscription_tier;
+            }
+            if (typeof profile.is_premium === 'boolean') {
+              profileUpdates.isPremium = profile.is_premium;
+            }
+            if (profile.active_plan_id) {
+              profileUpdates.activePlanId = profile.active_plan_id;
+            }
+            // If biometrics exist in profile but not in local store, restore quizData
+            if (profile.current_height && (!get().quizData || !get().quizData?.currentHeight)) {
+              profileUpdates.quizData = {
+                gender: (profile.gender?.toLowerCase() as 'male' | 'female') || 'male',
+                age: profile.age || 17,
+                currentHeight: Number(profile.current_height),
+                fatherHeight: Number(profile.father_height || 178),
+                motherHeight: Number(profile.mother_height || 164),
+                dreamHeight: Number(profile.predicted_height || 182),
+                sittingHours: '6-8 hours/day',
+                sleepHours: '7-8 hours/night',
+                activityLevel: 'Moderate',
+                dietType: 'Balanced Whole Food',
+                motivation: 'Maximize vertical stature and posture',
+              };
+            }
+            set(profileUpdates);
+          }
+
+          // 2. Hydrate sleep logs (handling both log_date and logged_date column variations)
           const { data: dbSleep } = await supabase
             .from('sleep_logs')
             .select('*')
             .eq('user_id', userId)
-            .order('logged_date', { ascending: false });
+            .order('created_at', { ascending: false });
 
           if (dbSleep && dbSleep.length > 0) {
-            const mappedSleep: SleepLog[] = dbSleep.map((s: any) => ({
-              id: s.id,
-              date: s.logged_date,
-              dayOfWeek: new Date(s.logged_date).toLocaleDateString('en-US', { weekday: 'short' }),
-              bedtime: s.bedtime || undefined,
-              wakeupTime: s.wakeup_time || undefined,
-              hours: Number(s.hours) || 8,
-              quality: s.quality || 'Good',
-              timestamp: s.created_at || new Date().toISOString(),
-            }));
+            const mappedSleep: SleepLog[] = dbSleep.map((s: any) => {
+              const rawDate = s.logged_date || s.log_date || (s.created_at ? s.created_at.split('T')[0] : getLocalTodayDateStr());
+              return {
+                id: s.id,
+                date: rawDate,
+                dayOfWeek: new Date(rawDate).toLocaleDateString('en-US', { weekday: 'short' }),
+                bedtime: s.bedtime || undefined,
+                wakeupTime: s.wakeup_time || undefined,
+                hours: Number(s.hours) || 8,
+                quality: s.quality || 'Good',
+                timestamp: s.created_at || new Date().toISOString(),
+              };
+            });
             set({ sleepLogs: mappedSleep });
           }
 
-          // 2. Hydrate completed stretches
+          // 3. Hydrate completed stretches by date from daily_logs
           const { data: dailyData } = await supabase
             .from('daily_logs')
             .select('log_date, completed_stretches')
@@ -1934,7 +1987,7 @@ export const useAppStore = create<AppState>()(
             });
           }
 
-          // 3. Hydrate meals
+          // 4. Hydrate meals
           const { data: dbMeals } = await supabase
             .from('meals')
             .select('*')
@@ -1958,7 +2011,16 @@ export const useAppStore = create<AppState>()(
             set({ meals: mappedMeals });
           }
 
-          // 4. Hydrate user achievements
+          // 5. Hydrate water logs into water store
+          try {
+            await useWaterStore.getState().loadToday();
+            const now = new Date();
+            await useWaterStore.getState().loadMonth(now.getFullYear(), now.getMonth() + 1);
+          } catch (waterHydrateErr) {
+            console.warn('[hydrateUserData] Water hydration notice:', waterHydrateErr);
+          }
+
+          // 6. Hydrate user achievements
           const { data: userAchievements } = await supabase
             .from('user_achievements')
             .select('achievement_id')
@@ -1968,7 +2030,7 @@ export const useAppStore = create<AppState>()(
             set({ unlockedBadgeIds: userAchievements.map((ua: any) => ua.achievement_id) });
           }
 
-          // 5. Hydrate user todos
+          // 7. Hydrate user todos
           const { data: dbTodos } = await supabase
             .from('user_todos')
             .select('*')

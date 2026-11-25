@@ -5,7 +5,14 @@ import Purchases, {
   PurchasesOffering,
   LOG_LEVEL,
 } from 'react-native-purchases';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+
+export enum PAYWALL_RESULT {
+  NOT_PRESENTED = 'NOT_PRESENTED',
+  ERROR = 'ERROR',
+  CANCELLED = 'CANCELLED',
+  PURCHASED = 'PURCHASED',
+  RESTORED = 'RESTORED',
+}
 
 /**
  * RevenueCat Configuration
@@ -299,7 +306,7 @@ export async function getRevenueCatCustomerInfo(): Promise<CustomerInfo | null> 
  */
 export async function getRevenueCatOfferings(): Promise<PurchasesOffering | null> {
   if (Platform.OS === 'web') {
-    return null;
+    return MOCK_OFFERING;
   }
 
   // If in test mode, return high-fidelity mock offering
@@ -326,12 +333,8 @@ export async function getRevenueCatOfferings(): Promise<PurchasesOffering | null
 export async function purchaseRevenueCatPackage(
   pkg: PurchasesPackage
 ): Promise<{ success: boolean; customerInfo?: CustomerInfo | any; error?: any }> {
-  if (Platform.OS === 'web') {
-    return { success: false, error: 'Web purchases not supported via native in-app purchases' };
-  }
-
-  // Test mode: Simulate instant verified purchase & push to RevenueCat Dashboard
-  if (!isNativeStoreKey(REVENUECAT_API_KEY) || (pkg as any).identifier?.startsWith('$rc_')) {
+  // Test mode or web preview: Simulate instant verified purchase & push to RevenueCat Dashboard
+  if (!isNativeStoreKey(REVENUECAT_API_KEY) || (pkg as any).identifier?.startsWith('$rc_') || Platform.OS === 'web') {
     const testUserId = `tallgrame_user_${Date.now().toString().slice(-6)}`;
     syncCustomerWithRevenueCatBackend(testUserId, (pkg as any).product?.identifier).catch(() => {});
 
@@ -377,11 +380,7 @@ export async function restoreRevenueCatPurchases(): Promise<{
   customerInfo?: CustomerInfo | any;
   error?: any;
 }> {
-  if (Platform.OS === 'web') {
-    return { success: false };
-  }
-
-  if (!isNativeStoreKey(REVENUECAT_API_KEY)) {
+  if (Platform.OS === 'web' || !isNativeStoreKey(REVENUECAT_API_KEY)) {
     return {
       success: true,
       customerInfo: {
@@ -413,31 +412,12 @@ export async function restoreRevenueCatPurchases(): Promise<{
 }
 
 /**
- * Presents RevenueCat Native Paywall UI
- * Uses RevenueCatUI.presentPaywall() from react-native-purchases-ui
+ * Presents RevenueCat Native Paywall UI (fallback stub; app uses custom onboarding paywall)
  */
 export async function presentRevenueCatPaywall(
-  offering?: PurchasesOffering
+  _offering?: PurchasesOffering
 ): Promise<{ result: PAYWALL_RESULT | string; success: boolean }> {
-  if (Platform.OS === 'web') {
-    return { result: 'NOT_PRESENTED', success: false };
-  }
-
-  try {
-    await initRevenueCat();
-    const result = await RevenueCatUI.presentPaywall({
-      offering: (offering as any) || undefined,
-      displayCloseButton: true,
-    });
-
-    const isPurchasedOrRestored =
-      result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED;
-
-    return { result, success: isPurchasedOrRestored };
-  } catch (error) {
-    console.warn('RevenueCat presentPaywall fallback / not supported in this environment:', error);
-    return { result: 'ERROR', success: false };
-  }
+  return { result: PAYWALL_RESULT.NOT_PRESENTED, success: false };
 }
 
 /**
@@ -447,46 +427,14 @@ export async function presentRevenueCatPaywallIfNeeded(): Promise<{
   result: PAYWALL_RESULT | string;
   success: boolean;
 }> {
-  if (Platform.OS === 'web') {
-    return { result: 'NOT_PRESENTED', success: false };
-  }
-
-  try {
-    await initRevenueCat();
-    const result = await RevenueCatUI.presentPaywallIfNeeded({
-      requiredEntitlementIdentifier: ENTITLEMENT_ID,
-      displayCloseButton: true,
-    });
-
-    const isPurchasedOrRestored =
-      result === PAYWALL_RESULT.PURCHASED ||
-      result === PAYWALL_RESULT.RESTORED ||
-      result === PAYWALL_RESULT.NOT_PRESENTED;
-
-    return { result, success: isPurchasedOrRestored };
-  } catch (error) {
-    console.warn('RevenueCat presentPaywallIfNeeded error:', error);
-    return { result: 'ERROR', success: false };
-  }
+  return { result: PAYWALL_RESULT.NOT_PRESENTED, success: false };
 }
 
 /**
  * Presents RevenueCat Customer Center
- * Allows users to self-manage, cancel, switch plans, or request refunds
  */
 export async function presentRevenueCatCustomerCenter(): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    return false;
-  }
-
-  try {
-    await initRevenueCat();
-    await RevenueCatUI.presentCustomerCenter();
-    return true;
-  } catch (error) {
-    console.warn('RevenueCat presentCustomerCenter error:', error);
-    return false;
-  }
+  return false;
 }
 
 /**

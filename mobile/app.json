@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Tallgrame",
-    "slug": "tallgrame",
+    "slug": "gotall",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.tallgrame.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "jsEngine": "hermes",
       "associatedDomains": ["applinks:tallgrame.app"],
       "config": {
@@ -43,7 +43,7 @@
     },
     "android": {
       "package": "com.tallgrame.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

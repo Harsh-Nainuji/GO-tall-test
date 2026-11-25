@@ -14,6 +14,7 @@ import GlassCard from './ui/GlassCard';
 import GlassButton from './GlassButton';
 import { useAppStore } from '../lib/store';
 import { colors } from '../lib/theme';
+import { getLocalTodayDateStr } from '../lib/dates';
 
 interface SleepSchedulerModalProps {
   visible: boolean;
@@ -123,7 +124,7 @@ export default function SleepSchedulerModal({
     // Record sleep log for today
     const now = new Date();
     const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'short' });
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getLocalTodayDateStr(now);
 
     addSleepLog({
       date: dateStr,

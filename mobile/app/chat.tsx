@@ -10,6 +10,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Share,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -36,6 +37,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
 import { speakText, stopSpeech } from '../lib/tts';
+import { getAdvisorPersona } from '../lib/advisorPersona';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
@@ -129,6 +131,7 @@ export default function ChatScreen() {
   const addChatMessage = useAppStore((state) => state.addChatMessage);
   const quizData = useAppStore((state) => state.quizData);
   const user = useAppStore((state) => state.user);
+  const persona = getAdvisorPersona(quizData?.gender);
   const getAiQuota = useAppStore((state) => state.getAiQuota);
   const incrementAiQuestionsUsed = useAppStore((state) => state.incrementAiQuestionsUsed);
 
@@ -184,6 +187,29 @@ export default function ChatScreen() {
     }
   };
 
+  // Speak aloud the latest Dr. Jack guidance or clinical intro
+  const handleSpeakOutLoud = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (speakingMessageId) {
+      await stopSpeech();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    const lastAssistant = [...chatMessages].reverse().find((m) => m.role === 'assistant');
+    const textToSpeak = lastAssistant
+      ? lastAssistant.text
+      : persona.greeting;
+
+    const pseudoId = lastAssistant ? lastAssistant.id : 'intro-msg';
+    setSpeakingMessageId(pseudoId);
+    await speakText(textToSpeak, {
+      onDone: () => setSpeakingMessageId(null),
+      onStopped: () => setSpeakingMessageId(null),
+      onError: () => setSpeakingMessageId(null),
+    });
+  };
+
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query) return;
@@ -225,7 +251,7 @@ export default function ChatScreen() {
     } catch {
       addChatMessage({
         role: 'assistant',
-        text: 'Unable to reach Dr. Jack growth advisor right now. Please check your network connection and try again.',
+        text: persona.errorMessage,
       });
     } finally {
       setIsTyping(false);
@@ -249,18 +275,19 @@ export default function ChatScreen() {
           <ArrowLeft size={20} color="#0F172A" />
         </TouchableOpacity>
 
-        {/* Gradient wordmark pill */}
+        {/* Doctor Persona Info in Header */}
         <View style={styles.headerCenter}>
-          <LinearGradient
-            colors={['#2563EB', '#1D4ED8']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.wordmarkPill}
-          >
-            <Sparkles size={13} color="#FFFFFF" />
-            <Text style={styles.wordmarkText}>Tallgrame AI</Text>
-          </LinearGradient>
-          <Text style={styles.headerSubtitle}>Powered by Gemini</Text>
+          <View style={styles.headerDoctorRow}>
+            <Image
+              source={persona.avatar}
+              style={styles.headerDoctorAvatar}
+              resizeMode="cover"
+            />
+            <View>
+              <Text style={styles.headerDoctorName}>{persona.name}</Text>
+              <Text style={styles.headerDoctorSub}>{persona.title}</Text>
+            </View>
+          </View>
         </View>
 
         {/* 5-question quota chip */}
@@ -300,37 +327,16 @@ export default function ChatScreen() {
             {/* Welcome card */}
             {chatMessages.length === 0 && (
               <Animated.View entering={FadeInDown.duration(400)} style={styles.welcomeCard}>
-                <LinearGradient
-                  colors={['#2563EB', '#1D4ED8']}
-                  style={styles.sparkleOrb}
-                >
-                  <Sparkles size={22} color="#FFFFFF" />
-                </LinearGradient>
-                <Text style={styles.welcomeTitle}>Ask Tallgrame AI</Text>
+                <Image
+                  source={persona.avatar}
+                  style={styles.welcomeDoctorAvatar}
+                  resizeMode="cover"
+                />
+                <Text style={styles.welcomeTitle}>Ask {persona.shortName}</Text>
                 <Text style={styles.welcomeBody}>
-                  Evidence-based guidance on growth plates, sleep, nutrition, and spinal biomechanics.
+                  {persona.welcomeSub} Tap the mic to listen aloud anytime.
                 </Text>
               </Animated.View>
-            )}
-
-            {/* Quick-prompt chips (2 × 2 grid) */}
-            {chatMessages.length <= 1 && (
-              <View style={styles.chipsSection}>
-                <Text style={styles.chipsHeading}>Suggested topics</Text>
-                <View style={styles.chipsGrid}>
-                  {QUICK_PROMPT_CHIPS.map((chip) => (
-                    <TouchableOpacity
-                      key={chip.id}
-                      onPress={() => handleSend(chip.prompt)}
-                      disabled={isTyping || quota.isExhausted}
-                      style={styles.chipButton}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.chipLabel}>{chip.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
             )}
 
             {/* Messages */}
@@ -342,7 +348,7 @@ export default function ChatScreen() {
               return (
                 <Animated.View
                   key={msg.id}
-                  entering={FadeInUp.duration(280)}
+                  entering={FadeInUp.duration(520).springify().damping(20).stiffness(90)}
                   style={[
                     styles.messageRow,
                     isUser ? styles.messageRowUser : styles.messageRowAssistant,
@@ -350,7 +356,11 @@ export default function ChatScreen() {
                 >
                   {!isUser && (
                     <View style={styles.avatarBot}>
-                      <Bot size={15} color="#2563EB" />
+                      <Image
+                        source={persona.avatar}
+                        style={styles.avatarBotImage}
+                        resizeMode="cover"
+                      />
                     </View>
                   )}
 
@@ -431,9 +441,13 @@ export default function ChatScreen() {
 
             {/* Typing indicator */}
             {isTyping && (
-              <Animated.View entering={FadeInUp.duration(250)} style={styles.typingRow}>
+              <Animated.View entering={FadeInUp.duration(420)} style={styles.typingRow}>
                 <View style={styles.avatarBot}>
-                  <Bot size={15} color="#2563EB" />
+                  <Image
+                    source={persona.avatar}
+                    style={styles.avatarBotImage}
+                    resizeMode="cover"
+                  />
                 </View>
                 <View style={styles.typingBubble}>
                   <ActivityIndicator size="small" color="#2563EB" />
@@ -443,6 +457,29 @@ export default function ChatScreen() {
             )}
           </ScrollView>
         </LinearGradient>
+
+        {/* ── Suggested Questions on Bottom (Accessible in Free & Pro) ─────────────── */}
+        <View style={styles.bottomChipsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bottomChipsScroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            {QUICK_PROMPT_CHIPS.map((chip) => (
+              <TouchableOpacity
+                key={chip.id}
+                onPress={() => handleSend(chip.prompt)}
+                disabled={isTyping || quota.isExhausted}
+                style={styles.chipButton}
+                activeOpacity={0.75}
+              >
+                <Sparkles size={11} color="#2563EB" style={{ marginRight: 4 }} />
+                <Text style={styles.chipLabel}>{chip.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         {/* ── Input bar ────────────────────────────────────────────── */}
         <View style={styles.inputContainer}>
@@ -467,21 +504,35 @@ export default function ChatScreen() {
                 returnKeyType="send"
                 onSubmitEditing={() => handleSend()}
               />
+
+              {/* Speak Out Loud Mic Button (Available in Free Plan) */}
               <TouchableOpacity
-                onPress={inputText.trim() ? () => handleSend() : () => inputRef.current?.focus()}
-                disabled={isTyping}
+                onPress={handleSpeakOutLoud}
                 style={[
-                  styles.sendButton,
-                  (!inputText.trim() || isTyping) && styles.sendButtonMic,
+                  styles.micVoiceBtn,
+                  speakingMessageId && styles.micVoiceBtnSpeaking,
                 ]}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
+                accessibilityLabel={speakingMessageId ? "Stop speaking" : "Speak advice out loud"}
               >
-                {inputText.trim() ? (
-                  <Send size={18} color="#FFFFFF" />
+                {speakingMessageId ? (
+                  <VolumeX size={18} color="#2563EB" />
                 ) : (
-                  <Mic size={18} color="#FFFFFF" />
+                  <Mic size={18} color="#475569" />
                 )}
               </TouchableOpacity>
+
+              {/* Send Button */}
+              {inputText.trim() ? (
+                <TouchableOpacity
+                  onPress={() => handleSend()}
+                  disabled={isTyping}
+                  style={styles.sendButton}
+                  activeOpacity={0.8}
+                >
+                  <Send size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
 
@@ -528,6 +579,41 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
     gap: 3,
+  },
+  headerDoctorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerDoctorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+  },
+  headerDoctorName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  headerDoctorSub: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  welcomeDoctorAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    marginBottom: 10,
+  },
+  avatarBotImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
   },
   wordmarkPill: {
     flexDirection: 'row',
@@ -821,6 +907,20 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
+  // ── Bottom Suggested Questions ───────────────────────────────
+  bottomChipsContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  bottomChipsScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
   // ── Input bar ─────────────────────────────────────────────────
   inputContainer: {
     paddingHorizontal: 16,
@@ -837,15 +937,28 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#DDE3F5',
     borderRadius: 28,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 8 : 4,
-    gap: 10,
+    gap: 8,
   },
   textInput: {
     flex: 1,
     fontSize: 14,
     color: colors.slate900,
     maxHeight: 90,
+  },
+  micVoiceBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micVoiceBtnSpeaking: {
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
   },
   sendButton: {
     width: 36,

@@ -10,6 +10,7 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {
   Send,
@@ -19,12 +20,17 @@ import {
   ShieldCheck,
   Zap,
   Lock,
+  Mic,
+  VolumeX,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import BottomSheet from './ui/BottomSheet';
 import { useAppStore } from '../lib/store';
 import { queryGeminiAdvisor } from '../lib/gemini';
+import { speakText, stopSpeech } from '../lib/tts';
+import { getAdvisorPersona } from '../lib/advisorPersona';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
@@ -89,9 +95,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const incrementAiQuestionsUsed = useAppStore((state) => state.incrementAiQuestionsUsed);
 
   const quota = getAiQuota();
+  const persona = getAdvisorPersona(quizData?.gender);
 
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const scrollToBottom = () => {
@@ -104,11 +112,36 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     if (visible) {
       scrollToBottom();
     }
+    return () => {
+      stopSpeech();
+    };
   }, [visible, chatMessages.length, isTyping]);
+
+  const handleSpeakOutLoud = async () => {
+    Haptics.selectionAsync().catch(() => { });
+    if (speakingMessageId) {
+      await stopSpeech();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    const lastAssistant = [...chatMessages].reverse().find((m) => m.role === 'assistant');
+    const textToSpeak = lastAssistant
+      ? lastAssistant.text
+      : persona.greeting;
+
+    const pseudoId = lastAssistant ? lastAssistant.id : 'intro-msg';
+    setSpeakingMessageId(pseudoId);
+    await speakText(textToSpeak, {
+      onDone: () => setSpeakingMessageId(null),
+      onStopped: () => setSpeakingMessageId(null),
+      onError: () => setSpeakingMessageId(null),
+    });
+  };
 
   const handleSendPrompt = (chip: PromptChip) => {
     if (quota.isExhausted) return;
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
     incrementAiQuestionsUsed();
 
     addChatMessage({
@@ -125,16 +158,16 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         text: chip.response,
       });
       setIsTyping(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
       scrollToBottom();
-    }, 500);
+    }, 750);
   };
 
   const handleCustomSend = async () => {
     const query = inputText.trim();
     if (!query || quota.isExhausted) return;
 
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => { });
 
     addChatMessage({
       role: 'user',
@@ -164,16 +197,16 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         user?.id &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)
       ) {
-        supabase.rpc('consume_user_ai_quota', { p_user_id: user.id }).then(() => {}, () => {});
+        supabase.rpc('consume_user_ai_quota', { p_user_id: user.id }).then(() => { }, () => { });
       }
     } catch {
       addChatMessage({
         role: 'assistant',
-        text: 'Unable to reach Dr. Jack growth advisor right now. Please check your network connection and try again.',
+        text: persona.errorMessage,
       });
     } finally {
       setIsTyping(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
       scrollToBottom();
     }
   };
@@ -192,7 +225,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const badgeStyle = getBadgeStyle();
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Dr. Jack AI Coach">
+    <BottomSheet visible={visible} onClose={onClose} title={`${persona.name} AI Coach`}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardContainer}
@@ -212,12 +245,91 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           </View>
         </View>
 
-        {/* Suggestion Chips */}
+        {/* Messages List */}
+        <ScrollView
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesScrollContent}
+          onContentSizeChange={scrollToBottom}
+        >
+          {chatMessages.length === 0 && (
+            <View style={styles.introCard}>
+              <Sparkles size={24} color={colors.blue600} />
+              <Text style={styles.introTitle}>Ask anything about your height</Text>
+              <Text style={styles.introBody}>
+                Tap a suggestion below or type your question. Tap the mic to listen aloud.
+              </Text>
+            </View>
+          )}
+
+          {chatMessages.map((msg) => (
+            <Animated.View
+              key={msg.id}
+              entering={FadeInUp.duration(520).springify().damping(20).stiffness(90)}
+              style={[
+                styles.messageRow,
+                msg.role === 'user' ? styles.userRow : styles.assistantRow,
+              ]}
+            >
+              {msg.role === 'assistant' && (
+                <View style={styles.avatarAssistant}>
+                  <Image
+                    source={persona.avatar}
+                    style={styles.avatarAssistantImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
+
+              <View
+                style={[
+                  styles.bubble,
+                  msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.msgText,
+                    msg.role === 'user' ? styles.userMsgText : styles.assistantMsgText,
+                  ]}
+                >
+                  {msg.text}
+                </Text>
+              </View>
+
+              {msg.role === 'user' && (
+                <View style={styles.avatarUser}>
+                  <User size={14} color="#FFFFFF" />
+                </View>
+              )}
+            </Animated.View>
+          ))}
+
+          {isTyping && (
+            <View style={[styles.messageRow, styles.assistantRow]}>
+              <View style={styles.avatarAssistant}>
+                <Image
+                  source={persona.avatar}
+                  style={styles.avatarAssistantImage}
+                  resizeMode="cover"
+                />
+              </View>
+              <View style={styles.typingBubble}>
+                <ActivityIndicator size="small" color={colors.blue600} />
+                <Text style={styles.typingText}>Thinking...</Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Suggestion Chips on Bottom */}
         <View style={styles.chipsContainer}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chipsScroll}
+            keyboardShouldPersistTaps="handled"
           >
             {QUICK_PROMPT_CHIPS.map((chip) => (
               <TouchableOpacity
@@ -247,75 +359,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           </ScrollView>
         </View>
 
-        {/* Messages List */}
-        <ScrollView
-          ref={scrollViewRef}
-          showsVerticalScrollIndicator={false}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesScrollContent}
-          onContentSizeChange={scrollToBottom}
-        >
-          {chatMessages.length === 0 && (
-            <View style={styles.introCard}>
-              <Sparkles size={24} color={colors.blue600} />
-              <Text style={styles.introTitle}>Ask anything about your height</Text>
-              <Text style={styles.introBody}>
-                Tap a suggestion above or type your question below.
-              </Text>
-            </View>
-          )}
-
-          {chatMessages.map((msg) => (
-            <View
-              key={msg.id}
-              style={[
-                styles.messageRow,
-                msg.role === 'user' ? styles.userRow : styles.assistantRow,
-              ]}
-            >
-              {msg.role === 'assistant' && (
-                <View style={styles.avatarAssistant}>
-                  <Bot size={14} color={colors.blue600} />
-                </View>
-              )}
-
-              <View
-                style={[
-                  styles.bubble,
-                  msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.msgText,
-                    msg.role === 'user' ? styles.userMsgText : styles.assistantMsgText,
-                  ]}
-                >
-                  {msg.text}
-                </Text>
-              </View>
-
-              {msg.role === 'user' && (
-                <View style={styles.avatarUser}>
-                  <User size={14} color="#FFFFFF" />
-                </View>
-              )}
-            </View>
-          ))}
-
-          {isTyping && (
-            <View style={[styles.messageRow, styles.assistantRow]}>
-              <View style={styles.avatarAssistant}>
-                <Bot size={14} color={colors.blue600} />
-              </View>
-              <View style={styles.typingBubble}>
-                <ActivityIndicator size="small" color={colors.blue600} />
-                <Text style={styles.typingText}>Thinking...</Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-
         {/* Locked Countdown Banner when limit reached */}
         {quota.isExhausted && (
           <View style={styles.lockedBanner}>
@@ -343,6 +386,23 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               returnKeyType="send"
               style={styles.textInput}
             />
+
+            {/* Speak Out Loud Mic Button (Available in Free Plan) */}
+            <TouchableOpacity
+              onPress={handleSpeakOutLoud}
+              style={[
+                styles.micBtn,
+                speakingMessageId && styles.micBtnSpeaking,
+              ]}
+              activeOpacity={0.75}
+              accessibilityLabel={speakingMessageId ? "Stop speaking" : "Speak advice out loud"}
+            >
+              {speakingMessageId ? (
+                <VolumeX size={16} color="#2563EB" />
+              ) : (
+                <Mic size={16} color="#64748B" />
+              )}
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleCustomSend}
@@ -474,6 +534,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
+  avatarAssistantImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
   avatarUser: {
     width: 28,
     height: 28,
@@ -558,6 +623,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.slate900,
     paddingVertical: 6,
+  },
+  micBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  micBtnSpeaking: {
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
   },
   sendBtn: {
     width: 32,

@@ -14,7 +14,6 @@ import Svg, {
   Stop,
   G,
   Line,
-  Text as SvgText,
 } from 'react-native-svg';
 import { Moon, Sunrise, Bell, Sparkles, CheckCircle2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -47,7 +46,6 @@ export default function SleepClockDial({
   const mPart = Math.round((hours - hPart) * 60);
 
   // Circular arc calculation (mapped to 12-hour or 24-hour cycle)
-  // Max arc = 12 hours (full 360 circle) or 8h = 240 degrees
   const angleDegrees = Math.min(360, (hours / 12) * 360);
   const circumference = 2 * Math.PI * RADIUS;
   const strokeDashoffset = circumference - (angleDegrees / 360) * circumference;
@@ -74,35 +72,40 @@ export default function SleepClockDial({
       <View style={styles.targetStatusBadge}>
         {isGoalReached ? (
           <>
-            <CheckCircle2 size={13} color="#A855F7" />
+            <CheckCircle2 size={13} color="#7C3AED" />
             <Text style={styles.targetStatusText}>
               8.0h Peak hGH Growth Target Reached ✓
             </Text>
           </>
         ) : (
           <>
-            <Sparkles size={13} color="#CBD5E1" />
+            <Sparkles size={13} color="#8B5CF6" />
             <Text style={styles.targetStatusTextMuted}>
-              {(targetHours - hours).toFixed(1)}h remaining to reach 8.0h peak
+              {Math.max(0, targetHours - hours).toFixed(1)}h remaining to reach 8.0h peak
             </Text>
           </>
         )}
       </View>
 
-      {/* Main Circular Clock Face Dial (Image 2 style) */}
+      {/* Main Circular Clock Face Dial (Clean Light Theme with Lavender Arc) */}
       <View style={styles.dialWrapper}>
         <Svg width={DIAL_SIZE} height={DIAL_SIZE}>
           <Defs>
-            {/* Violet/Lavender Sleep Arc Gradient matching #B28EF0 */}
+            {/* Violet/Lavender Sleep Arc Gradient matching brand */}
             <LinearGradient id="sleepArcGrad" x1="0" y1="0" x2="1" y2="1">
               <Stop offset="0%" stopColor="#C084FC" />
-              <Stop offset="70%" stopColor="#B28EF0" />
-              <Stop offset="100%" stopColor="#9333EA" />
+              <Stop offset="60%" stopColor="#8B5CF6" />
+              <Stop offset="100%" stopColor="#6D28D9" />
             </LinearGradient>
 
             <LinearGradient id="dialBgGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#1E1638" />
-              <Stop offset="100%" stopColor="#130D24" />
+              <Stop offset="0%" stopColor="#FFFFFF" />
+              <Stop offset="100%" stopColor="#F8FAFC" />
+            </LinearGradient>
+
+            <LinearGradient id="trackGrad" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor="#F3E8FF" />
+              <Stop offset="100%" stopColor="#EDE9FE" />
             </LinearGradient>
           </Defs>
 
@@ -112,6 +115,8 @@ export default function SleepClockDial({
             cy={CENTER}
             r={RADIUS + STROKE_WIDTH / 2 + 6}
             fill="url(#dialBgGrad)"
+            stroke="#E2E8F0"
+            strokeWidth={1}
           />
 
           {/* Background Track Ring */}
@@ -119,13 +124,13 @@ export default function SleepClockDial({
             cx={CENTER}
             cy={CENTER}
             r={RADIUS}
-            stroke="#2B214C"
+            stroke="url(#trackGrad)"
             strokeWidth={STROKE_WIDTH}
             fill="none"
           />
 
           {/* Clock Face Hour Tick Marks */}
-          <G opacity={0.6}>
+          <G opacity={0.85}>
             {hourTicks.map((t, idx) => (
               <Line
                 key={idx}
@@ -133,7 +138,7 @@ export default function SleepClockDial({
                 y1={t.y1}
                 x2={t.x2}
                 y2={t.y2}
-                stroke="#6B5C99"
+                stroke={idx % 3 === 0 ? '#8B5CF6' : '#CBD5E1'}
                 strokeWidth={idx % 3 === 0 ? 2 : 1}
               />
             ))}
@@ -154,7 +159,7 @@ export default function SleepClockDial({
           />
         </Svg>
 
-        {/* Center Big Numbers: e.g. 08 hr 30 min */}
+        {/* Center Big Numbers: e.g. 08 hr 30 min (Dark Crisp Numbers) */}
         <View style={styles.dialCenterContent} pointerEvents="none">
           <View style={styles.timeDigitsRow}>
             <Text style={styles.hourDigits}>
@@ -179,7 +184,7 @@ export default function SleepClockDial({
         </View>
       </View>
 
-      {/* Bottom Dual Tiles: Bedtime & Wake Up (Interactive) */}
+      {/* Bottom Dual Tiles: Bedtime & Wake Up (Clean Light Glass Cards) */}
       <View style={styles.tilesRow}>
         {/* Bedtime Tile */}
         <TouchableOpacity
@@ -191,7 +196,7 @@ export default function SleepClockDial({
           activeOpacity={0.8}
         >
           <View style={styles.tileIconCircleMoon}>
-            <Moon size={14} color="#C084FC" />
+            <Moon size={14} color="#7C3AED" />
           </View>
           <Text style={styles.tileLabel}>Bedtime</Text>
           <Text style={styles.tileTime}>{bedtime}</Text>
@@ -207,7 +212,7 @@ export default function SleepClockDial({
           activeOpacity={0.8}
         >
           <View style={styles.tileIconCircleSun}>
-            <Sunrise size={14} color="#F59E0B" />
+            <Sunrise size={14} color="#D97706" />
           </View>
           <Text style={styles.tileLabel}>Wake Up</Text>
           <Text style={styles.tileTime}>{wakeupTime}</Text>
@@ -227,23 +232,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: '#1E1638',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(178, 142, 240, 0.3)',
+    borderColor: '#E2E8F0',
     marginBottom: 14,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   targetStatusText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#D8B4FE',
+    color: '#7C3AED',
   },
   targetStatusTextMuted: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
+    fontWeight: '700',
+    color: '#475569',
   },
   dialWrapper: {
     width: DIAL_SIZE,
@@ -252,6 +262,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     marginVertical: 4,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
   },
   dialCenterContent: {
     position: 'absolute',
@@ -266,29 +281,29 @@ const styles = StyleSheet.create({
   hourDigits: {
     fontSize: 44,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: -1,
     fontVariant: ['tabular-nums'],
   },
   hrUnit: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#C084FC',
+    fontWeight: '800',
+    color: '#7C3AED',
   },
   minDigits: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#E2E8F0',
+    color: '#334155',
     marginTop: -4,
     fontVariant: ['tabular-nums'],
   },
   cycleLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#8175A8',
+    fontWeight: '800',
+    color: '#64748B',
     marginTop: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   startHandlePin: {
     position: 'absolute',
@@ -296,14 +311,14 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#9333EA',
+    backgroundColor: '#8B5CF6',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#9333EA',
+    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.5,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -321,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.5,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -335,27 +350,32 @@ const styles = StyleSheet.create({
   tileCard: {
     flex: 1,
     padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#1E1638',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#2D2350',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   tileCardActive: {
-    borderColor: '#B28EF0',
-    backgroundColor: '#271D47',
-    shadowColor: '#B28EF0',
+    borderColor: '#C084FC',
+    backgroundColor: '#FAF5FF',
+    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
     elevation: 3,
   },
   tileIconCircleMoon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
@@ -364,7 +384,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
@@ -372,12 +392,12 @@ const styles = StyleSheet.create({
   tileLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#64748B',
   },
   tileTime: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: -0.3,
   },
 });

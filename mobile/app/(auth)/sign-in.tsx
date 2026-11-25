@@ -73,7 +73,7 @@ export default function SignInScreen() {
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', authUser.id)
+          .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
           .maybeSingle();
 
         if (profile) {

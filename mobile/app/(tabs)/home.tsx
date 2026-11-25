@@ -29,6 +29,7 @@ import { useRouter } from 'expo-router';
 
 import { useAppStore, CLINICAL_STRETCHES, StretchExercise } from '../../lib/store';
 import { calculateTarget, cmToFtIn, formatMacro } from '../../lib/growth-calc';
+import { getAdvisorPersona } from '../../lib/advisorPersona';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GlassBackgroundCanvas from '../../components/GlassBackgroundCanvas';
@@ -61,6 +62,9 @@ export default function HomeScreen() {
   const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
+
+  // Dynamic clinical advisor persona matching biological sex (Dr. Jack vs Dr. Sarah)
+  const persona = getAdvisorPersona(quizData?.gender);
 
   // Protected route guard: if user is not logged in, kick out to landing page
   React.useEffect(() => {
@@ -425,18 +429,22 @@ export default function HomeScreen() {
                     &ldquo;Maximize deep sleep between 10PM–2AM for peak Somatotropin release.&rdquo;
                   </Text>
                   <Text style={styles.aiActionText}>
-                    Tap to speak with Dr. Jack →
+                    Tap to speak with {persona.name} →
                   </Text>
                 </View>
                 <View style={styles.aiAvatarWrap}>
-                  <Bot size={24} color="#FFFFFF" />
+                  <Image
+                    source={persona.avatar}
+                    style={{ width: 34, height: 34, borderRadius: 17 }}
+                    resizeMode="cover"
+                  />
                 </View>
               </View>
             </GlassButton>
           </Animated.View>
         </ScrollView>
 
-        {/* Floating Dr. Jack AI Summon Button - Dedicated Screen */}
+        {/* Floating Advisor AI Summon Button - Dedicated Screen */}
         <TouchableOpacity
           style={styles.floatingAiFab}
           onPress={() => {
@@ -449,8 +457,12 @@ export default function HomeScreen() {
             colors={['#2563EB', '#1D4ED8', '#1E40AF']}
             style={styles.floatingAiFabGradient}
           >
-            <Bot size={22} color="#FFFFFF" />
-            <Text style={styles.floatingAiFabText}>Ask Dr. Jack</Text>
+            <Image
+              source={persona.avatar}
+              style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#FFFFFF' }}
+              resizeMode="cover"
+            />
+            <Text style={styles.floatingAiFabText}>Ask {persona.name}</Text>
             <Sparkles size={14} color="#93C5FD" />
           </LinearGradient>
         </TouchableOpacity>
@@ -580,7 +592,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 115,
   },
   heroHeaderSection: {
     flexDirection: 'row',

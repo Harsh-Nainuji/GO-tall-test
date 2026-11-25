@@ -439,21 +439,21 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
                     activeOpacity={0.7}
                   >
                     <View style={styles.foodInfo}>
-                      <View style={styles.foodNameRow}>
-                        <Text style={styles.foodName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
+                      <Text style={styles.foodName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <View style={styles.foodSubtitleRow}>
                         {item.category && (
                           <View style={styles.catBadgePill}>
                             <Text style={styles.catBadgeText}>{item.category}</Text>
                           </View>
                         )}
+                        <Text style={styles.foodServing} numberOfLines={1}>
+                          {item.serving_size || '100g'}
+                          {item.calcium ? ` • ${item.calcium}mg Ca` : ''}
+                          {item.zinc ? ` • ${item.zinc}mg Zn` : ''}
+                        </Text>
                       </View>
-                      <Text style={styles.foodServing}>
-                        {item.serving_size || '100g'}
-                        {item.calcium ? ` • ${item.calcium}mg Ca` : ''}
-                        {item.zinc ? ` • ${item.zinc}mg Zn` : ''}
-                      </Text>
                       {item.clinicalRationale ? (
                         <Text style={styles.rationaleSnippet} numberOfLines={1}>
                           ✨ {item.clinicalRationale}
@@ -461,30 +461,32 @@ export default function FoodLogModal({ visible, onClose, initialFood }: FoodLogM
                       ) : null}
                     </View>
 
-                    <View style={styles.foodMacros}>
-                      <Text style={styles.foodCalories}>{formatMacro(item.calories, 0)} kcal</Text>
-                      <Text style={styles.foodProtein}>{formatMacro(item.protein)}g P</Text>
-                    </View>
+                    <View style={styles.foodRightCol}>
+                      <View style={styles.foodMacros}>
+                        <Text style={styles.foodCalories}>{formatMacro(item.calories, 0)} kcal</Text>
+                        <Text style={styles.foodProtein}>{formatMacro(item.protein)}g P</Text>
+                      </View>
 
-                    {/* 1-Tap Quick Add Button */}
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleQuickAdd(item);
-                      }}
-                      style={[
-                        styles.plusIconWrap,
-                        isQuickAdded && styles.plusIconWrapSuccess,
-                      ]}
-                      activeOpacity={0.8}
-                      accessibilityLabel={`Quick add ${item.name}`}
-                    >
-                      {isQuickAdded ? (
-                        <Check size={14} color="#FFFFFF" strokeWidth={3} />
-                      ) : (
-                        <Plus size={14} color={colors.blue600} strokeWidth={2.5} />
-                      )}
-                    </TouchableOpacity>
+                      {/* 1-Tap Quick Add Button */}
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleQuickAdd(item);
+                        }}
+                        style={[
+                          styles.plusIconWrap,
+                          isQuickAdded && styles.plusIconWrapSuccess,
+                        ]}
+                        activeOpacity={0.8}
+                        accessibilityLabel={`Quick add ${item.name}`}
+                      >
+                        {isQuickAdded ? (
+                          <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                        ) : (
+                          <Plus size={14} color={colors.blue600} strokeWidth={2.5} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -707,10 +709,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   skeletonList: {
-    gap: 8,
+    gap: 10,
   },
   resultsList: {
-    gap: 8,
+    gap: 10,
   },
   foodRow: {
     flexDirection: 'row',
@@ -718,14 +720,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   foodRowSelected: {
     borderColor: '#2563EB',
@@ -733,59 +735,71 @@ const styles = StyleSheet.create({
   },
   foodInfo: {
     flex: 1,
-    marginRight: 8,
-  },
-  foodNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   foodName: {
-    fontSize: 14,
+    fontSize: 15.5,
     fontWeight: '700',
-    color: colors.slate900,
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  foodSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'nowrap',
+    marginTop: 2,
   },
   catBadgePill: {
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#BFDBFE',
   },
   catBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     color: '#2563EB',
   },
   foodServing: {
-    fontSize: 11,
-    color: colors.slate600,
-    marginTop: 2,
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    flexShrink: 1,
   },
   rationaleSnippet: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#0284C7',
-    marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  foodRightCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginLeft: 12,
   },
   foodMacros: {
     alignItems: 'flex-end',
-    marginRight: 10,
+    minWidth: 56,
   },
   foodCalories: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: colors.slate900,
+    color: '#0F172A',
   },
   foodProtein: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.blue600,
+    color: '#2563EB',
+    marginTop: 2,
   },
   plusIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#BFDBFE',

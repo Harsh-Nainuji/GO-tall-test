@@ -27,6 +27,8 @@ import {
   RotateCcw,
   Zap,
   Crown,
+  CheckCircle2,
+  ChevronDown,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
@@ -71,6 +73,7 @@ export default function TodosScreen() {
 
   const [selectedFilter, setSelectedFilter] = useState<'All' | DailyTodo['category']>('All');
   const [modalVisible, setModalVisible] = useState(false);
+  const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState<DailyTodo['category']>('Habit');
 
@@ -83,6 +86,14 @@ export default function TodosScreen() {
     if (selectedFilter === 'All') return todos;
     return todos.filter((t) => t.category === selectedFilter);
   }, [todos, selectedFilter]);
+
+  const pendingTodos = useMemo(() => {
+    return filteredTodos.filter((t) => !t.completed);
+  }, [filteredTodos]);
+
+  const completedTodos = useMemo(() => {
+    return filteredTodos.filter((t) => t.completed);
+  }, [filteredTodos]);
 
   const handleToggle = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
@@ -234,111 +245,161 @@ export default function TodosScreen() {
             </ScrollView>
           </Animated.View>
 
-          {/* Task List */}
+          {/* Active Task List */}
           <Animated.View entering={FadeInDown.delay(170).springify()} style={styles.taskListContainer}>
-            {filteredTodos.length === 0 ? (
+            {pendingTodos.length === 0 && completedTodos.length === 0 ? (
               <GlassCard style={styles.emptyCard}>
                 <Sparkles size={28} color="#0284C7" />
                 <Text style={styles.emptyTitle}>No habits in this category</Text>
                 <Text style={styles.emptySubtitle}>Tap "+ Add" above to add a custom daily habit.</Text>
               </GlassCard>
+            ) : pendingTodos.length === 0 && completedTodos.length > 0 ? (
+              <View style={styles.allDoneCard}>
+                <Sparkles size={20} color="#10B981" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.allDoneTitle}>All Habits Completed!</Text>
+                  <Text style={styles.allDoneSub}>Your clinical stature protocol is maximized for today.</Text>
+                </View>
+              </View>
             ) : (
-              filteredTodos.map((todo) => {
-                const isDone = todo.completed;
+              pendingTodos.map((todo) => {
                 const meta = CATEGORY_META[todo.category] || CATEGORY_META.Custom;
-
                 return (
                   <Animated.View key={todo.id} layout={Layout.springify()}>
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => handleToggle(todo.id)}
-                      style={[
-                        styles.todoCardTouch,
-                        isDone && styles.todoCardTouchDone,
-                      ]}
+                      style={styles.todoCard}
                     >
-                      <GlassCard
-                        style={[
-                          styles.todoCard,
-                          isDone && styles.todoCardDone,
-                        ]}
+                      {/* Checkbox */}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleToggle(todo.id)}
+                        style={styles.checkboxCircle}
                       >
-                        {/* Checkbox */}
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => handleToggle(todo.id)}
-                          style={[
-                            styles.checkboxCircle,
-                            isDone && styles.checkboxCircleDone,
-                          ]}
-                        >
-                          {isDone ? (
-                            <Check size={14} color="#FFFFFF" strokeWidth={3} />
-                          ) : (
-                            <Circle size={14} color="#94A3B8" />
-                          )}
-                        </TouchableOpacity>
+                        <Circle size={14} color="#94A3B8" />
+                      </TouchableOpacity>
 
-                        {/* Title & Info */}
-                        <View style={styles.todoContentCol}>
-                          <View style={styles.todoMetaRow}>
-                            <View
-                              style={[
-                                styles.categoryTag,
-                                { backgroundColor: meta.bg, borderColor: `${meta.color}40` },
-                              ]}
-                            >
-                              <Text style={styles.categoryTagEmoji}>{meta.emoji}</Text>
-                              <Text style={[styles.categoryTagText, { color: meta.color }]}>
-                                {todo.category}
-                              </Text>
-                            </View>
-
-                            {todo.isDefault && (
-                              <View style={styles.defaultProtocolTag}>
-                                <Text style={styles.defaultProtocolText}>Core Protocol</Text>
-                              </View>
-                            )}
+                      {/* Title & Info */}
+                      <View style={styles.todoContentCol}>
+                        <View style={styles.todoMetaRow}>
+                          <View
+                            style={[
+                              styles.categoryTag,
+                              { backgroundColor: meta.bg, borderColor: `${meta.color}40` },
+                            ]}
+                          >
+                            <Text style={styles.categoryTagEmoji}>{meta.emoji}</Text>
+                            <Text style={[styles.categoryTagText, { color: meta.color }]}>
+                              {todo.category}
+                            </Text>
                           </View>
 
-                          <Text
-                            style={[
-                              styles.todoTitle,
-                              isDone && styles.todoTitleDone,
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {todo.title}
-                          </Text>
-
-                          {isDone && todo.completedAt && (
-                            <View style={styles.completedTimeRow}>
-                              <Clock size={10} color="#10B981" />
-                              <Text style={styles.completedTimeText}>Completed today</Text>
+                          {todo.isDefault && (
+                            <View style={styles.defaultProtocolTag}>
+                              <Text style={styles.defaultProtocolText}>Core Protocol</Text>
                             </View>
                           )}
                         </View>
 
-                        {/* Delete Button (Allowed for custom items or user cleanup) */}
-                        {!todo.isDefault && (
-                          <TouchableOpacity
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-                              deleteTodo(todo.id);
-                            }}
-                            style={styles.deleteBtn}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Trash2 size={15} color="#94A3B8" />
-                          </TouchableOpacity>
-                        )}
-                      </GlassCard>
+                        <Text style={styles.todoTitle} numberOfLines={2}>
+                          {todo.title}
+                        </Text>
+                      </View>
+
+                      {/* Delete Button (Allowed for custom items) */}
+                      {!todo.isDefault && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+                            deleteTodo(todo.id);
+                          }}
+                          style={styles.deleteBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Trash2 size={15} color="#94A3B8" />
+                        </TouchableOpacity>
+                      )}
                     </TouchableOpacity>
                   </Animated.View>
                 );
               })
             )}
           </Animated.View>
+
+          {/* Collapsible Minimized Completed Section */}
+          {completedTodos.length > 0 && (
+            <Animated.View layout={Layout.springify()} style={styles.completedSectionWrap}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => { });
+                  setIsCompletedExpanded(!isCompletedExpanded);
+                }}
+                style={styles.completedHeaderToggle}
+              >
+                <View style={styles.completedHeaderLeft}>
+                  <CheckCircle2 size={16} color="#10B981" />
+                  <Text style={styles.completedHeaderText}>
+                    Completed Today ({completedTodos.length})
+                  </Text>
+                </View>
+                <ChevronDown
+                  size={16}
+                  color="#64748B"
+                  style={{
+                    transform: [{ rotate: isCompletedExpanded ? '180deg' : '0deg' }],
+                  }}
+                />
+              </TouchableOpacity>
+
+              {isCompletedExpanded && (
+                <View style={styles.completedListContainer}>
+                  {completedTodos.map((todo) => {
+                    return (
+                      <Animated.View key={todo.id} layout={Layout.springify()}>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => handleToggle(todo.id)}
+                          style={styles.minimizedTodoCard}
+                        >
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => handleToggle(todo.id)}
+                            style={styles.minimizedCheckboxDone}
+                          >
+                            <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                          </TouchableOpacity>
+
+                          <View style={styles.minimizedContentCol}>
+                            <Text style={styles.minimizedTodoTitle} numberOfLines={1}>
+                              {todo.title}
+                            </Text>
+                            <Text style={styles.minimizedTodoTime}>
+                              Completed today • {todo.category}
+                            </Text>
+                          </View>
+
+                          {!todo.isDefault && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+                                deleteTodo(todo.id);
+                              }}
+                              style={styles.deleteBtn}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Trash2 size={13} color="#94A3B8" />
+                            </TouchableOpacity>
+                          )}
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              )}
+            </Animated.View>
+          )}
 
           {/* Quick Suggestions Section */}
           <Animated.View entering={FadeInDown.delay(220).springify()} style={styles.suggestionsSection}>
@@ -632,7 +693,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 115,
   },
 
   // Titles
@@ -693,22 +754,113 @@ const styles = StyleSheet.create({
   // Task List
   taskListContainer: {
     gap: 10,
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  todoCardTouch: {
+  allDoneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
     borderRadius: 18,
+    padding: 16,
+    marginBottom: 6,
   },
-  todoCardTouchDone: {
-    opacity: 0.82,
+  allDoneTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  allDoneSub: {
+    fontSize: 11.5,
+    color: '#047857',
+    marginTop: 2,
+  },
+  completedSectionWrap: {
+    marginTop: 4,
+    marginBottom: 20,
+    gap: 8,
+  },
+  completedHeaderToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  completedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  completedHeaderText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  completedListContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  minimizedTodoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  minimizedCheckboxDone: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  minimizedContentCol: {
+    flex: 1,
+  },
+  minimizedTodoTitle: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
+    textDecorationLine: 'line-through',
+  },
+  minimizedTodoTime: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 1,
   },
   todoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   todoCardDone: {
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    opacity: 0.88,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   checkboxCircle: {
     width: 28,

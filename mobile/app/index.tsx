@@ -27,15 +27,18 @@ import GlassBackgroundCanvas from '../components/GlassBackgroundCanvas';
 import GlassCard from '../components/GlassCard';
 import GlassButton from '../components/GlassButton';
 import AuthModal from '../components/AuthModal';
+import MultilingualWelcomeSplash from '../components/MultilingualWelcomeSplash';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const user = useAppStore((state) => state.user);
   const isPremium = useAppStore((state) => state.isPremium);
+  const [showSplash, setShowSplash] = useState(true);
+  const [destinationRoute, setDestinationRoute] = useState<string | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
-  // Check persistent session on mount: if user already has an account, bypass onboarding directly!
+  // Check persistent session on mount: if user already has an account, prepare to navigate to home
   useEffect(() => {
     let isMounted = true;
 
@@ -47,7 +50,13 @@ export default function WelcomeScreen() {
       );
 
       if (hasLocalAccount) {
-        router.replace('/(tabs)/home');
+        if (state.user?.id) {
+          useAppStore.getState().hydrateUserData(state.user.id).catch(() => {});
+        }
+        if (isMounted) {
+          setDestinationRoute('/(tabs)/home');
+          setIsCheckingSession(false);
+        }
         return;
       }
 
@@ -56,14 +65,17 @@ export default function WelcomeScreen() {
         try {
           const { data } = await supabase.auth.getSession();
           if (data?.session?.user && isMounted) {
+            const uid = data.session.user.id;
             useAppStore.getState().setUser({
-              id: data.session.user.id,
+              id: uid,
               email: data.session.user.email || '',
               name: data.session.user.user_metadata?.display_name || data.session.user.email?.split('@')[0] || 'User',
               provider: 'supabase',
               isLoggedIn: true,
             });
-            router.replace('/(tabs)/home');
+            await useAppStore.getState().hydrateUserData(uid);
+            setDestinationRoute('/(tabs)/home');
+            setIsCheckingSession(false);
             return;
           }
         } catch {
@@ -76,9 +88,12 @@ export default function WelcomeScreen() {
         const hasHydratedAccount = Boolean(
           hydrated.user?.isLoggedIn && (hydrated.user?.email || hydrated.user?.id)
         );
-        if (hasHydratedAccount && isMounted) {
-          router.replace('/(tabs)/home');
-        } else if (isMounted) {
+        if (isMounted) {
+          if (hasHydratedAccount) {
+            setDestinationRoute('/(tabs)/home');
+          } else {
+            setDestinationRoute('/welcome');
+          }
           setIsCheckingSession(false);
         }
       });
@@ -87,6 +102,7 @@ export default function WelcomeScreen() {
       const timer = setTimeout(() => {
         if (isMounted) {
           setIsCheckingSession(false);
+          setDestinationRoute((prev) => prev || '/welcome');
         }
       }, 140);
 
@@ -102,6 +118,13 @@ export default function WelcomeScreen() {
       isMounted = false;
     };
   }, [user, isPremium]);
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    if (destinationRoute === '/(tabs)/home') {
+      router.replace('/(tabs)/home');
+    }
+  };
 
   // Smooth, non-jiggly bottom-to-top fluid entrance animations
   const headerOpacity = useSharedValue(0);
@@ -150,17 +173,8 @@ export default function WelcomeScreen() {
     transform: [{ translateY: buttonY.value }],
   }));
 
-  if (isCheckingSession) {
-    return (
-      <GlassBackgroundCanvas>
-        <SafeAreaView style={[styles.safeArea, { alignItems: 'center', justifyContent: 'center' }]}>
-          <ActivityIndicator size="large" color="#0284C7" />
-          <Text style={{ marginTop: 14, fontSize: 13, fontWeight: '700', color: '#475569' }}>
-            Restoring your Tallgrame session...
-          </Text>
-        </SafeAreaView>
-      </GlassBackgroundCanvas>
-    );
+  if (showSplash) {
+    return <MultilingualWelcomeSplash onFinish={handleSplashFinish} />;
   }
 
   return (

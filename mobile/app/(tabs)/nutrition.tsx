@@ -120,11 +120,25 @@ export default function NutritionScreen() {
     );
   }, [catalogFoods, selectedCatalogCategory]);
 
-  // Filter meals strictly for today to ensure daily reset
+  // Filter meals with past 7 days historical navigation
   const todayStr = getLocalTodayDateStr();
+  const [selectedDateStr, setSelectedDateStr] = useState(todayStr);
+
+  const past7Days = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = getLocalTodayDateStr(d);
+      const label = i === 0 ? 'Today' : i === 1 ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'short' });
+      list.push({ dateStr, label, dateObj: d });
+    }
+    return list;
+  }, []);
+
   const todayMeals = useMemo(() => {
-    return meals.filter((m) => m.date === todayStr || (!m.date && m.time));
-  }, [meals, todayStr]);
+    return meals.filter((m) => m.date === selectedDateStr || (selectedDateStr === todayStr && !m.date && m.time));
+  }, [meals, selectedDateStr, todayStr]);
 
   // Compute live nutritional totals from today's meals only
   const totalCalories = Math.round(todayMeals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0));
@@ -481,6 +495,48 @@ export default function NutritionScreen() {
             </View>
           </Animated.View>
 
+              {/* 7-Day History Day Selector */}
+              <Animated.View entering={FadeInDown.delay(280).springify()} style={{ marginBottom: 12 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
+                  {past7Days.map((item) => {
+                    const isSelected = item.dateStr === selectedDateStr;
+                    const dayCount = meals.filter((m) => m.date === item.dateStr).length;
+                    return (
+                      <TouchableOpacity
+                        key={item.dateStr}
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          setSelectedDateStr(item.dateStr);
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderRadius: 12,
+                          backgroundColor: isSelected ? '#2563EB' : '#FFFFFF',
+                          borderWidth: 1,
+                          borderColor: isSelected ? '#1D4ED8' : '#E2E8F0',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: isSelected ? '800' : '600', color: isSelected ? '#FFFFFF' : '#475569' }}>
+                          {item.label}
+                        </Text>
+                        {dayCount > 0 && (
+                          <View style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : '#EFF6FF', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 9.5, fontWeight: '700', color: isSelected ? '#FFFFFF' : '#2563EB' }}>
+                              {dayCount}
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </Animated.View>
+
               {/* Logged Meals Header */}
               <Animated.View
                 entering={FadeInDown.delay(300).springify()}
@@ -488,7 +544,7 @@ export default function NutritionScreen() {
               >
                 <View>
                   <Text style={styles.sectionTitle}>
-                    Today&apos;s Logged Meals ({todayMeals.length})
+                    {selectedDateStr === todayStr ? "Today's Logged Meals" : `${past7Days.find(d => d.dateStr === selectedDateStr)?.label || selectedDateStr}'s Meals`} ({todayMeals.length})
                   </Text>
                   <Text style={styles.sectionSubtitle}>
                     {formatMacro(totalProtein)}g protein • {formatMacro(totalCalories, 0)} kcal consumed
@@ -659,7 +715,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 115,
   },
   titleSection: {
     marginBottom: 16,
