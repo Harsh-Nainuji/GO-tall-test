@@ -5,51 +5,33 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   Dimensions,
   Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Sparkles,
   ArrowRight,
   ArrowLeft,
-  X,
-  Target,
-  Flame,
-  Activity,
-  Moon,
-  Apple,
-  Bot,
-  CheckCircle2,
-  HelpCircle,
   Compass,
-  Layers,
-  Zap,
+  CheckCircle2,
 } from 'lucide-react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import GlassCard from './GlassCard';
-import GlassButton from './GlassButton';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface TourStep {
   id: string;
   stepNumber: number;
   route: string;
   tabName: string;
-  badge: string;
   icon: string;
   title: string;
-  subtitle: string;
-  whatItDoes: string;
-  keyHighlights: Array<{ label: string; desc: string }>;
-  whyItMatters: string;
+  summary: string;
+  tips: Array<{ label: string; desc: string }>;
 }
 
 const TOUR_STEPS: TourStep[] = [
@@ -57,96 +39,71 @@ const TOUR_STEPS: TourStep[] = [
     id: 'step-home',
     stepNumber: 1,
     route: '/(tabs)/home',
-    tabName: 'Home Screen',
-    badge: 'Stature Engine & Command Center',
+    tabName: 'Home',
     icon: '🌱',
-    title: 'Biological Stature & Daily Streak',
-    subtitle: 'Tanner-Whitehouse Model & Growth Velocity',
-    whatItDoes:
-      'Calculates your true maximum genetic potential using your biological age, sex, and parental genetics. Tracks your daily protocol streak to build unstoppable momentum.',
-    keyHighlights: [
-      { label: 'Genetic Ceiling', desc: 'Real-time calculation of remaining potential before growth plates fuse.' },
-      { label: 'Daily Streak Counter', desc: 'Rewards daily adherence to keep growth stimuli continuous.' },
-      { label: 'AI Growth Advisor', desc: '1-tap access to 24/7 pediatric AI advisor with citations.' },
+    title: 'Your Growth Dashboard',
+    summary:
+      'See your projected height potential, daily streak, and quick progress all in one place.',
+    tips: [
+      { label: 'Daily Streak', desc: 'Complete your daily habits to keep your streak alive.' },
+      { label: 'AI Growth Coach', desc: 'Tap "Ask Dr. Jack / Dr. Sarah" anytime for instant guidance.' },
     ],
-    whyItMatters:
-      'Gives you a clear biological target and keeps you accountable every single morning.',
   },
   {
     id: 'step-stretches',
     stepNumber: 2,
     route: '/(tabs)/stretches',
-    tabName: 'Stretches Screen',
-    badge: 'Spinal Decompression & Categories',
+    tabName: 'Stretches',
     icon: '🧘',
-    title: 'Weekly Auto-Scheduler & Workouts',
-    subtitle: 'Synovial Fluid & Disc Rehydration',
-    whatItDoes:
-      'Generates custom 3 to 7 day workout plans that decompress L1–L5 vertebrae, relaxing erector spinae muscles to reclaim 1.0 to 2.5 cm of standing height.',
-    keyHighlights: [
-      { label: '🏷️ Categories Option', desc: 'Tap top-right to switch between Height Growth, Weight Gain, Weight Loss, or Bodybuilder.' },
-      { label: 'Auto-Scheduler', desc: 'Customizable 3–7 day weekly routine with 1-tap regenerate.' },
-      { label: '60s Video Timer', desc: 'Interactive player with video cues, instructions, and haptic feedback.' },
+    title: 'Daily Stretches & Workouts',
+    summary:
+      'Follow guided spinal decompression routines designed to improve posture and reclaim standing height.',
+    tips: [
+      { label: 'Guided Timers', desc: 'Tap any stretch to start a step-by-step countdown timer.' },
+      { label: 'Switch Goals', desc: 'Use Categories at the top to customize your workout plan.' },
     ],
-    whyItMatters:
-      'Diurnal gravity compresses your intervertebral discs daily. Targeted traction reverses this compression.',
   },
   {
     id: 'step-nutrition',
     stepNumber: 3,
     route: '/(tabs)/nutrition',
-    tabName: 'Nutrition Screen',
-    badge: 'Bone Matrix & Chondrocyte Nutrition',
+    tabName: 'Nutrition',
     icon: '🥗',
-    title: 'Skeletal Macros & AI Estimator',
-    subtitle: 'Protein, Calcium, Zinc & Vitamin D3',
-    whatItDoes:
-      'Monitors your daily nutrition targets with verified clinical foods, micronutrient progress bars, and an AI macro estimator for any custom meal.',
-    keyHighlights: [
-      { label: '✨ AI Macro Estimator', desc: 'Type any meal (e.g. "Paneer paratha") and tap Auto-Estimate with AI for instant macros.' },
-      { label: 'Clinical Food Library', desc: '1-tap logging for verified bone-building foods (yogurt, salmon, milk, eggs).' },
-      { label: 'Micronutrient Tracking', desc: 'Real-time tracking of Calcium, Zinc, and Vitamin D3 for bone ossification.' },
+    title: 'Meals & Bone Nutrition',
+    summary:
+      'Track daily protein, calcium, zinc, and calories to fuel healthy bone and muscle growth.',
+    tips: [
+      { label: '1-Tap Food Log', desc: 'Pick from verified foods or type any meal to auto-estimate macros.' },
+      { label: 'Daily Targets', desc: 'Watch your progress bars fill up as you log meals.' },
     ],
-    whyItMatters:
-      'Epiphyseal cartilage cells cannot multiply without adequate protein nitrogen retention and bone mineral cofactors.',
   },
   {
     id: 'step-sleep',
     stepNumber: 4,
     route: '/(tabs)/sleep',
-    tabName: 'Sleep Screen',
-    badge: 'Somatotropin Hormonal Wave',
+    tabName: 'Sleep',
     icon: '🌙',
-    title: 'Slow-Wave Deep Sleep Tracking',
-    subtitle: 'Nocturnal hGH Secretion Window',
-    whatItDoes:
-      'Calculates your sleep duration and checks your rest against the critical 10 PM – 2 AM Human Growth Hormone wave using basic arithmetic.',
-    keyHighlights: [
-      { label: 'Arithmetic Duration', desc: 'Log bed/wake times or direct hours — automatically calculates total rest.' },
-      { label: 'Somatotropin Window', desc: 'Detects if you slept through the peak 10 PM to 2 AM deep slow-wave anabolic window.' },
-      { label: 'Weekly Sleep Graph', desc: 'Visualizes sleep consistency across Monday to Sunday against your 8.5h target.' },
+    title: 'Sleep & Growth Recovery',
+    summary:
+      'Most natural growth hormone is released during deep sleep. Set your schedule and log your rest.',
+    tips: [
+      { label: 'Sleep Schedule', desc: 'Tap Bedtime or Wake Up to adjust your target sleep window.' },
+      { label: '7-Day History', desc: 'Tap any day bar to inspect your past sleep logs.' },
     ],
-    whyItMatters:
-      'Over 75% of your daily pulsatile Growth Hormone (somatotropin) is secreted during Stage 3/4 deep sleep.',
   },
   {
     id: 'step-profile',
     stepNumber: 5,
     route: '/(tabs)/profile',
-    tabName: 'Profile Screen',
-    badge: 'Cloud Sync, Export & Account Control',
+    tabName: 'Profile',
     icon: '👤',
-    title: 'Growth Profile, Badges & Data Export',
-    subtitle: 'Gamification Milestones & Privacy',
-    whatItDoes:
-      'Manage your personal biological baselines, unlocked achievement badges, cloud account sync, single-click data download, and account deletion.',
-    keyHighlights: [
-      { label: 'Cloud Account Sync', desc: 'Sign in with Google, Apple, or email to sync your data across devices.' },
-      { label: '1-Click Data Download', desc: 'Export your complete biometric history, meals, sleep, and routines in JSON format.' },
-      { label: 'Permanent Account Deletion', desc: 'GDPR/CCPA right-to-be-forgotten deletion removes all data from app & database.' },
+    title: 'Profile, Badges & Backup',
+    summary:
+      'View your unlocked achievements, manage your account, and replay this tutorial anytime.',
+    tips: [
+      { label: 'Cloud Sync', desc: 'Your progress saves automatically to your account.' },
+      { label: 'Export or Replay', desc: 'Download your data or tap "Watch Tour" whenever you need a refresher.' },
     ],
-    whyItMatters:
-      'Ensures your data is backed up securely and gives you complete privacy and data ownership.',
   },
 ];
 
@@ -163,16 +120,23 @@ export default function AppSpotlightTour({ visible, onClose }: AppSpotlightTourP
   const isFirst = currentStepIdx === 0;
   const isLast = currentStepIdx === TOUR_STEPS.length - 1;
 
-  // Whenever step changes and tour is visible, navigate to that tab
+  // Reset to step 0 when opened
+  useEffect(() => {
+    if (visible) {
+      setCurrentStepIdx(0);
+    }
+  }, [visible]);
+
+  // Smoothly switch to the corresponding tab when step changes
   useEffect(() => {
     if (visible && step) {
       try {
-        router.push(step.route as any);
-      } catch (e) {
-        // Safe navigation fallback
+        router.navigate(step.route as any);
+      } catch {
+        // Safe fallback
       }
     }
-  }, [visible, currentStepIdx, step]);
+  }, [visible, currentStepIdx, step?.route]);
 
   const handleNext = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -180,19 +144,17 @@ export default function AppSpotlightTour({ visible, onClose }: AppSpotlightTourP
       onClose();
       setCurrentStepIdx(0);
       try {
-        router.push('/(tabs)/home' as any);
-      } catch (e) {}
+        router.navigate('/(tabs)/home' as any);
+      } catch {}
     } else {
-      const nextIdx = currentStepIdx + 1;
-      setCurrentStepIdx(nextIdx);
+      setCurrentStepIdx((prev) => prev + 1);
     }
   };
 
   const handlePrev = () => {
     Haptics.selectionAsync().catch(() => {});
     if (!isFirst) {
-      const prevIdx = currentStepIdx - 1;
-      setCurrentStepIdx(prevIdx);
+      setCurrentStepIdx((prev) => prev - 1);
     }
   };
 
@@ -211,127 +173,121 @@ export default function AppSpotlightTour({ visible, onClose }: AppSpotlightTourP
           <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
         )}
 
-        {/* Top Floating Control Bar */}
-        <View style={styles.topBar}>
+        {/* Top Control Bar: Always shows progress & clear Skip button */}
+        <Animated.View entering={FadeIn.duration(250)} style={styles.topBar}>
           <View style={styles.tourPill}>
             <Compass size={14} color="#38BDF8" />
-            <Text style={styles.tourPillText}>Interactive Multi-Screen Tour</Text>
+            <Text style={styles.tourPillText}>
+              Quick Guide • {step.stepNumber}/{TOUR_STEPS.length}
+            </Text>
           </View>
 
           <TouchableOpacity
-            style={styles.closeBtn}
+            style={styles.skipPillBtn}
             onPress={handleSkip}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.75}
           >
-            <X size={18} color="#FFFFFF" />
+            <Text style={styles.skipPillText}>Skip</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        {/* Current Screen Indicator Beacon */}
-        <View style={styles.beaconArea}>
-          <View style={styles.beaconOuterGlow}>
-            <View style={styles.beaconInnerTarget}>
-              <Text style={styles.beaconEmoji}>{step.icon}</Text>
-            </View>
-          </View>
-          <View style={styles.beaconPointersRow}>
-            <View style={styles.beaconLine} />
-            <Text style={styles.beaconLabel}>
-              TAB {step.stepNumber} OF {TOUR_STEPS.length}: {step.tabName.toUpperCase()}
-            </Text>
-            <View style={styles.beaconLine} />
-          </View>
-        </View>
-
-        {/* Explanatory Glass Card Modal */}
+        {/* Bottom-docked Guide Card (Always fits cleanly without breaking) */}
         <Animated.View
           key={step.id}
-          entering={FadeInDown.duration(280)}
-          style={styles.cardContainer}
+          entering={FadeInDown.duration(320)}
+          style={styles.cardWrapper}
         >
-          <GlassCard style={styles.explanationCard}>
-            {/* Step header */}
-            <View style={styles.cardHeader}>
-              <View style={styles.badgeWrap}>
-                <Text style={styles.badgeText}>{step.badge}</Text>
-              </View>
-              <Text style={styles.stepCounterText}>
-                Screen {step.stepNumber} of {TOUR_STEPS.length}
-              </Text>
+          <View style={styles.card}>
+            {/* Step Dots (Tap any dot to jump directly to that screen) */}
+            <View style={styles.dotsRow}>
+              {TOUR_STEPS.map((s, idx) => {
+                const active = idx === currentStepIdx;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setCurrentStepIdx(idx);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    style={[styles.stepDot, active && styles.stepDotActive]}
+                  />
+                );
+              })}
             </View>
 
-            {/* Title & Subtitle */}
-            <Text style={styles.stepTitle}>{step.title}</Text>
-            <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
-
-            {/* What this page does */}
-            <View style={styles.explainBlock}>
-              <View style={styles.explainLabelRow}>
-                <View style={styles.dotIndicator} />
-                <Text style={styles.explainLabel}>WHAT THIS SCREEN DOES</Text>
-              </View>
-              <Text style={styles.explainBody}>{step.whatItDoes}</Text>
-            </View>
-
-            {/* Key features spotlight */}
-            <View style={styles.highlightsContainer}>
-              <Text style={styles.highlightsHeader}>KEY FEATURES ON THIS PAGE:</Text>
-              {step.keyHighlights.map((feat, idx) => (
-                <View key={idx} style={styles.highlightItem}>
-                  <View style={styles.highlightDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.highlightLabel}>{feat.label}</Text>
-                    <Text style={styles.highlightDesc}>{feat.desc}</Text>
-                  </View>
+            {/* Scrollable Body (Prevents overflow on small phones) */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.cardScroll}
+              contentContainerStyle={styles.cardScrollContent}
+            >
+              <View style={styles.headerRow}>
+                <View style={styles.emojiCircle}>
+                  <Text style={styles.emojiText}>{step.icon}</Text>
                 </View>
-              ))}
-            </View>
-
-            {/* Why it matters section */}
-            <View style={[styles.explainBlock, styles.whyBlock]}>
-              <View style={styles.explainLabelRow}>
-                <CheckCircle2 size={13} color="#059669" />
-                <Text style={[styles.explainLabel, { color: '#059669' }]}>
-                  WHY IT MATTERS FOR YOUR STATURE
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tabBadge}>{step.tabName.toUpperCase()} TAB</Text>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                </View>
               </View>
-              <Text style={styles.explainBody}>{step.whyItMatters}</Text>
-            </View>
 
-            {/* Navigation buttons */}
+              <Text style={styles.summaryText}>{step.summary}</Text>
+
+              <View style={styles.tipsBox}>
+                {step.tips.map((tip, idx) => (
+                  <View key={idx} style={styles.tipRow}>
+                    <CheckCircle2 size={16} color="#2563EB" style={{ marginTop: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.tipLabel}>{tip.label}</Text>
+                      <Text style={styles.tipDesc}>{tip.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Pinned Bottom Action Buttons (Always visible) */}
             <View style={styles.footerRow}>
               {!isFirst ? (
                 <TouchableOpacity
-                  style={styles.prevBtn}
+                  style={styles.backBtn}
                   onPress={handlePrev}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
                   <ArrowLeft size={16} color="#475569" />
-                  <Text style={styles.prevBtnText}>Previous</Text>
+                  <Text style={styles.backBtnText}>Back</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={styles.skipBtn}
+                  style={styles.backBtn}
                   onPress={handleSkip}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
-                  <Text style={styles.skipBtnText}>Skip Tour</Text>
+                  <Text style={styles.backBtnText}>Skip Tour</Text>
                 </TouchableOpacity>
               )}
 
-              <View style={styles.nextBtnWrap}>
-                <GlassButton onPress={handleNext}>
-                  <View style={styles.nextBtnInner}>
-                    <Text style={styles.nextBtnText}>
-                      {isLast ? 'Finish Tour ✓' : `Go to Tab ${step.stepNumber + 1}`}
-                    </Text>
-                    <ArrowRight size={16} color="#FFFFFF" />
-                  </View>
-                </GlassButton>
-              </View>
+              <TouchableOpacity
+                style={styles.nextBtnTouchable}
+                onPress={handleNext}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#2563EB', '#1D4ED8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.nextBtnGradient}
+                >
+                  <Text style={styles.nextBtnText}>
+                    {isLast ? 'Finish ✓' : 'Next'}
+                  </Text>
+                  {!isLast && <ArrowRight size={17} color="#FFFFFF" />}
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
-          </GlassCard>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -341,259 +297,192 @@ export default function AppSpotlightTour({ visible, onClose }: AppSpotlightTourP
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
     justifyContent: 'space-between',
-    paddingVertical: 32,
+    paddingTop: Platform.OS === 'ios' ? 54 : 36,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
     paddingHorizontal: 18,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Platform.OS === 'ios' ? 24 : 12,
   },
   tourPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(2, 132, 199, 0.4)',
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 7,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.5)',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     borderRadius: 20,
   },
   tourPillText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontWeight: '700',
   },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  skipPillBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  skipPillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardWrapper: {
+    width: '100%',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    maxHeight: SCREEN_HEIGHT * 0.68,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  dotsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
+    marginBottom: 14,
   },
-  beaconArea: {
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#CBD5E1',
+  },
+  stepDotActive: {
+    width: 22,
+    backgroundColor: '#2563EB',
+  },
+  cardScroll: {
+    flexGrow: 0,
+  },
+  cardScrollContent: {
+    paddingBottom: 6,
+  },
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 10,
+    gap: 12,
+    marginBottom: 10,
   },
-  beaconOuterGlow: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(56, 189, 248, 0.25)',
-    borderWidth: 2,
-    borderColor: '#38BDF8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  beaconInnerTarget: {
+  emojiCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  beaconEmoji: {
-    fontSize: 24,
-  },
-  beaconPointersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  beaconLine: {
-    width: 24,
-    height: 1.5,
-    backgroundColor: '#38BDF8',
-  },
-  beaconLabel: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  cardContainer: {
-    width: '100%',
-    marginBottom: Platform.OS === 'ios' ? 16 : 8,
-  },
-  explanationCard: {
-    padding: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  badgeWrap: {
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeText: {
-    color: '#0284C7',
+  emojiText: {
+    fontSize: 22,
+  },
+  tabBadge: {
     fontSize: 10,
     fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  stepCounterText: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  stepTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
+    color: '#2563EB',
+    letterSpacing: 0.8,
     marginBottom: 2,
   },
-  stepSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0284C7',
-    marginBottom: 10,
+  stepTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
-  explainBlock: {
+  summaryText: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: '#475569',
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  tipsBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 14,
   },
-  whyBlock: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-  },
-  explainLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 3,
-  },
-  dotIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#0284C7',
-  },
-  explainLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#475569',
-    letterSpacing: 0.5,
-  },
-  explainBody: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#334155',
-    lineHeight: 16,
-  },
-  highlightsContainer: {
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  highlightsHeader: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  highlightItem: {
+  tipRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 5,
+    gap: 10,
   },
-  highlightDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#0284C7',
-    marginTop: 5,
-  },
-  highlightLabel: {
-    fontSize: 11,
+  tipLabel: {
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
   },
-  highlightDesc: {
-    fontSize: 10,
+  tipDesc: {
+    fontSize: 12,
     fontWeight: '500',
     color: '#64748B',
-    lineHeight: 14,
+    lineHeight: 16,
+    marginTop: 1,
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 6,
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  prevBtn: {
+  backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
     borderRadius: 14,
     backgroundColor: '#F1F5F9',
   },
-  prevBtnText: {
+  backBtnText: {
     color: '#475569',
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
   },
-  skipBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  skipBtnText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  nextBtnWrap: {
+  nextBtnTouchable: {
     flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  nextBtnInner: {
+  nextBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 2,
+    paddingVertical: 13,
+    paddingHorizontal: 18,
   },
   nextBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14.5,
     fontWeight: '800',
   },
 });
